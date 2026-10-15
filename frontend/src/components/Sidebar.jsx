@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router'
-import { AnimatePresence, motion, Reorder } from 'motion/react'
+import { motion, Reorder } from 'motion/react'
 import { Archive, Bell, ChevronRight, CircleCheckBig, Inbox, Plus, Search, Settings, Shield } from 'lucide-react'
 import { useStore } from '../lib/store'
-import { cx, IconButton, Kbd, spring } from './ui'
+import { Collapse, cx, IconButton, Kbd, spring } from './ui'
 import { Logo, Wordmark } from './Logo'
 
 export function useNav() {
@@ -18,7 +18,7 @@ export function useNav() {
   }, [cards, hidden])
 }
 
-function NavItem({ to, icon: Icon, children, count, onClick, end }) {
+function NavItem({ to, icon: Icon, children, count, onClick, end, touch }) {
   return (
     <NavLink
       to={to}
@@ -26,15 +26,16 @@ function NavItem({ to, icon: Icon, children, count, onClick, end }) {
       onClick={onClick}
       className={({ isActive }) =>
         cx(
-          'group relative flex h-8 items-center gap-2.5 rounded-lg px-2.5 text-[14px] transition-colors duration-150',
+          'group relative flex items-center rounded-lg transition-colors duration-150',
+          touch ? 'h-11 gap-3 px-3 text-[15.5px]' : 'h-8 gap-2.5 px-2.5 text-[14px]',
           isActive ? 'text-ink' : 'text-muted hover:bg-hover hover:text-ink',
         )
       }
     >
       {({ isActive }) => (
         <>
-          {isActive && <motion.span layoutId="nav-active" transition={spring} className="absolute inset-0 rounded-lg bg-hover" />}
-          <Icon size={16} className={cx('relative', isActive && 'text-accent')} />
+          {isActive && <motion.span layoutId={touch ? 'nav-active-t' : 'nav-active'} transition={touch ? { duration: 0 } : spring} className="absolute inset-0 rounded-lg bg-hover" />}
+          <Icon size={touch ? 19 : 16} className={cx('relative', isActive && 'text-accent')} />
           <span className="relative flex-1 truncate">{children}</span>
           {count > 0 && <span className="relative text-[12px] tabular-nums text-faint">{count}</span>}
         </>
@@ -43,7 +44,7 @@ function NavItem({ to, icon: Icon, children, count, onClick, end }) {
   )
 }
 
-export function Sidebar({ onSearch, onNewProject, onNotifications, onNavigate }) {
+export function Sidebar({ onSearch, onNewProject, onNotifications, onNavigate, touch }) {
   const user = useStore((s) => s.user)
   const projectsMap = useStore((s) => s.projects)
   const notifications = useStore((s) => s.notifications)
@@ -72,31 +73,31 @@ export function Sidebar({ onSearch, onNewProject, onNotifications, onNavigate })
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center gap-2 px-3 pb-2 pt-4">
+      <div className={cx("flex items-center gap-2 px-3 pb-2", touch ? "pt-5" : "pt-4")}>
         <button onClick={() => nav('/')} className="flex items-center gap-2 rounded-lg px-1 py-0.5">
           <Logo size={22} />
           <Wordmark height={15} className="mt-0.5" />
         </button>
         <div className="flex-1" />
-        <IconButton label="Avisos" size="sm" onClick={onNotifications} className="relative">
+        {!touch && <IconButton label="Avisos" size="sm" onClick={onNotifications} className="relative">
           <Bell size={16} />
           {unread > 0 && <span className="absolute right-1 top-1 size-2 rounded-full bg-accent ring-2 ring-[var(--bg)]" />}
-        </IconButton>
+        </IconButton>}
       </div>
 
       <div className="px-2">
         <button
           onClick={onSearch}
-          className="mb-2 flex h-8 w-full items-center gap-2.5 rounded-lg border border-line bg-surface px-2.5 text-[13.5px] text-faint shadow-soft transition-colors hover:text-muted"
+          className={cx('mb-2 flex w-full items-center gap-2.5 rounded-lg border border-line bg-surface px-2.5 text-faint shadow-soft transition-colors hover:text-muted', touch ? 'h-11 text-[15px]' : 'h-8 text-[13.5px]')}
         >
-          <Search size={15} />
+          <Search size={touch ? 17 : 15} />
           <span className="flex-1 text-left">Buscar o capturar…</span>
-          <Kbd>⌘K</Kbd>
+          {!touch && <Kbd>⌘K</Kbd>}
         </button>
-        <NavItem to="/" end icon={CircleCheckBig} count={todo} onClick={onNavigate}>
+        <NavItem touch={touch} to="/" end icon={CircleCheckBig} count={todo} onClick={onNavigate}>
           To Do
         </NavItem>
-        <NavItem to="/inbox" icon={Inbox} count={inbox} onClick={onNavigate}>
+        <NavItem touch={touch} to="/inbox" icon={Inbox} count={inbox} onClick={onNavigate}>
           Bandeja
         </NavItem>
       </div>
@@ -110,14 +111,15 @@ export function Sidebar({ onSearch, onNewProject, onNotifications, onNavigate })
       <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
         <Reorder.Group axis="y" values={shown.map((p) => p.id)} onReorder={setOrder} className="flex flex-col">
           {shown.map((p) => (
-            <Reorder.Item key={p.id} value={p.id} onDragEnd={commitOrder} transition={spring} className="relative">
+            <Reorder.Item key={p.id} value={p.id} onDragEnd={commitOrder} transition={spring} dragListener={!touch} className="relative">
               <NavLink
                 to={`/p/${p.id}`}
                 onClick={onNavigate}
                 draggable={false}
                 className={({ isActive }) =>
                   cx(
-                    'group relative flex h-8 items-center gap-2.5 rounded-lg px-2.5 text-[14px] transition-colors duration-150',
+                    'group relative flex items-center rounded-lg transition-colors duration-150',
+                    touch ? 'h-11 gap-3 px-3 text-[15.5px]' : 'h-8 gap-2.5 px-2.5 text-[14px]',
                     isActive || loc.pathname.startsWith(`/p/${p.id}/`) ? 'text-ink' : 'text-muted hover:bg-hover hover:text-ink',
                   )
                 }
@@ -125,7 +127,7 @@ export function Sidebar({ onSearch, onNewProject, onNotifications, onNavigate })
                 {({ isActive }) => (
                   <>
                     {(isActive || loc.pathname.startsWith(`/p/${p.id}/`)) && (
-                      <motion.span layoutId="nav-active" transition={spring} className="absolute inset-0 rounded-lg bg-hover" />
+                      <motion.span layoutId={touch ? 'nav-active-t' : 'nav-active'} transition={touch ? { duration: 0 } : spring} className="absolute inset-0 rounded-lg bg-hover" />
                     )}
                     <span className="relative w-4 text-center text-[14px] leading-none">{p.icon}</span>
                     <span className="relative flex-1 truncate">{p.name}</span>
@@ -146,14 +148,10 @@ export function Sidebar({ onSearch, onNewProject, onNotifications, onNavigate })
               onClick={() => setShowArchived((v) => !v)}
               className="flex h-7 w-full items-center gap-2 rounded-lg px-2.5 text-[13px] text-faint hover:text-muted"
             >
-              <motion.span animate={{ rotate: showArchived ? 90 : 0 }} transition={spring}>
-                <ChevronRight size={14} />
-              </motion.span>
+              <ChevronRight size={14} style={{ transform: `rotate(${showArchived ? 90 : 0}deg)`, transition: 'transform .25s cubic-bezier(.32,.72,0,1)' }} />
               <Archive size={14} /> Aparcados ({archived.length})
             </button>
-            <AnimatePresence initial={false}>
-              {showArchived && (
-                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+            <Collapse open={showArchived}>
                   {archived.map((p) => (
                     <NavLink
                       key={p.id}
@@ -165,20 +163,18 @@ export function Sidebar({ onSearch, onNewProject, onNotifications, onNavigate })
                       <span className="truncate">{p.name}</span>
                     </NavLink>
                   ))}
-                </motion.div>
-              )}
-            </AnimatePresence>
+            </Collapse>
           </div>
         )}
       </div>
 
       <div className="border-t border-line px-2 py-2">
         {user?.is_admin && (
-          <NavItem to="/admin" icon={Shield} onClick={onNavigate}>
+          <NavItem touch={touch} to="/admin" icon={Shield} onClick={onNavigate}>
             Administración
           </NavItem>
         )}
-        <NavItem to="/ajustes" icon={Settings} onClick={onNavigate}>
+        <NavItem touch={touch} to="/ajustes" icon={Settings} onClick={onNavigate}>
           Ajustes
         </NavItem>
         <div className="mt-1 flex items-center gap-2.5 px-2.5 py-1.5">

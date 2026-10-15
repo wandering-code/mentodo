@@ -4,7 +4,7 @@ import { ArrowRight, Hourglass } from 'lucide-react'
 import { ApiError, post } from '../lib/api'
 import { useStore } from '../lib/store'
 import { Logo, Wordmark } from '../components/Logo'
-import { Button, cx, Input, spring } from '../components/ui'
+import { Button, Collapse, cx, Input, spring } from '../components/ui'
 
 export function AuthPage() {
   const [mode, setMode] = useState('login') // login | register | pending
@@ -39,18 +39,18 @@ export function AuthPage() {
         <div className="absolute -left-40 -top-40 size-[520px] rounded-full bg-[radial-gradient(closest-side,color-mix(in_oklab,#aec99a_38%,transparent),transparent)] blur-2xl" />
         <div className="absolute -bottom-48 -right-32 size-[560px] rounded-full bg-[radial-gradient(closest-side,color-mix(in_oklab,var(--accent)_16%,transparent),transparent)] blur-2xl" />
       </div>
-      <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }} className="relative w-full max-w-[380px]">
+      <div className="entra relative w-full max-w-[380px]" style={{ '--entra-desde': 'translateY(14px)', '--entra-dura': '600ms' }}>
         <div className="mb-9 flex flex-col items-center">
-          <motion.div initial={{ scale: 0.8, rotate: -8 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: 'spring', stiffness: 260, damping: 18, delay: 0.1 }}>
+          <div className="entra" style={{ '--entra-desde': 'scale(0.8) rotate(-8deg)', '--entra-dura': '700ms', '--entra-espera': '80ms' }}>
             <Logo size={64} className="drop-shadow-[0_10px_24px_rgb(31_50_40/0.28)]" />
-          </motion.div>
+          </div>
           <Wordmark height={30} className="mt-5" />
           <p className="mt-2.5 text-[14.5px] text-muted">Tu mente. Todo en orden.</p>
         </div>
 
         <AnimatePresence mode="wait" initial={false}>
           {mode === 'pending' ? (
-            <motion.div key="pending" initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} className="rounded-2xl border border-line bg-surface p-6 text-center shadow-soft">
+            <motion.div key="pending" initial={{ opacity: 0, transform: 'scale(0.97)' }} animate={{ opacity: 1, transform: 'scale(1)' }} exit={{ opacity: 0 }} className="rounded-2xl border border-line bg-surface p-6 text-center shadow-soft">
               <div className="mx-auto mb-3 grid size-11 place-items-center rounded-2xl bg-accent-soft text-accent">
                 <Hourglass size={20} />
               </div>
@@ -79,13 +79,9 @@ export function AuthPage() {
               </div>
               <form onSubmit={submit} className="flex flex-col gap-2.5">
                 <Input autoFocus placeholder="Usuario" autoCapitalize="none" autoComplete="username" value={form.username} onChange={set('username')} className="h-11" />
-                <AnimatePresence initial={false}>
-                  {mode === 'register' && (
-                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }} className="overflow-hidden">
-                      <Input placeholder="Tu nombre" value={form.display_name} onChange={set('display_name')} className="h-11" />
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                <Collapse open={mode === 'register'} className="-m-1 p-1">
+                  <Input placeholder="Tu nombre" value={form.display_name} onChange={set('display_name')} className="h-11" />
+                </Collapse>
                 <Input
                   type="password"
                   placeholder={mode === 'register' ? 'Contraseña (mín. 8 caracteres)' : 'Contraseña'}
@@ -96,7 +92,7 @@ export function AuthPage() {
                 />
                 <AnimatePresence>
                   {error && (
-                    <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-1 text-[13.5px] text-danger">
+                    <motion.p initial={{ opacity: 0, transform: 'translateY(-4px)' }} animate={{ opacity: 1, transform: 'translateY(0px)' }} exit={{ opacity: 0 }} className="px-1 text-[13.5px] text-danger">
                       {error}
                     </motion.p>
                   )}
@@ -108,7 +104,7 @@ export function AuthPage() {
             </motion.div>
           )}
         </AnimatePresence>
-      </motion.div>
+      </div>
     </div>
   )
 }

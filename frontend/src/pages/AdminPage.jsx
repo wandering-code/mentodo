@@ -42,7 +42,7 @@ export function AdminPage() {
   const rest = users.filter((u) => u.status !== 'pending')
 
   const Row = ({ u }) => (
-    <motion.div layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex items-center gap-3 rounded-xl px-3 py-3 hover:bg-hover">
+    <motion.div layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl px-3 py-3 hover:bg-hover">
       <Avatar user={u} size={34} />
       <div className="min-w-0 flex-1">
         <div className="truncate text-[14.5px] font-medium">
@@ -54,7 +54,7 @@ export function AdminPage() {
       </div>
       <span className={cx('rounded-md px-2 py-0.5 text-[12px] font-medium', STATUS[u.status].cls)}>{STATUS[u.status].name}</span>
       {u.id !== me.id && (
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 max-sm:w-full max-sm:justify-end">
           {u.status !== 'approved' && (
             <Button size="sm" variant="primary" onClick={() => act(u, 'approve')}>
               <Check size={14} /> Aprobar
@@ -76,7 +76,7 @@ export function AdminPage() {
   )
 
   return (
-    <div className="mx-auto max-w-3xl px-4 pb-24 pt-14 sm:px-8 lg:pt-12">
+    <div className="mx-auto max-w-3xl px-4 pb-24 pt-6 sm:px-8 lg:pt-12">
       <h1 className="text-[30px] font-semibold tracking-[-0.03em]">Administración</h1>
       <p className="mt-1.5 text-[15px] text-muted">Las cuentas nuevas no pueden entrar hasta que las apruebes.</p>
       {pending.length > 0 && (

@@ -31,9 +31,9 @@ function RuleRow({ rule, projectId }) {
   return (
     <motion.div
       layout
-      initial={{ opacity: 0, y: -4 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, height: 0 }}
+      initial={{ opacity: 0, transform: 'translateY(-4px)' }}
+      animate={{ opacity: 1, transform: 'translateY(0px)' }}
+      exit={{ opacity: 0, transform: 'scale(0.98)', transition: { duration: 0.15 } }}
       className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-line bg-surface px-3.5 py-3"
     >
       <kind.icon size={17} className="text-accent" />

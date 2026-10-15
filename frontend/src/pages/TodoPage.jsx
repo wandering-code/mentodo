@@ -1,12 +1,12 @@
 import { useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router'
-import { AnimatePresence, motion } from 'motion/react'
+import { AnimatePresence } from 'motion/react'
 import { addDays, endOfDay, isBefore, isToday, startOfDay } from 'date-fns'
 import { ChevronRight, CircleCheckBig, Plus, SlidersHorizontal } from 'lucide-react'
 import { useStore } from '../lib/store'
+import { useCardNav } from '../lib/nav'
 import { fmt } from '../lib/dates'
 import { CardRow } from '../components/CardRow'
-import { cx, Divider, MenuItem, MenuLabel, Popover, spring, usePopover } from '../components/ui'
+import { Collapse, cx, Divider, MenuItem, MenuLabel, Popover, usePopover } from '../components/ui'
 
 function greeting(name) {
   const h = new Date().getHours()
@@ -21,32 +21,25 @@ function Section({ title, tone, cards, onOpen, collapsed: initial = false }) {
   const [collapsed, setCollapsed] = useState(initial)
   if (!cards.length) return null
   return (
-    <motion.section layout="position" className="mb-5">
+    <section className="mb-5">
       <button onClick={() => setCollapsed((v) => !v)} className="mb-0.5 flex h-8 items-center gap-1.5 px-1 text-[13px] font-medium">
-        <motion.span animate={{ rotate: collapsed ? 0 : 90 }} transition={spring} className="text-faint">
-          <ChevronRight size={14} />
-        </motion.span>
+        <ChevronRight size={14} className="text-faint" style={{ transform: `rotate(${collapsed ? 0 : 90}deg)`, transition: 'transform .25s cubic-bezier(.32,.72,0,1)' }} />
         <span className={tone}>{title}</span>
         <span className="ml-0.5 tabular-nums text-faint">{cards.length}</span>
       </button>
-      <AnimatePresence initial={false}>
-        {!collapsed && (
-          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }} className="overflow-hidden">
-            <AnimatePresence initial={false}>
-              {cards.map((c) => (
-                <CardRow key={c.id} card={c} onOpen={onOpen} showProject />
-              ))}
-            </AnimatePresence>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </motion.section>
+      <Collapse open={!collapsed}>
+        <AnimatePresence initial={false}>
+          {cards.map((c) => (
+            <CardRow key={c.id} card={c} onOpen={onOpen} showProject />
+          ))}
+        </AnimatePresence>
+      </Collapse>
+    </section>
   )
 }
 
 export function TodoPage() {
   const s = useStore()
-  const [params, setParams] = useSearchParams()
   const pop = usePopover()
   const [draft, setDraft] = useState('')
   const selected = s.user?.todo_projects // null = todos
@@ -86,11 +79,7 @@ export function TodoPage() {
   }, [s.cards, s.hidden, s.projects, selected])
 
   const pending = groups.overdue.length + groups.today.length + groups.week.length + groups.later.length + groups.nodate.length
-  const openCard = (c) => {
-    const p = new URLSearchParams(params)
-    p.set('card', c.id)
-    setParams(p)
-  }
+  const { open: openCard } = useCardNav()
 
   const toggleProject = (pid) => {
     const all = [0, ...projects.map((p) => p.id)]
@@ -112,20 +101,20 @@ export function TodoPage() {
   const todayTotal = todayDone + groups.today.length + groups.overdue.length
 
   return (
-    <div className="mx-auto max-w-3xl px-4 pb-16 pt-14 sm:px-8 lg:pt-12">
-      <motion.p initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="text-[13px] font-medium text-faint first-letter:uppercase">
+    <div className="mx-auto max-w-3xl px-4 pb-16 pt-6 sm:px-8 lg:pt-12">
+      <p className="entra text-[13px] font-medium text-faint first-letter:uppercase">
         {fmt(new Date(), "EEEE, d 'de' MMMM")}
-      </motion.p>
-      <motion.h1 initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.04 }} className="mt-1 text-[30px] font-semibold leading-tight tracking-[-0.03em]">
+      </p>
+      <h1 style={{ '--entra-espera': '40ms' }} className="entra mt-1 text-[30px] font-semibold leading-tight tracking-[-0.03em]">
         {greeting(s.user?.display_name)}
-      </motion.h1>
-      <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="mt-1.5 text-[15px] text-muted">
+      </h1>
+      <p style={{ '--entra-espera': '90ms' }} className="entra mt-1.5 text-[15px] text-muted">
         {pending === 0
           ? 'Nada pendiente en tu lista. Disfrútalo.'
           : todayTotal > 0
             ? `${todayDone} de ${todayTotal} para hoy hechas · ${pending} pendientes en total`
             : `${pending} pendientes, ninguna para hoy`}
-      </motion.p>
+      </p>
 
       <div className="mt-6 flex items-center gap-2">
         <form onSubmit={add} className="flex h-11 flex-1 items-center gap-3 rounded-xl border border-line bg-surface px-3.5 shadow-soft transition-[border-color,box-shadow] focus-within:border-[color-mix(in_oklab,var(--accent)_50%,var(--line))] focus-within:shadow-[0_0_0_3px_color-mix(in_oklab,var(--accent)_14%,transparent)]">

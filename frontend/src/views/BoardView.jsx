@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
+import { haptic } from '../lib/layers'
 import {
-  closestCorners, DndContext, DragOverlay, KeyboardSensor, MeasuringStrategy, PointerSensor, pointerWithin, TouchSensor,
+  closestCorners, DndContext, DragOverlay, KeyboardSensor, MeasuringStrategy, MouseSensor, pointerWithin, TouchSensor,
   useDroppable, useSensor, useSensors,
 } from '@dnd-kit/core'
 import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
@@ -12,7 +13,7 @@ import { between, groupLabels, sortCards } from '../lib/cards'
 import { LABEL_COLORS } from '../lib/palette'
 import { CardTile } from '../components/CardTile'
 import { ColorPicker } from '../components/Pickers'
-import { cx, Divider, IconButton, MenuItem, Popover, Toggle, usePopover } from '../components/ui'
+import { cx, Divider, IconButton, MenuItem, Popover, Toggle, useIsMobile, usePopover } from '../components/ui'
 
 const NONE = 'none'
 
@@ -54,7 +55,7 @@ function Column({ id, label, group, cards, onOpen, onAdd, manual }) {
   }
 
   return (
-    <div className="flex w-[290px] shrink-0 flex-col sm:w-[300px]">
+    <div className="flex w-[84vw] max-w-[300px] shrink-0 flex-col sm:w-[300px]">
       <div className="group/col mb-2 flex h-8 items-center gap-2 px-1.5">
         {label ? (
           <span data-c={label.color} className="lbl rounded-md px-2 py-0.5 text-[13px] font-medium">
@@ -88,7 +89,7 @@ function Column({ id, label, group, cards, onOpen, onAdd, manual }) {
         </SortableContext>
         <AnimatePresence initial={false}>
           {adding ? (
-            <motion.div key="add" initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="rounded-xl border border-line bg-surface p-2 shadow-soft">
+            <motion.div key="add" initial={{ opacity: 0, transform: 'translateY(-4px)' }} animate={{ opacity: 1, transform: 'translateY(0px)' }} exit={{ opacity: 0 }} className="rounded-xl border border-line bg-surface p-2 shadow-soft">
               <textarea
                 ref={inputRef}
                 autoFocus
@@ -196,11 +197,17 @@ export function BoardView({ project, view, cards, onOpen }) {
     return cols
   }, [cards, labels, group, view.config.sort, s.labels]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Ratón y dedo por separado. Con un sensor de puntero genérico, el dedo
+  // también arrancaba el arrastre al moverse 6px: se comía el scroll del
+  // tablero y competía con "mantener pulsado". En táctil solo se coge una
+  // tarjeta manteniéndola pulsada; deslizar sigue siendo hacer scroll.
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 220, tolerance: 6 } }),
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   )
+  const lastDrop = useRef(0)
+  const phone = useIsMobile()
 
   if (!group) {
     return <div className="px-6 py-16 text-center text-sm text-muted">Elige por qué grupo de etiquetas agrupar este tablero (arriba, en «Agrupar»).</div>
@@ -208,17 +215,19 @@ export function BoardView({ project, view, cards, onOpen }) {
 
   const cols = live || columns
   const findCol = (id) => {
-    if (typeof id === 'string' && id.startsWith('col:')) return id.slice(4)
+    if (typeof id === 'string' && (id.startsWith('col:') || id.startsWith('dock:'))) return id.slice(id.indexOf(':') + 1)
     return Object.keys(cols).find((k) => cols[k].includes(id))
   }
 
   const onDragStart = ({ active }) => {
+    haptic(10)
     setActive(active.id)
     setLive(columns)
   }
 
   const onDragOver = ({ active, over }) => {
-    if (!over) return
+    // Sobre el muelle no se recoloca nada en el tablero: se decide al soltar
+    if (!over || String(over.id).startsWith('dock:')) return
     const from = findCol(active.id)
     const to = findCol(over.id)
     if (!from || !to || from === to) return
@@ -234,6 +243,7 @@ export function BoardView({ project, view, cards, onOpen }) {
 
   const onDragEnd = ({ active, over }) => {
     const p = live || columns
+    lastDrop.current = performance.now()
     setActive(null)
     setLive(null)
     if (!over) return
@@ -242,7 +252,7 @@ export function BoardView({ project, view, cards, onOpen }) {
     const to = findCol(over.id)
     if (!card || !to) return
     let list = p[to].filter((x) => x !== active.id)
-    let idx = over.id === `col:${to}` ? list.length : list.indexOf(over.id)
+    let idx = over.id === `col:${to}` || String(over.id).startsWith('dock:') ? list.length : list.indexOf(over.id)
     if (idx < 0) idx = list.length
     // Dentro de la misma columna, soltar sobre una tarjeta inferior va detrás de ella
     if (origin === to && over.id !== active.id) {
@@ -284,15 +294,27 @@ export function BoardView({ project, view, cards, onOpen }) {
       sensors={sensors}
       collisionDetection={(args) => {
         const p = pointerWithin(args)
+        const dock = p.filter((c) => String(c.id).startsWith('dock:'))
+        if (dock.length) return dock
         return p.length ? p : closestCorners(args)
       }}
+      // Desplazamiento automático suave y solo pegado al borde: con el valor
+      // por defecto, en el móvil el tablero corría hasta el final
+      autoScroll={{ threshold: { x: 0.08, y: 0.12 }, acceleration: 4 }}
       measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
       onDragStart={onDragStart}
       onDragOver={onDragOver}
       onDragEnd={onDragEnd}
       onDragCancel={() => (setActive(null), setLive(null))}
     >
-      <div className="flex min-h-[60vh] items-start gap-3 overflow-x-auto px-4 pb-10 pt-1 sm:px-8 [scroll-snap-type:x_proximity] max-sm:[&>*]:snap-start">
+      <div
+        className={cx(
+          'flex min-h-[60vh] items-start gap-3 overflow-x-auto overscroll-x-contain px-4 pb-10 pt-1 sm:px-8 max-sm:scroll-px-4 max-sm:[&>*]:snap-start',
+          // El imán de columnas se apaga mientras se arrastra: peleaba con el
+          // desplazamiento automático hacia la columna de destino
+          !active && 'max-sm:snap-x max-sm:snap-mandatory',
+        )}
+      >
         {order.map((col) => (
           <Column
             key={col}
@@ -300,14 +322,15 @@ export function BoardView({ project, view, cards, onOpen }) {
             group={group}
             label={col === NONE ? null : s.labels[col]}
             cards={(cols[col] || []).map((id) => s.cards[id]).filter(Boolean)}
-            onOpen={onOpen}
+            onOpen={(c) => performance.now() - lastDrop.current > 350 && onOpen(c)}
             onAdd={add}
             manual={manual}
           />
         ))}
         <NewColumn group={group} count={labels.length} />
       </div>
-      <DragOverlay dropAnimation={{ duration: 220, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' }}>
+      {phone && active && <Dock columns={order} group={group} labels={s.labels} />}
+      <DragOverlay dropAnimation={{ duration: 240, easing: 'cubic-bezier(0.32, 0.72, 0, 1)' }}>
         {activeCard ? <CardTile card={activeCard} hideGroupId={group.id} overlay /> : null}
       </DragOverlay>
     </DndContext>
@@ -343,6 +366,41 @@ function NewColumn({ group, count }) {
           <Plus size={15} /> Nueva columna
         </button>
       )}
+    </div>
+  )
+}
+
+/* Muelle de columnas (móvil): al coger una tarjeta aparece abajo una tira con
+   todas las columnas, y soltarla encima la mueve ahí sin tener que desplazar
+   el tablero con la tarjeta en el dedo. */
+function Dock({ columns, group, labels }) {
+  return (
+    <div
+      className="entra fixed inset-x-0 bottom-0 z-[45] border-t border-line bg-[color-mix(in_oklab,var(--surface)_92%,transparent)] px-3 pb-[max(12px,env(safe-area-inset-bottom))] pt-2.5 shadow-float backdrop-blur-xl"
+      style={{ '--entra-desde': 'translateY(100%)', '--entra-dura': '260ms' }}
+    >
+      <div className="mb-2 text-center text-[11.5px] font-medium uppercase tracking-wide text-faint">Suelta para mover a…</div>
+      <div className="-mx-3 flex gap-2 overflow-x-auto px-3 [scrollbar-width:none]">
+        {columns.filter((c) => c !== NONE).map((col) => (
+          <DockTarget key={col} col={col} label={col === NONE ? null : labels[col]} group={group} />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function DockTarget({ col, label, group }) {
+  const { setNodeRef, isOver } = useDroppable({ id: `dock:${col}` })
+  return (
+    <div
+      ref={setNodeRef}
+      data-c={label?.color || 'gris'}
+      className={cx(
+        'lbl flex h-12 min-w-[30%] flex-1 shrink-0 items-center justify-center whitespace-nowrap rounded-xl px-4 text-[14px] font-medium transition-transform duration-150',
+        isOver && 'scale-[1.06] ring-2 ring-[var(--accent)]',
+      )}
+    >
+      {label ? label.name : `Sin ${group.name.toLowerCase()}`}
     </div>
   )
 }

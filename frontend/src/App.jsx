@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
-import { MotionConfig, motion } from 'motion/react'
+import { MotionConfig } from 'motion/react'
 import { Toaster } from 'sonner'
 import { useStore } from './lib/store'
 import { startSync, stopSync } from './lib/sync'
@@ -32,9 +32,9 @@ export default function App() {
       <BrowserRouter>
         {status === 'loading' && (
           <div className="grid h-full place-items-center">
-            <motion.div animate={{ scale: [1, 0.92, 1], opacity: [1, 0.7, 1] }} transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}>
+            <div className="animate-[latido_1.4s_ease-in-out_infinite]">
               <Logo size={44} />
-            </motion.div>
+            </div>
           </div>
         )}
         {status === 'anon' && <AuthPage />}

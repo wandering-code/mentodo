@@ -62,7 +62,7 @@ export function SettingsPage() {
   const ios = /iphone|ipad/i.test(navigator.userAgent)
 
   return (
-    <div className="mx-auto max-w-3xl px-4 pb-24 pt-14 sm:px-8 lg:pt-12">
+    <div className="mx-auto max-w-3xl px-4 pb-24 pt-6 sm:px-8 lg:pt-12">
       <h1 className="text-[30px] font-semibold tracking-[-0.03em]">Ajustes</h1>
 
       <SettingsSection title="Apariencia" description="Se guarda en tu perfil: se aplica igual en todos tus dispositivos.">
@@ -83,15 +83,12 @@ export function SettingsPage() {
         <div className="mt-3 flex flex-wrap gap-3">
           {ACCENTS.map((a) => (
             <button key={a.id} onClick={() => s.updateMe({ accent: a.id })} className="group flex flex-col items-center gap-1.5">
-              <motion.span
-                whileHover={{ scale: 1.08 }}
-                whileTap={{ scale: 0.92 }}
-                transition={spring}
-                className={cx('grid size-11 place-items-center rounded-full transition-shadow', user.accent === a.id && 'ring-2 ring-[var(--ink)] ring-offset-[3px] ring-offset-[var(--bg)]')}
+              <span
+                className={cx('grid size-11 place-items-center rounded-full transition-[box-shadow,transform] duration-200 hover:scale-[1.08] active:scale-[0.92]', user.accent === a.id && 'ring-2 ring-[var(--ink)] ring-offset-[3px] ring-offset-[var(--bg)]')}
                 style={{ background: a.hex }}
               >
                 {user.accent === a.id && <Check size={18} color="#fff" />}
-              </motion.span>
+              </span>
               <span className={cx('text-[12px]', user.accent === a.id ? 'text-ink' : 'text-faint')}>{a.name}</span>
             </button>
           ))}

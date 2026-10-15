@@ -3,10 +3,11 @@ import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router'
 import { Command } from 'cmdk'
 import { toast } from 'sonner'
-import { AnimatePresence, motion } from 'motion/react'
 import { CircleCheckBig, CornerDownLeft, FileText, Inbox, Plus, Settings, Zap } from 'lucide-react'
 import { useStore } from '../lib/store'
-import { spring } from './ui'
+import { Scrim } from './ui'
+import { ARRIVE, css, LEAVE, useBackToClose, usePresence } from '../lib/layers'
+import { cardPath } from '../lib/nav'
 
 /* ⌘K: buscar cualquier cosa y, si no existe, capturarla a la bandeja con
    Enter. Capturar no debería pedir decidir antes dónde va. */
@@ -34,10 +35,9 @@ export function CommandPalette({ open, onClose, onNewProject }) {
   }, [q, cards, projects])
 
   const go = (path) => {
-    onClose()
     nav(path)
+    onClose()
   }
-  const cardPath = (c) => (c.project_id ? `/p/${c.project_id}?card=${c.id}` : `/inbox?card=${c.id}`)
 
   const capture = async () => {
     const title = q.trim()
@@ -49,19 +49,18 @@ export function CommandPalette({ open, onClose, onNewProject }) {
 
   const item = 'flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-[14px] text-ink data-[selected=true]:bg-hover'
 
+  const { mounted, shown } = usePresence(open)
+  useBackToClose(open, onClose)
+  if (!mounted) return null
   return createPortal(
-    <AnimatePresence>
-      {open && (
-        <motion.div className="fixed inset-0 z-[80] flex items-start justify-center p-3 pt-[12vh]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-          <div className="absolute inset-0 bg-black/30 backdrop-blur-[2px]" onClick={onClose} />
-          <motion.div
-            initial={{ opacity: 0, scale: 0.97, y: -8 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.98, y: -4 }}
-            transition={spring}
-            className="relative w-full max-w-xl overflow-hidden rounded-2xl border border-line bg-surface shadow-float"
-          >
-            <Command shouldFilter={false} loop onKeyDown={(e) => e.key === 'Escape' && onClose()}>
+    <>
+      <Scrim shown={shown} onClick={onClose} z="z-[80]" />
+      <div className="pointer-events-none fixed inset-0 z-[80] flex items-start justify-center px-3 pt-[calc(env(safe-area-inset-top)+12px)] sm:pt-[12vh]">
+        <div
+          className="pointer-events-auto relative w-full max-w-xl overflow-hidden rounded-2xl border border-line bg-surface shadow-float"
+          style={{ opacity: shown ? 1 : 0, transform: shown ? 'none' : 'translateY(-8px) scale(0.98)', transition: css(shown ? ARRIVE : LEAVE) }}
+        >
+            <Command shouldFilter={false} loop>
               <div className="flex items-center gap-3 border-b border-line px-4">
                 <Zap size={17} className="text-accent" />
                 <Command.Input
@@ -69,10 +68,10 @@ export function CommandPalette({ open, onClose, onNewProject }) {
                   value={q}
                   onValueChange={setQ}
                   placeholder="Busca, o escribe algo para capturarlo…"
-                  className="h-14 flex-1 bg-transparent text-[16px] outline-none placeholder:text-faint"
+                  className="h-14 min-w-0 flex-1 bg-transparent text-[16px] outline-none placeholder:text-faint"
                 />
               </div>
-              <Command.List className="max-h-[52vh] overflow-y-auto p-2">
+              <Command.List className="max-h-[min(52vh,calc(100dvh-180px))] overflow-y-auto p-2">
                 {q.trim() && (
                   <Command.Item value="__capture" onSelect={capture} className={item}>
                     <Plus size={16} className="text-accent" />
@@ -123,10 +122,9 @@ export function CommandPalette({ open, onClose, onNewProject }) {
                 )}
               </Command.List>
             </Command>
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>,
+        </div>
+      </div>
+    </>,
     document.body,
   )
 }

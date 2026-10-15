@@ -1,8 +1,9 @@
 import { forwardRef, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { AnimatePresence, motion } from 'motion/react'
 import { Check, X } from 'lucide-react'
+import { ARRIVE, css, LEAVE, QUICK, useBackToClose, usePresence } from '../lib/layers'
 
+// Muelles para lo poco que sigue en Motion (pastillas con layoutId)
 export const spring = { type: 'spring', stiffness: 520, damping: 38, mass: 0.7 }
 export const softSpring = { type: 'spring', stiffness: 300, damping: 32 }
 
@@ -23,7 +24,7 @@ export function useIsMobile(bp = 640) {
 export const Button = forwardRef(function Button({ variant = 'ghost', size = 'md', className, children, ...props }, ref) {
   const base =
     'inline-flex items-center justify-center gap-1.5 rounded-lg font-medium select-none transition-[background-color,color,box-shadow,transform] duration-150 active:scale-[0.97] disabled:opacity-50 disabled:pointer-events-none whitespace-nowrap'
-  const sizes = { sm: 'h-7 px-2.5 text-[13px]', md: 'h-9 px-3.5 text-sm', lg: 'h-11 px-5 text-[15px]' }
+  const sizes = { sm: 'h-8 px-2.5 text-[13px] sm:h-7', md: 'h-10 px-3.5 text-sm sm:h-9', lg: 'h-12 px-5 text-[15px] sm:h-11' }
   const variants = {
     primary: 'bg-accent text-accent-ink hover:brightness-[1.06] shadow-soft',
     soft: 'bg-accent-soft text-accent hover:bg-[color-mix(in_oklab,var(--accent)_20%,transparent)]',
@@ -39,14 +40,15 @@ export const Button = forwardRef(function Button({ variant = 'ghost', size = 'md
 })
 
 export const IconButton = forwardRef(function IconButton({ className, label, size = 'md', active, ...props }, ref) {
-  const sizes = { sm: 'size-7', md: 'size-8', lg: 'size-10' }
+  // En táctil, 40px como mínimo: por debajo se falla el toque
+  const sizes = { sm: 'size-8 sm:size-7', md: 'size-10 sm:size-8', lg: 'size-11 sm:size-10' }
   return (
     <button
       ref={ref}
       aria-label={label}
       title={label}
       className={cx(
-        'inline-flex items-center justify-center rounded-lg text-muted transition-[background-color,color,transform] duration-150 hover:text-ink hover:bg-hover active:scale-90',
+        'inline-flex shrink-0 items-center justify-center rounded-lg text-muted transition-[background-color,color,transform] duration-150 hover:text-ink hover:bg-hover active:scale-90',
         active && 'text-ink bg-hover',
         sizes[size],
         className,
@@ -56,6 +58,8 @@ export const IconButton = forwardRef(function IconButton({ className, label, siz
   )
 })
 
+/* Check redondo. Todo por CSS (transform/opacity y el trazo con
+   stroke-dashoffset): a la frecuencia nativa de la pantalla. */
 export function Checkbox({ checked, onChange, size = 18, className }) {
   return (
     <button
@@ -66,30 +70,25 @@ export function Checkbox({ checked, onChange, size = 18, className }) {
         onChange(!checked)
       }}
       onPointerDown={(e) => e.stopPropagation()}
-      className={cx('group relative shrink-0 grid place-items-center rounded-full', className)}
+      onTouchStart={(e) => e.stopPropagation()}
+      className={cx('group relative grid shrink-0 place-items-center rounded-full before:absolute before:-inset-2.5 before:content-[""]', className)}
       style={{ width: size, height: size }}
     >
-      <motion.span
-        initial={false}
-        animate={{
-          backgroundColor: checked ? 'var(--accent)' : 'rgba(0,0,0,0)',
-          borderColor: checked ? 'var(--accent)' : 'var(--faint)',
-          scale: checked ? [1, 0.82, 1.08, 1] : 1,
-        }}
-        transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
-        className="absolute inset-0 rounded-full border-[1.5px] group-hover:border-[var(--muted)]"
+      <span
+        className={cx('absolute inset-0 rounded-full border-[1.5px]', checked ? 'chk-pop border-[var(--accent)] bg-accent' : 'border-[var(--faint)] group-hover:border-[var(--muted)]')}
+        style={{ transition: 'background-color .2s, border-color .2s' }}
       />
       <svg viewBox="0 0 16 16" className="relative" style={{ width: size * 0.62, height: size * 0.62 }}>
-        <motion.path
+        <path
           d="M3.5 8.4l3 3 6-6.6"
           fill="none"
           stroke="var(--accent-ink)"
           strokeWidth="2.2"
           strokeLinecap="round"
           strokeLinejoin="round"
-          initial={false}
-          animate={{ pathLength: checked ? 1 : 0, opacity: checked ? 1 : 0 }}
-          transition={{ duration: 0.25, delay: checked ? 0.08 : 0, ease: 'easeOut' }}
+          pathLength="1"
+          strokeDasharray="1"
+          style={{ strokeDashoffset: checked ? 0 : 1, transition: `stroke-dashoffset .26s cubic-bezier(.32,.72,0,1) ${checked ? '.06s' : '0s'}` }}
         />
       </svg>
     </button>
@@ -102,13 +101,15 @@ export function Toggle({ checked, onChange, label }) {
       role="switch"
       aria-checked={checked}
       aria-label={label}
-      onClick={() => onChange(!checked)}
-      className={cx('relative h-[22px] w-[38px] shrink-0 rounded-full transition-colors duration-200', checked ? 'bg-accent' : 'bg-line')}
+      onClick={(e) => {
+        e.stopPropagation()
+        onChange(!checked)
+      }}
+      className={cx('relative h-[24px] w-[40px] shrink-0 rounded-full transition-colors duration-200 sm:h-[22px] sm:w-[38px]', checked ? 'bg-accent' : 'bg-line')}
     >
-      <motion.span
-        layout
-        transition={spring}
-        className={cx('absolute top-[3px] size-4 rounded-full bg-white shadow-sm', checked ? 'right-[3px]' : 'left-[3px]')}
+      <span
+        className="absolute left-[3px] top-[3px] size-[18px] rounded-full bg-white shadow-sm sm:size-4"
+        style={{ transform: checked ? 'translateX(16px)' : 'translateX(0)', transition: css(QUICK, ['transform']) }}
       />
     </button>
   )
@@ -140,7 +141,8 @@ export const Input = forwardRef(function Input({ className, ...props }, ref) {
     <input
       ref={ref}
       className={cx(
-        'h-10 w-full rounded-lg border border-line bg-surface px-3 text-[15px] text-ink placeholder:text-faint outline-none transition-[border-color,box-shadow] duration-150 focus:border-[color-mix(in_oklab,var(--accent)_55%,var(--line))] focus:shadow-[0_0_0_3px_color-mix(in_oklab,var(--accent)_16%,transparent)]',
+        // 16px en móvil: con menos, iOS hace zoom al enfocar el campo
+        'h-11 w-full rounded-lg border border-line bg-surface px-3 text-[16px] text-ink placeholder:text-faint outline-none transition-[border-color,box-shadow] duration-150 focus:border-[color-mix(in_oklab,var(--accent)_55%,var(--line))] focus:shadow-[0_0_0_3px_color-mix(in_oklab,var(--accent)_16%,transparent)] sm:h-10 sm:text-[15px]',
         className,
       )}
       {...props}
@@ -152,23 +154,120 @@ export function Kbd({ children }) {
   return <kbd className="rounded border border-line bg-sunken px-1.5 py-px font-sans text-[11px] text-muted">{children}</kbd>
 }
 
+/* Velo detrás de las capas */
+export function Scrim({ shown, onClick, z = 'z-[60]', strong }) {
+  return (
+    <div
+      onClick={onClick}
+      aria-hidden
+      className={cx('fixed inset-0', z, strong ? 'bg-[var(--scrim-strong)]' : 'bg-[var(--scrim)]')}
+      style={{ opacity: shown ? 1 : 0, transition: css(shown ? ARRIVE : LEAVE, ['opacity']), pointerEvents: shown ? 'auto' : 'none' }}
+    />
+  )
+}
+
+/* Arrastrar hacia abajo para cerrar una hoja, con el gesto solo en el asa:
+   si estuviera en toda la hoja, en el móvil no se podría hacer scroll dentro. */
+export function useDragToClose(onClose, axis = 'y') {
+  const [offset, setOffset] = useState(0)
+  const [dragging, setDragging] = useState(false)
+  const start = useRef(null)
+  const sign = axis === 'x' ? -1 : 1
+  const handlers = {
+    onPointerDown: (e) => {
+      try {
+        e.currentTarget.setPointerCapture(e.pointerId)
+      } catch {}
+      start.current = { p: axis === 'x' ? e.clientX : e.clientY, t: performance.now() }
+      setDragging(true)
+    },
+    onPointerMove: (e) => {
+      if (!start.current) return
+      const d = ((axis === 'x' ? e.clientX : e.clientY) - start.current.p) * sign
+      setOffset(Math.max(0, d))
+    },
+    onPointerUp: (e) => {
+      if (!start.current) return
+      const d = Math.max(0, ((axis === 'x' ? e.clientX : e.clientY) - start.current.p) * sign)
+      const v = (d / Math.max(1, performance.now() - start.current.t)) * 1000
+      start.current = null
+      setDragging(false)
+      if (d > 90 || v > 520) onClose()
+      setOffset(0)
+    },
+    style: { touchAction: 'none' },
+  }
+  handlers.onPointerCancel = handlers.onPointerUp
+  return { offset, dragging, handlers }
+}
+
+/* Hoja inferior (móvil): entra desde abajo, se cierra con el velo, con el asa
+   arrastrándola o con el gesto de volver. */
+export function Sheet({ open, onClose, children, className, z = 'z-[70]', full }) {
+  const { mounted, shown } = usePresence(open)
+  useBackToClose(open, onClose)
+  const drag = useDragToClose(onClose)
+  if (!mounted) return null
+  const y = shown ? drag.offset : null
+  return createPortal(
+    <>
+      <Scrim shown={shown} onClick={onClose} z={z} />
+      <div
+        role="dialog"
+        className={cx('fixed inset-x-0 bottom-0 flex flex-col rounded-t-[20px] border-t border-line bg-surface shadow-float', full ? 'top-[max(env(safe-area-inset-top),10px)]' : 'max-h-[86dvh]', z, className)}
+        style={{
+          transform: y === null ? 'translateY(100%)' : `translateY(${y}px)`,
+          transition: drag.dragging ? 'none' : css(shown ? ARRIVE : LEAVE, ['transform']),
+          willChange: 'transform',
+        }}
+      >
+        <div {...drag.handlers} className="flex shrink-0 cursor-grab justify-center pb-2 pt-2.5">
+          <div className="h-[5px] w-10 rounded-full bg-line" />
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 pb-[max(12px,env(safe-area-inset-bottom))]">{children}</div>
+      </div>
+    </>,
+    document.body,
+  )
+}
+
 /* Popover anclado a un elemento. En móvil se convierte en hoja inferior,
    que es lo que el pulgar alcanza bien. */
 export function Popover({ anchor, open, onClose, children, width = 260, align = 'start', className }) {
   const mobile = useIsMobile()
+  if (mobile)
+    return (
+      <Sheet open={open} onClose={onClose} className={className}>
+        {children}
+      </Sheet>
+    )
+  return (
+    <DesktopPopover anchor={anchor} open={open} onClose={onClose} width={width} align={align} className={className}>
+      {children}
+    </DesktopPopover>
+  )
+}
+
+function DesktopPopover({ anchor, open, onClose, children, width, align, className }) {
   const ref = useRef(null)
   const [pos, setPos] = useState(null)
+  const { mounted, shown } = usePresence(open, 180)
+  const lastAnchor = useRef(anchor)
+  if (anchor) lastAnchor.current = anchor
+  useBackToClose(open, onClose)
 
   useLayoutEffect(() => {
-    if (!open || mobile || !anchor) return
+    if (!mounted) return
     const place = () => {
-      const r = anchor.getBoundingClientRect()
+      const a = lastAnchor.current
+      if (!a) return
+      const r = a.getBoundingClientRect()
       const h = ref.current?.offsetHeight || 300
       let left = align === 'end' ? r.right - width : r.left
       left = Math.max(8, Math.min(left, window.innerWidth - width - 8))
       let top = r.bottom + 6
       if (top + h > window.innerHeight - 8 && r.top - h - 6 > 8) top = r.top - h - 6
-      setPos({ left, top, origin: top < r.top ? 'bottom' : 'top' })
+      setPos({ left, top, up: top < r.top })
     }
     place()
     window.addEventListener('resize', place)
@@ -177,65 +276,38 @@ export function Popover({ anchor, open, onClose, children, width = 260, align = 
       window.removeEventListener('resize', place)
       window.removeEventListener('scroll', place, true)
     }
-  }, [open, anchor, mobile, width, align])
+  }, [mounted, width, align])
 
   useEffect(() => {
     if (!open) return
-    const onKey = (e) => e.key === 'Escape' && (e.stopPropagation(), onClose())
     const onDown = (e) => {
-      if (ref.current?.contains(e.target) || anchor?.contains(e.target)) return
+      if (ref.current?.contains(e.target) || lastAnchor.current?.contains(e.target)) return
+      // Un clic dentro de otra capa que esté encima (otro popover) no cierra este
+      if (e.target.closest?.('[data-layer]') && !ref.current?.contains(e.target)) return
       onClose()
     }
-    window.addEventListener('keydown', onKey, true)
     window.addEventListener('pointerdown', onDown, true)
-    return () => {
-      window.removeEventListener('keydown', onKey, true)
-      window.removeEventListener('pointerdown', onDown, true)
-    }
-  }, [open, onClose, anchor])
+    return () => window.removeEventListener('pointerdown', onDown, true)
+  }, [open, onClose])
 
+  if (!mounted) return null
   return createPortal(
-    <AnimatePresence>
-      {open &&
-        (mobile ? (
-          <motion.div key="sheet" className="fixed inset-0 z-[70]">
-            <motion.div
-              className="absolute inset-0 bg-black/30"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-            />
-            <motion.div
-              ref={ref}
-              initial={{ y: '100%' }}
-              animate={{ y: 0 }}
-              exit={{ y: '100%' }}
-              transition={softSpring}
-              drag="y"
-              dragConstraints={{ top: 0, bottom: 0 }}
-              dragElastic={{ top: 0, bottom: 0.6 }}
-              onDragEnd={(_, i) => (i.offset.y > 80 || i.velocity.y > 500) && onClose()}
-              className={cx('absolute inset-x-0 bottom-0 max-h-[80vh] overflow-y-auto rounded-t-2xl border-t border-line bg-surface p-2 pb-safe shadow-float', className)}
-            >
-              <div className="mx-auto mb-2 mt-1 h-1 w-9 rounded-full bg-line" />
-              {children}
-            </motion.div>
-          </motion.div>
-        ) : (
-          <motion.div
-            key="pop"
-            ref={ref}
-            initial={{ opacity: 0, scale: 0.96, y: pos?.origin === 'bottom' ? 4 : -4 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.97, transition: { duration: 0.12 } }}
-            transition={spring}
-            style={{ left: pos?.left ?? -9999, top: pos?.top ?? -9999, width, transformOrigin: `${align === 'end' ? 'right' : 'left'} ${pos?.origin || 'top'}` }}
-            className={cx('fixed z-[70] max-h-[min(460px,70vh)] overflow-y-auto rounded-xl border border-line bg-surface p-1.5 shadow-float', className)}
-          >
-            {children}
-          </motion.div>
-        ))}
-    </AnimatePresence>,
+    <div
+      ref={ref}
+      data-layer
+      style={{
+        left: pos?.left ?? -9999,
+        top: pos?.top ?? -9999,
+        width,
+        transformOrigin: `${align === 'end' ? 'right' : 'left'} ${pos?.up ? 'bottom' : 'top'}`,
+        opacity: shown && pos ? 1 : 0,
+        transform: shown && pos ? 'none' : `translateY(${pos?.up ? 4 : -4}px) scale(0.97)`,
+        transition: css(shown ? QUICK : { duration: 0.14, ease: LEAVE.ease }),
+      }}
+      className={cx('fixed z-[70] max-h-[min(460px,70vh)] overflow-y-auto rounded-xl border border-line bg-surface p-1.5 shadow-float', className)}
+    >
+      {children}
+    </div>,
     document.body,
   )
 }
@@ -257,59 +329,71 @@ export function MenuItem({ icon: Icon, children, onClick, danger, active, right,
     <button
       onClick={onClick}
       className={cx(
-        'flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[14px] transition-colors duration-100 sm:py-1.5',
-        danger ? 'text-danger hover:bg-[color-mix(in_oklab,var(--danger)_10%,transparent)]' : 'text-ink hover:bg-hover',
+        'flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-[15px] transition-colors duration-100 sm:gap-2.5 sm:rounded-lg sm:px-2.5 sm:py-1.5 sm:text-[14px]',
+        danger ? 'text-danger hover:bg-[color-mix(in_oklab,var(--danger)_10%,transparent)]' : 'text-ink hover:bg-hover active:bg-hover',
         active && 'bg-hover',
         className,
       )}
     >
-      {Icon && <Icon size={16} className={danger ? '' : 'text-muted'} />}
+      {Icon && <Icon size={17} className={cx('shrink-0', danger ? '' : 'text-muted')} />}
       <span className="min-w-0 flex-1 truncate">{children}</span>
       {right}
-      {active === true && !right && <Check size={15} className="text-accent" />}
+      {active === true && !right && <Check size={16} className="text-accent" />}
     </button>
   )
 }
 
 export function MenuLabel({ children }) {
-  return <div className="px-2.5 pb-1 pt-2 text-[11.5px] font-medium uppercase tracking-wide text-faint">{children}</div>
+  return <div className="px-3 pb-1 pt-2 text-[11.5px] font-medium uppercase tracking-wide text-faint sm:px-2.5">{children}</div>
 }
 
 export function Divider() {
   return <div className="my-1 h-px bg-line" />
 }
 
+/* Diálogo centrado (en móvil, arriba: así el teclado no lo tapa) */
 export function Modal({ open, onClose, children, className }) {
-  useEffect(() => {
-    if (!open) return
-    const onKey = (e) => e.key === 'Escape' && onClose()
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [open, onClose])
+  const { mounted, shown } = usePresence(open)
+  useBackToClose(open, onClose)
+  if (!mounted) return null
   return createPortal(
-    <AnimatePresence>
-      {open && (
-        <motion.div className="fixed inset-0 z-[60] grid place-items-center p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-          <div className="absolute inset-0 bg-black/30 backdrop-blur-[2px]" onClick={onClose} />
-          <motion.div
-            initial={{ opacity: 0, scale: 0.96, y: 8 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.97, y: 4 }}
-            transition={spring}
-            className={cx('relative w-full max-w-md rounded-2xl border border-line bg-surface p-5 shadow-float', className)}
-          >
-            {children}
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>,
+    <>
+      <Scrim shown={shown} onClick={onClose} />
+      <div className="pointer-events-none fixed inset-0 z-[60] flex items-start justify-center px-3 pt-[max(calc(env(safe-area-inset-top)+12px),8vh)] sm:items-center sm:p-4">
+        <div
+          role="dialog"
+          className={cx('pointer-events-auto w-full max-w-md rounded-2xl border border-line bg-surface p-5 shadow-float', className)}
+          style={{
+            opacity: shown ? 1 : 0,
+            transform: shown ? 'none' : 'translateY(10px) scale(0.97)',
+            transition: css(shown ? ARRIVE : LEAVE),
+          }}
+        >
+          {children}
+        </div>
+      </div>
+    </>,
     document.body,
+  )
+}
+
+/* Plegar/desplegar sin medir alturas desde JavaScript: grid 0fr → 1fr */
+export function Collapse({ open, children, className }) {
+  return (
+    <div
+      className="grid"
+      style={{ gridTemplateRows: open ? '1fr' : '0fr', opacity: open ? 1 : 0, transition: `grid-template-rows .28s cubic-bezier(.32,.72,0,1), opacity .2s` }}
+    >
+      <div className={cx('min-h-0 overflow-hidden', className)} inert={!open}>
+        {children}
+      </div>
+    </div>
   )
 }
 
 export function Empty({ icon: Icon, title, children }) {
   return (
-    <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="mx-auto flex max-w-sm flex-col items-center py-16 text-center">
+    <div className="entra mx-auto flex max-w-sm flex-col items-center py-16 text-center">
       {Icon && (
         <div className="mb-4 grid size-12 place-items-center rounded-2xl bg-accent-soft text-accent">
           <Icon size={22} />
@@ -317,6 +401,6 @@ export function Empty({ icon: Icon, title, children }) {
       )}
       <div className="text-[15px] font-medium text-ink">{title}</div>
       {children && <div className="mt-1 text-sm text-muted">{children}</div>}
-    </motion.div>
+    </div>
   )
 }

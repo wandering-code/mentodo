@@ -27,7 +27,7 @@ export function Properties({ card, project, onMove }) {
       )}
       <AnimatePresence initial={false}>
         {visible.map((p) => (
-          <motion.div key={p.key} initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}>
+          <motion.div key={p.key} initial={{ opacity: 0, transform: 'translateY(-4px)' }} animate={{ opacity: 1, transform: 'translateY(0px)' }} exit={{ opacity: 0, transition: { duration: 0.12 } }} transition={{ duration: 0.22, ease: [0.32, 0.72, 0, 1] }}>
             <PropRow prop={p} card={card} project={project} />
           </motion.div>
         ))}

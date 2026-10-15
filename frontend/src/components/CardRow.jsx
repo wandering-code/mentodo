@@ -20,20 +20,20 @@ export function CardRow({ card, onOpen, hideGroupId, showProject }) {
   return (
     <motion.div
       layout="position"
-      initial={{ opacity: 0, y: -4 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, height: 0, transition: { duration: 0.2 } }}
-      transition={{ type: 'spring', stiffness: 500, damping: 40 }}
+      initial={{ opacity: 0, transform: 'translateY(-4px)' }}
+      animate={{ opacity: 1, transform: 'translateY(0px)' }}
+      exit={{ opacity: 0, transform: 'translateX(14px)', transition: { duration: 0.16 } }}
+      transition={{ duration: 0.24, ease: [0.32, 0.72, 0, 1] }}
       onClick={() => onOpen(card)}
-      className="group flex min-h-11 cursor-pointer items-center gap-3 rounded-xl px-3 py-2 transition-colors hover:bg-hover"
+      className="group flex min-h-12 cursor-pointer items-start gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-hover active:bg-hover sm:min-h-11 sm:items-center sm:py-2"
     >
-      <Checkbox checked={card.done} onChange={(done) => updateCard(card.id, { done })} size={18} />
+      <Checkbox checked={card.done} onChange={(done) => updateCard(card.id, { done })} size={19} className="mt-px sm:mt-0" />
       <div className="min-w-0 flex-1">
-        <div className={cx('truncate text-[14.5px] leading-snug transition-colors duration-300', card.done ? 'text-faint line-through decoration-[var(--faint)]' : 'text-ink')}>
+        <div className={cx('text-[15px] leading-snug transition-colors duration-300 sm:truncate sm:text-[14.5px]', card.done ? 'text-faint line-through decoration-[var(--faint)]' : 'text-ink')}>
           {card.title || <span className="text-faint">Sin título</span>}
         </div>
         {(showProject || chips.length > 0 || card.due_at || meta.dates.length > 0 || cl || card.estimate_minutes) && (
-          <div className="mt-0.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 sm:hidden">
+          <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 sm:hidden">
             <Meta card={card} chips={chips} cl={cl} meta={meta} project={showProject && project} />
           </div>
         )}

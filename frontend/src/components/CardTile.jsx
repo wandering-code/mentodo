@@ -59,9 +59,9 @@ export const CardTile = memo(
         {...rest}
         onClick={() => onOpen?.(card)}
         className={cx(
-          'group relative cursor-pointer select-none rounded-xl border bg-surface px-3 py-2.5 text-left transition-[box-shadow,border-color,opacity] duration-150',
+          'touch-drag group relative cursor-pointer rounded-xl border bg-surface px-3 py-2.5 text-left transition-[box-shadow,border-color,opacity,transform] duration-150 [touch-action:manipulation]',
           'border-line hover:border-[color-mix(in_oklab,var(--ink)_14%,var(--line))]',
-          overlay ? 'rotate-[1.5deg] shadow-float' : 'shadow-[0_1px_1.5px_rgb(0_0_0/0.04)] hover:shadow-soft',
+          overlay ? 'lift shadow-float' : 'shadow-[0_1px_1.5px_rgb(0_0_0/0.04)] hover:shadow-soft',
           dragging && 'opacity-30',
         )}
       >

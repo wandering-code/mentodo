@@ -336,7 +336,7 @@ export function Editor({ cardId, content, onSave }) {
 
   // Cambios que llegan de otro dispositivo, solo si aquí no se está escribiendo
   useEffect(() => {
-    if (!editor || editor.isFocused || latest.current) return
+    if (!editor || editor.isDestroyed || editor.isFocused || latest.current) return
     const incoming = JSON.stringify(content || null)
     if (incoming !== JSON.stringify(editor.getJSON())) editor.commands.setContent(content || '', { emitUpdate: false })
   }, [content, editor])

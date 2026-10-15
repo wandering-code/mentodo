@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router'
 import { AnimatePresence, motion } from 'motion/react'
 import {
   ArrowDown, ArrowUp, Calendar, Columns3, Eye, EyeOff, Filter, Layers, List, Plus, Search, Settings2, SortAsc, Table2, Trash2, X,
 } from 'lucide-react'
 import { useStore } from '../lib/store'
+import { useCardNav } from '../lib/nav'
 import { fieldIcon } from '../lib/props'
 import { applyFilter, groupLabels, projectGroups, projectViews, SORT_FIELDS, visibleCards } from '../lib/cards'
 import { BoardView } from '../views/BoardView'
@@ -66,11 +67,7 @@ export function ProjectPage() {
     p.set('v', v.id)
     setParams(p, { replace: true })
   }
-  const openCard = (c) => {
-    const p = new URLSearchParams(params)
-    p.set('card', c.id)
-    setParams(p)
-  }
+  const { open: openCard } = useCardNav()
 
   const total = visibleCards(s, id)
   const done = total.filter((c) => c.done).length
@@ -87,23 +84,18 @@ export function ProjectPage() {
             ))}
             <NewViewButton project={project} onCreated={selectView} />
           </div>
-          <AnimatePresence initial={false}>
-            {searching && (
-              <motion.input
-                initial={{ width: 0, opacity: 0 }}
-                animate={{ width: 170, opacity: 1 }}
-                exit={{ width: 0, opacity: 0 }}
-                transition={spring}
+          {searching && (
+              <input
+                style={{ '--entra-desde': 'translateX(8px)', '--entra-dura': '200ms' }}
                 autoFocus
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 onBlur={() => !search && setSearching(false)}
                 onKeyDown={(e) => e.key === 'Escape' && (setSearch(''), setSearching(false))}
                 placeholder="Filtrar por título…"
-                className="h-8 rounded-lg bg-sunken px-2.5 text-[13.5px] outline-none placeholder:text-faint"
+                className="entra h-9 w-36 shrink-0 rounded-lg bg-sunken px-2.5 text-[16px] outline-none placeholder:text-faint sm:h-8 sm:w-44 sm:text-[13.5px]"
               />
             )}
-          </AnimatePresence>
           {!searching && (
             <IconButton label="Buscar en el proyecto" onClick={() => setSearching(true)}>
               <Search size={16} />
@@ -113,22 +105,43 @@ export function ProjectPage() {
         {view && <Toolbar project={project} view={view} />}
       </div>
 
-      <AnimatePresence mode="wait" initial={false}>
-        <motion.div
-          key={view?.id}
-          initial={{ opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, transition: { duration: 0.1 } }}
-          transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-          className="pt-3"
-        >
+      <div key={view?.id} className="entra pt-3" style={{ '--entra-desde': 'translateY(6px)', '--entra-dura': '240ms' }}>
           {view?.kind === 'board' && <BoardView project={project} view={view} cards={cards} onOpen={openCard} />}
           {view?.kind === 'table' && <TableView project={project} view={view} cards={cards} onOpen={openCard} />}
           {view?.kind === 'list' && <ListView project={project} view={view} cards={cards} onOpen={openCard} />}
           {view?.kind === 'calendar' && <CalendarView project={project} view={view} cards={cards} onOpen={openCard} />}
-        </motion.div>
-      </AnimatePresence>
+      </div>
     </div>
+  )
+}
+
+/* Texto editable en el sitio que crece hacia abajo en vez de cortarse */
+function AutoText({ defaultValue, onCommit, className, placeholder }) {
+  const ref = useRef(null)
+  const fit = () => {
+    const el = ref.current
+    if (el) {
+      el.style.height = 'auto'
+      el.style.height = el.scrollHeight + 'px'
+    }
+  }
+  useLayoutEffect(fit, [])
+  return (
+    <textarea
+      ref={ref}
+      rows={1}
+      defaultValue={defaultValue}
+      placeholder={placeholder}
+      onInput={fit}
+      onBlur={(e) => onCommit(e.target.value.replace(/\n/g, ' '))}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault()
+          e.currentTarget.blur()
+        }
+      }}
+      className={cx('block resize-none overflow-hidden bg-transparent outline-none', className)}
+    />
   )
 }
 
@@ -136,26 +149,22 @@ function ProjectHeader({ project, done, total, onSettings }) {
   const updateProject = useStore((s) => s.updateProject)
   const pct = total ? Math.round((done / total) * 100) : 0
   return (
-    <div className="px-4 pb-4 pt-14 sm:px-8 lg:pt-10">
+    <div className="px-4 pb-3 pt-5 sm:px-8 sm:pb-4 lg:pt-10">
       <div className="flex items-start gap-3">
-        <motion.div layoutId={`picon-${project.id}`} className="text-[34px] leading-none">
-          {project.icon}
-        </motion.div>
+        <div className="text-[30px] leading-none sm:text-[34px]">{project.icon}</div>
         <div className="min-w-0 flex-1">
-          <input
+          <AutoText
             key={project.id + project.name}
             defaultValue={project.name}
-            onBlur={(e) => e.target.value.trim() && e.target.value !== project.name && updateProject(project.id, { name: e.target.value.trim() })}
-            onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
-            className="w-full bg-transparent text-[28px] font-semibold leading-tight tracking-[-0.025em] outline-none"
+            onCommit={(v) => v.trim() && v !== project.name && updateProject(project.id, { name: v.trim() })}
+            className="w-full text-[24px] font-semibold leading-tight tracking-[-0.025em] sm:text-[28px]"
           />
-          <input
+          <AutoText
             key={project.id + 'd' + project.description}
             defaultValue={project.description}
             placeholder="Añade una descripción o el porqué del proyecto…"
-            onBlur={(e) => e.target.value !== project.description && updateProject(project.id, { description: e.target.value })}
-            onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
-            className="mt-1 w-full bg-transparent text-[14.5px] text-muted outline-none placeholder:text-faint"
+            onCommit={(v) => v !== project.description && updateProject(project.id, { description: v })}
+            className="mt-1 w-full text-[14.5px] text-muted placeholder:text-faint"
           />
         </div>
         <IconButton label="Ajustes del proyecto" onClick={onSettings}>
@@ -165,7 +174,7 @@ function ProjectHeader({ project, done, total, onSettings }) {
       {total > 0 && (
         <div className="mt-4 flex items-center gap-3">
           <div className="h-1.5 max-w-60 flex-1 overflow-hidden rounded-full bg-sunken">
-            <motion.div className="h-full rounded-full bg-accent" initial={false} animate={{ width: `${pct}%` }} transition={{ type: 'spring', stiffness: 120, damping: 22 }} />
+            <div className="h-full origin-left rounded-full bg-accent" style={{ transform: `scaleX(${pct / 100})`, transition: 'transform .6s cubic-bezier(.32,.72,0,1)' }} />
           </div>
           <span className="text-[12.5px] tabular-nums text-faint">
             {done}/{total} terminadas
@@ -272,7 +281,7 @@ function Toolbar({ project, view }) {
       {(view.kind === 'board' || view.kind === 'list') && (
         <button onClick={group.toggle} className={pill(false)}>
           <Layers size={14} />
-          {s.groups[cfg.group_by] ? `Agrupar: ${s.groups[cfg.group_by].name}` : 'Agrupar'}
+          {s.groups[cfg.group_by] ? <span><span className="max-sm:hidden">Agrupar: </span>{s.groups[cfg.group_by].name}</span> : 'Agrupar'}
         </button>
       )}
       {view.kind !== 'calendar' && (
@@ -287,7 +296,8 @@ function Toolbar({ project, view }) {
       </button>
       <button onClick={() => setCfg({ hide_done: !cfg.hide_done })} className={pill(cfg.hide_done)}>
         {cfg.hide_done ? <EyeOff size={14} /> : <Eye size={14} />}
-        {cfg.hide_done ? 'Ocultando terminadas' : 'Terminadas visibles'}
+        <span className="max-sm:hidden">{cfg.hide_done ? 'Ocultando terminadas' : 'Terminadas visibles'}</span>
+        <span className="sm:hidden">{cfg.hide_done ? 'Sin terminadas' : 'Terminadas'}</span>
       </button>
 
       <Popover open={group.open} anchor={group.anchor} onClose={group.close} width={220}>

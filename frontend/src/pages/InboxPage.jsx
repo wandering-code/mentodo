@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router'
 import { AnimatePresence, motion } from 'motion/react'
 import { ArrowRight, Inbox, Plus } from 'lucide-react'
 import { useStore } from '../lib/store'
+import { useCardNav } from '../lib/nav'
 import { CardRow } from '../components/CardRow'
 import { ProjectPicker } from '../components/Pickers'
 import { Empty, IconButton, Popover, usePopover } from '../components/ui'
@@ -11,17 +11,12 @@ import { Empty, IconButton, Popover, usePopover } from '../components/ui'
    de vez en cuando moviendo cada cosa a su proyecto (o borrándola). */
 export function InboxPage() {
   const s = useStore()
-  const [params, setParams] = useSearchParams()
   const [draft, setDraft] = useState('')
   const cards = useMemo(
     () => Object.values(s.cards).filter((c) => c.project_id === null && !s.hidden[c.id] && !c.done).sort((a, b) => b.created_at.localeCompare(a.created_at)),
     [s.cards, s.hidden],
   )
-  const openCard = (c) => {
-    const p = new URLSearchParams(params)
-    p.set('card', c.id)
-    setParams(p)
-  }
+  const { open: openCard } = useCardNav()
   const add = async (e) => {
     e.preventDefault()
     if (!draft.trim()) return
@@ -30,7 +25,7 @@ export function InboxPage() {
     await s.createCard({ title, project_id: null })
   }
   return (
-    <div className="mx-auto max-w-3xl px-4 pb-16 pt-14 sm:px-8 lg:pt-12">
+    <div className="mx-auto max-w-3xl px-4 pb-16 pt-6 sm:px-8 lg:pt-12">
       <h1 className="text-[30px] font-semibold tracking-[-0.03em]">Bandeja</h1>
       <p className="mt-1.5 text-[15px] text-muted">Primero captura, después organiza. Mueve cada cosa a su sitio cuando tengas un momento.</p>
       <form onSubmit={add} className="mt-6 flex h-11 items-center gap-3 rounded-xl border border-line bg-surface px-3.5 shadow-soft focus-within:border-[color-mix(in_oklab,var(--accent)_50%,var(--line))]">
@@ -40,7 +35,7 @@ export function InboxPage() {
       <div className="mt-5">
         <AnimatePresence initial={false}>
           {cards.map((c) => (
-            <motion.div key={c.id} layout="position" exit={{ opacity: 0, x: 40, transition: { duration: 0.2 } }} className="group relative">
+            <motion.div key={c.id} layout="position" exit={{ opacity: 0, transform: 'translateX(40px)', transition: { duration: 0.2 } }} className="group relative">
               <CardRow card={c} onOpen={openCard} />
               <MoveButton card={c} />
             </motion.div>

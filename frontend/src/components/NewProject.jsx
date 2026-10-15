@@ -25,8 +25,8 @@ export function NewProjectModal({ open, onClose }) {
     const p = await createProject({ name: name.trim(), icon })
     setBusy(false)
     if (p) {
-      onClose()
       nav(`/p/${p.id}`)
+      onClose()
     }
   }
 

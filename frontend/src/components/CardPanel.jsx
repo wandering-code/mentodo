@@ -1,26 +1,57 @@
-import { useEffect, useRef, useState } from 'react'
+import { Component, lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { AnimatePresence, motion } from 'motion/react'
 import { formatDistanceToNowStrict } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { CircleCheckBig, Folder, Maximize2, Minimize2, MoreHorizontal, Trash2, X } from 'lucide-react'
 import { useStore } from '../lib/store'
-import { Editor } from './Editor'
 import { ProjectPicker } from './Pickers'
 import { Properties } from './Properties'
-import { Checkbox, cx, IconButton, MenuItem, Popover, softSpring, useIsMobile, usePopover } from './ui'
+import { Checkbox, cx, IconButton, MenuItem, Popover, Scrim, useDragToClose, useIsMobile, usePopover } from './ui'
+import { ARRIVE, css, LEAVE, useLatest, usePresence } from '../lib/layers'
+
+// El editor (TipTap) es lo más pesado de la app: se descarga al abrir la
+// primera tarjeta, no en el arranque
+const loadEditor = () => import('./Editor')
+const Editor = lazy(() => loadEditor().then((m) => ({ default: m.Editor })))
+// …y se precarga en cuanto la app se queda ociosa, para que la primera
+// tarjeta tampoco espere
+;(window.requestIdleCallback || ((f) => setTimeout(f, 2500)))(() => loadEditor())
+
+/* Si el editor fallara, falla solo él: el resto de la tarjeta y de la app
+   siguen funcionando */
+class EditorBoundary extends Component {
+  state = { failed: false }
+  static getDerivedStateFromError() {
+    return { failed: true }
+  }
+  render() {
+    if (!this.state.failed) return this.props.children
+    return (
+      <p className="py-6 text-[14px] text-muted">
+        No se pudieron cargar las notas.{' '}
+        <button className="text-accent underline underline-offset-4" onClick={() => this.setState({ failed: false })}>
+          Reintentar
+        </button>
+      </p>
+    )
+  }
+}
 
 export function CardPanel({ cardId, onClose }) {
-  const card = useStore((s) => (cardId ? s.cards[cardId] : null))
+  const live = useStore((s) => (cardId ? s.cards[cardId] : null))
+  // Mientras se cierra, se sigue pintando la última tarjeta (no un hueco)
+  const card = useLatest(live)
   const mobile = useIsMobile()
   const [wide, setWide] = useState(() => localStorage.getItem('mentodo:wide') === '1')
-  const open = !!card
+  const open = !!live
+  const { mounted, shown } = usePresence(open)
+  const drag = useDragToClose(onClose)
 
+  // Escape cierra la tarjeta si no hay otra capa (popover, hoja…) encima: las
+  // capas lo capturan antes y no lo dejan llegar aquí
   useEffect(() => {
     if (!open) return
-    const onKey = (e) => {
-      if (e.key === 'Escape' && !document.querySelector('[data-popover-open]')) onClose()
-    }
+    const onKey = (e) => e.key === 'Escape' && onClose()
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [open, onClose])
@@ -33,27 +64,40 @@ export function CardPanel({ cardId, onClose }) {
       return !w
     })
 
+  if (!mounted || !card) return null
+  const t = shown ? ARRIVE : LEAVE
   return createPortal(
-    <AnimatePresence>
-      {open && (
-        <motion.div key="card" className="fixed inset-0 z-40" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-          <div className="absolute inset-0 bg-black/20 sm:bg-black/15" onClick={onClose} />
-          <motion.section
-            initial={mobile ? { y: '100%' } : { x: 40, opacity: 0 }}
-            animate={mobile ? { y: 0 } : { x: 0, opacity: 1 }}
-            exit={mobile ? { y: '100%' } : { x: 40, opacity: 0 }}
-            transition={softSpring}
-            className={cx(
-              'absolute flex flex-col bg-surface shadow-float',
-              mobile ? 'inset-x-0 bottom-0 top-[max(env(safe-area-inset-top),12px)] rounded-t-2xl border-t border-line' : 'inset-y-2 right-2 rounded-2xl border border-line',
-              !mobile && (wide ? 'left-2 lg:left-[12vw]' : 'w-[min(620px,calc(100vw-16px))]'),
-            )}
-          >
-            <CardBody card={card} onClose={onClose} mobile={mobile} wide={wide} onToggleWide={toggleWide} />
-          </motion.section>
-        </motion.div>
-      )}
-    </AnimatePresence>,
+    <>
+      <Scrim shown={shown} onClick={onClose} z="z-40" />
+      <section
+        role="dialog"
+        className={cx(
+          'fixed z-40 flex flex-col bg-surface shadow-float',
+          mobile ? 'inset-x-0 bottom-0 top-[max(env(safe-area-inset-top),10px)] rounded-t-[20px] border-t border-line' : 'inset-y-2 right-2 rounded-2xl border border-line',
+          !mobile && (wide ? 'left-2 lg:left-[12vw]' : 'w-[min(620px,calc(100vw-16px))]'),
+        )}
+        style={
+          mobile
+            ? {
+                transform: shown ? `translateY(${drag.offset}px)` : 'translateY(100%)',
+                transition: drag.dragging ? 'none' : css(t, ['transform']),
+                willChange: 'transform',
+              }
+            : {
+                transform: shown ? 'none' : 'translateX(28px)',
+                opacity: shown ? 1 : 0,
+                transition: css(t),
+              }
+        }
+      >
+        {mobile && (
+          <div {...drag.handlers} className="flex shrink-0 cursor-grab justify-center pb-0.5 pt-2.5">
+            <div className="h-[5px] w-10 rounded-full bg-line" />
+          </div>
+        )}
+        <CardBody card={card} onClose={onClose} mobile={mobile} wide={wide} onToggleWide={toggleWide} />
+      </section>
+    </>,
     document.body,
   )
 }
@@ -88,7 +132,7 @@ function CardBody({ card, onClose, mobile, wide, onToggleWide }) {
 
   return (
     <>
-      <header className="flex items-center gap-1 px-3 pt-3">
+      <header className="flex items-center gap-1 px-2 pt-1 sm:px-3 sm:pt-3">
         <button onClick={move.toggle} className="flex h-8 min-w-0 items-center gap-1.5 rounded-lg px-2 text-[13px] text-muted transition-colors hover:bg-hover hover:text-ink">
           <span>{project ? project.icon : '📥'}</span>
           <span className="truncate">{project ? project.name : 'Bandeja'}</span>
@@ -134,7 +178,11 @@ function CardBody({ card, onClose, mobile, wide, onToggleWide }) {
           <Properties card={card} project={project} onMove={move.toggle} />
 
           <div className="my-5 h-px bg-line" />
-          <Editor cardId={card.id} content={card.content} onSave={(content) => updateCard(card.id, { content })} />
+          <EditorBoundary key={card.id}>
+            <Suspense fallback={<div className="min-h-[160px]" />}>
+              <Editor cardId={card.id} content={card.content} onSave={(content) => updateCard(card.id, { content })} />
+            </Suspense>
+          </EditorBoundary>
         </div>
       </div>
 

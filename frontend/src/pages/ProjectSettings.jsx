@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router'
-import { Reorder, motion } from 'motion/react'
+import { Reorder, motion, useDragControls } from 'motion/react'
 import { Archive, ArchiveRestore, ArrowLeft, CircleCheck, Eye, EyeOff, GripVertical, Plus, Trash2 } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { groupLabels, projectGroups } from '../lib/cards'
@@ -20,12 +20,21 @@ export function SettingsSection({ title, description, children }) {
   )
 }
 
-function LabelRow({ label, isStatus }) {
+function LabelRow({ label, isStatus, onDrop }) {
   const { updateLabel, deleteLabel } = useStore.getState()
   const color = usePopover()
+  // Se reordena solo desde el asa: con el gesto en toda la fila, en el móvil
+  // no se podía hacer scroll por la página pasando el dedo por encima
+  const controls = useDragControls()
   return (
-    <Reorder.Item value={label.id} transition={spring} className="group flex items-center gap-2 rounded-lg bg-surface py-1 pr-1">
-      <GripVertical size={15} className="cursor-grab text-faint opacity-0 group-hover:opacity-100 max-sm:opacity-100" />
+    <Reorder.Item value={label.id} transition={spring} dragListener={false} dragControls={controls} onDragEnd={onDrop} className="group flex items-center gap-2 rounded-lg bg-surface py-1 pr-1">
+      <span
+        onPointerDown={(e) => controls.start(e)}
+        style={{ touchAction: 'none' }}
+        className="grid h-9 w-5 shrink-0 cursor-grab place-items-center text-faint opacity-0 group-hover:opacity-100 max-sm:opacity-100"
+      >
+        <GripVertical size={15} />
+      </span>
       <button onClick={color.toggle} data-c={label.color} className="lbl-dot size-4 shrink-0 rounded-full" aria-label="Color" />
       <input
         defaultValue={label.name}
@@ -106,8 +115,8 @@ function GroupCard({ group }) {
           </label>
         )}
       </div>
-      <Reorder.Group axis="y" values={ids} onReorder={setOrder} className="mt-2 flex flex-col" onPointerUp={commit}>
-        {ids.map((id) => s.labels[id] && <LabelRow key={id} label={s.labels[id]} isStatus={group.is_status} />)}
+      <Reorder.Group axis="y" values={ids} onReorder={setOrder} className="mt-2 flex flex-col">
+        {ids.map((id) => s.labels[id] && <LabelRow key={id} label={s.labels[id]} isStatus={group.is_status} onDrop={commit} />)}
       </Reorder.Group>
       <form onSubmit={add} className="mt-1 flex items-center gap-2 pl-6">
         <Plus size={15} className="text-faint" />
@@ -208,7 +217,7 @@ export function ProjectSettings() {
   if (!project) return s.status === 'ready' ? <Navigate to="/" replace /> : null
 
   return (
-    <div className="mx-auto max-w-3xl px-4 pb-24 pt-14 sm:px-8 lg:pt-10">
+    <div className="mx-auto max-w-3xl px-4 pb-24 pt-6 sm:px-8 lg:pt-10">
       <button onClick={() => nav(`/p/${id}`)} className="mb-4 inline-flex items-center gap-1.5 text-[13.5px] text-muted hover:text-ink">
         <ArrowLeft size={15} /> {project.icon} {project.name}
       </button>

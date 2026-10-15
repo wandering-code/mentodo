@@ -34,6 +34,9 @@
   --danger: #c4513f;
   --shadow: 0 1px 2px rgb(40 35 25 / 0.05), 0 6px 20px -8px rgb(40 35 25 / 0.12);
   --shadow-lg: 0 2px 6px rgb(40 35 25 / 0.06), 0 24px 60px -20px rgb(40 35 25 / 0.28);
+  /* Velo detrás de las capas: tinta cálida, no negro puro (sobre crema corta demasiado) */
+  --scrim: rgb(36 31 26 / 0.22);
+  --scrim-strong: rgb(36 31 26 / 0.32);
   color-scheme: light;
 }
 
@@ -49,6 +52,8 @@
   --danger: #e2735f;
   --shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 8px 24px -10px rgb(0 0 0 / 0.5);
   --shadow-lg: 0 2px 8px rgb(0 0 0 / 0.35), 0 28px 70px -20px rgb(0 0 0 / 0.7);
+  --scrim: rgb(0 0 0 / 0.45);
+  --scrim-strong: rgb(0 0 0 / 0.6);
   color-scheme: dark;
 }
 
@@ -112,6 +117,13 @@ body {
   outline: 2px solid color-mix(in oklab, var(--accent) 60%, transparent);
   outline-offset: 2px;
   border-radius: 6px;
+}
+/* Los campos de texto ya marcan el foco a su manera (borde, fondo, cursor) */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+[contenteditable]:focus-visible {
+  outline: none;
 }
 
 * {
@@ -185,6 +197,29 @@ input[type='time']::-webkit-calendar-picker-indicator {
   cursor: pointer;
 }
 [data-theme='dark'] input::-webkit-calendar-picker-indicator { filter: invert(1); }
+
+/* Entrada de pantallas y bloques grandes: keyframe CSS (GPU, frecuencia nativa) */
+@keyframes entra {
+  from { opacity: 0; transform: var(--entra-desde, translateY(8px)); }
+}
+.entra { animation: entra var(--entra-dura, 280ms) cubic-bezier(0.22, 1, 0.36, 1) var(--entra-espera, 0ms) backwards; }
+
+@keyframes latido {
+  50% { transform: scale(0.92); opacity: 0.7; }
+}
+
+/* El check que se marca da un pequeño latido */
+@keyframes chk-pop {
+  40% { transform: scale(0.84); }
+  75% { transform: scale(1.08); }
+}
+.chk-pop { animation: chk-pop 0.32s cubic-bezier(0.22, 1, 0.36, 1); }
+
+/* Lo que se arrastra con el dedo: sin menú contextual ni selección de texto al
+   mantener pulsado (iOS los abría encima del gesto) */
+.lift { animation: lift 0.22s cubic-bezier(0.32, 0.72, 0, 1) forwards; }
+@keyframes lift { to { transform: rotate(1.5deg) scale(1.03); } }
+.touch-drag { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }

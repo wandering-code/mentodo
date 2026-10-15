@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react'
-import { AnimatePresence, motion } from 'motion/react'
+import { AnimatePresence } from 'motion/react'
 import { ChevronRight, Plus } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { groupLabels, sortCards } from '../lib/cards'
 import { CardRow } from '../components/CardRow'
-import { cx, spring } from '../components/ui'
+import { Collapse, cx } from '../components/ui'
 
 function Section({ title, cards, onOpen, hideGroupId, onAdd, defaultOpen = true }) {
   const [open, setOpen] = useState(defaultOpen)
@@ -12,15 +12,11 @@ function Section({ title, cards, onOpen, hideGroupId, onAdd, defaultOpen = true 
   return (
     <section className="mb-6">
       <button onClick={() => setOpen((v) => !v)} className="mb-1 flex h-8 items-center gap-1.5 rounded-lg pr-2 text-left">
-        <motion.span animate={{ rotate: open ? 90 : 0 }} transition={spring} className="text-faint">
-          <ChevronRight size={15} />
-        </motion.span>
+        <ChevronRight size={15} className="text-faint" style={{ transform: `rotate(${open ? 90 : 0}deg)`, transition: 'transform .25s cubic-bezier(.32,.72,0,1)' }} />
         {title}
         <span className="ml-1 text-[12.5px] tabular-nums text-faint">{cards.length}</span>
       </button>
-      <AnimatePresence initial={false}>
-        {open && (
-          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }} className="overflow-hidden">
+      <Collapse open={open}>
             <AnimatePresence initial={false}>
               {cards.map((c) => (
                 <CardRow key={c.id} card={c} onOpen={onOpen} hideGroupId={hideGroupId} />
@@ -40,9 +36,7 @@ function Section({ title, cards, onOpen, hideGroupId, onAdd, defaultOpen = true 
                 <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Añadir…" className="flex-1 bg-transparent text-[14px] text-ink outline-none placeholder:text-faint" />
               </form>
             )}
-          </motion.div>
-        )}
-      </AnimatePresence>
+      </Collapse>
     </section>
   )
 }
