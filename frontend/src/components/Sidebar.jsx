@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router'
 import { motion } from 'motion/react'
 import { SortableList, SortableRow } from './Sortable'
-import { Archive, Bell, ChevronRight, CircleCheckBig, Inbox, NotebookText, Plus, Search, Settings, Shield, Sun } from 'lucide-react'
+import { Archive, Bell, ChevronRight, CircleCheckBig, Inbox, NotebookText, Plus, Search, Settings, Shield, Sun, CalendarRange } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { Collapse, cx, IconButton, IS_MAC, Kbd, spring } from './ui'
 import { Logo, Wordmark } from './Logo'
@@ -102,6 +102,9 @@ export function Sidebar({ onSearch, onNewProject, onNotifications, onNavigate, t
         </NavItem>
         <NavItem touch={touch} to="/apuntes" icon={NotebookText} onClick={onNavigate}>
           Apuntes
+        </NavItem>
+        <NavItem touch={touch} to="/semana" icon={CalendarRange} onClick={onNavigate}>
+          Semana
         </NavItem>
       </div>
 

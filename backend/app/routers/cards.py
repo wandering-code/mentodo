@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from ..db import get_db
 from ..deps import Emitter, emitter
-from ..models import Card, Label, LabelGroup
+from ..models import Card, CardEvent, Label, LabelGroup
 from ..ownership import own_card, own_project
 from ..serialize import card_out
 
@@ -364,6 +364,20 @@ class DuplicateIn(BaseModel):
     with_content: bool = True
 
 
+@router.get("/events/postpones")
+def postpones(start: str, end: str, em: Emitter = Depends(emitter), db: Session = Depends(get_db)):
+    """Aplazamientos en un rango (para la revisión semanal)."""
+    from datetime import date as _date, time as _time
+    try:
+        a = datetime.combine(_date.fromisoformat(start), _time.min, timezone.utc)
+        b = datetime.combine(_date.fromisoformat(end), _time.max, timezone.utc)
+    except ValueError:
+        raise HTTPException(422, "Fechas no válidas")
+    rows = db.scalars(select(CardEvent).where(CardEvent.user_id == em.user.id, CardEvent.kind == "postpone",
+                                              CardEvent.at >= a, CardEvent.at <= b).order_by(CardEvent.at)).all()
+    return [{"card_id": r.card_id, "at": r.at.isoformat(), **(r.data or {})} for r in rows]
+
+
 @router.post("/{card_id}/duplicate", status_code=201)
 def duplicate_card(card_id: int, body: DuplicateIn, em: Emitter = Depends(emitter), db: Session = Depends(get_db)):
     """Copia de una tarjeta: mismas propiedades (proyecto, etiquetas, fechas,
@@ -408,6 +422,13 @@ def patch_card(card_id: int, body: CardPatch, em: Emitter = Depends(emitter), db
         c.project_id = data["project_id"]
         c.labels = []  # las etiquetas y los campos son de cada proyecto
         c.values = {}
+    # Aplazamiento: una tarea pendiente cuya fecha pasa a ser más tarde (no
+    # cuenta ponerle fecha por primera vez ni adelantarla)
+    if ("due_at" in data and data["due_at"] and c.due_at and not c.done and not c.is_template
+            and data["due_at"].date() > c.due_at.date()):
+        c.postpone_count = (c.postpone_count or 0) + 1
+        db.add(CardEvent(user_id=em.user.id, card_id=c.id, kind="postpone",
+                         data={"from": c.due_at.isoformat(), "to": data["due_at"].isoformat()}))
     for k in ("title", "content", "in_todo", "due_at", "due_all_day", "remind_at", "estimate_minutes", "position",
               "hidden_props", "template", "recurrence"):
         if k in data and not (k in ("hidden_props", "template") and data[k] is None):

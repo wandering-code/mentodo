@@ -45,6 +45,7 @@ def card_out(c: Card):
         "label_ids": sorted(l.id for l in c.labels),
         "values": c.values or {}, "hidden_props": c.hidden_props or [],
         "is_template": c.is_template, "template": c.template, "recurrence": c.recurrence,
+        "postpone_count": c.postpone_count or 0,
         "created_at": iso(c.created_at), "updated_at": iso(c.updated_at),
     }
 

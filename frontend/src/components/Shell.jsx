@@ -192,7 +192,7 @@ function useTitle() {
       </span>
     ) : ''
   }
-  return { '/hoy': 'Hoy', '/': 'To Do', '/inbox': 'Bandeja', '/apuntes': 'Apuntes', '/ajustes': 'Ajustes', '/admin': 'Administración' }[loc.pathname] || ''
+  return { '/hoy': 'Hoy', '/': 'To Do', '/inbox': 'Bandeja', '/apuntes': 'Apuntes', '/semana': 'Semana', '/ajustes': 'Ajustes', '/admin': 'Administración' }[loc.pathname] || ''
 }
 
 function TopBar({ onMenu, onNotifs }) {

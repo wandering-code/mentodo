@@ -118,6 +118,8 @@ class Card(Base):
     template = Column(JSON, nullable=True)
     # Repetición: {"freq": "daily|weekly|monthly", "interval": 1, "weekdays": [0..6]}
     recurrence = Column(JSON, nullable=True)
+    # Cuántas veces se ha aplazado (fecha movida a más tarde estando pendiente)
+    postpone_count = Column(Integer, nullable=False, default=0, server_default="0")
     created_at = Column(DateTime(timezone=True), default=now)
     updated_at = Column(DateTime(timezone=True), default=now, onupdate=now)
 
@@ -148,6 +150,17 @@ class Note(Base):
     position = Column(Float, nullable=False, default=0)
     created_at = Column(DateTime(timezone=True), default=now)
     updated_at = Column(DateTime(timezone=True), default=now, onupdate=now)
+
+
+class CardEvent(Base):
+    """Historial mínimo para la revisión semanal: de momento, aplazamientos."""
+    __tablename__ = "card_events"
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    card_id = Column(Integer, ForeignKey("cards.id", ondelete="CASCADE"), nullable=False, index=True)
+    kind = Column(String(12), nullable=False)  # postpone
+    data = Column(JSON, nullable=False, default=dict)  # {"from": iso, "to": iso}
+    at = Column(DateTime(timezone=True), default=now, index=True)
 
 
 class CardLink(Base):
