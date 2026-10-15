@@ -51,6 +51,8 @@ class Project(Base):
     prop_names = Column(JSON, nullable=False, default=dict)
     # Orden de las propiedades en tarjeta y tabla (mismas claves que hidden_props)
     prop_order = Column(JSON, nullable=False, default=list)
+    # Sitio de la pestaña «Apuntes» entre las vistas (null = al final)
+    notes_tab_position = Column(Float, nullable=True)
     created_at = Column(DateTime(timezone=True), default=now)
     updated_at = Column(DateTime(timezone=True), default=now, onupdate=now)
 

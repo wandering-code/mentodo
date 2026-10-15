@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router'
 import { AnimatePresence, motion } from 'motion/react'
 import {
-  ArrowDown, ArrowUp, Calendar, ChartNoAxesColumn, Columns3, NotebookText, Eye, EyeOff, Filter, Layers, List, Plus, Search, Settings2, SortAsc, Table2, Trash2, X,
+  ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Calendar, ChartNoAxesColumn, Columns3, NotebookText, Eye, EyeOff, Filter, Layers, List, Plus, Search, Settings2, SortAsc, Table2, Trash2, X,
 } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { useCardNav } from '../lib/nav'
@@ -14,6 +14,8 @@ import { ListView } from '../views/ListView'
 import { CalendarView } from '../views/CalendarView'
 import { ReportView } from '../views/ReportView'
 import { NotesBoard } from '../components/Notes'
+import { SortableList, SortableRow } from '../components/Sortable'
+import { arrayMove } from '@dnd-kit/sortable'
 import { Button, cx, Divider, IconButton, LabelChip, MenuItem, MenuLabel, Popover, spring, Toggle, usePopover } from '../components/ui'
 
 export const VIEW_KINDS = [
@@ -47,6 +49,29 @@ export function ProjectPage() {
   const [search, setSearch] = useState('')
   const [searching, setSearching] = useState(false)
   const notesCount = useMemo(() => Object.values(s.notes).filter((n) => n.project_id === id).length, [s.notes, id])
+
+  // Pestañas en su orden: las vistas por su posición y «Apuntes» donde se
+  // haya colocado (al final si nunca se ha movido)
+  const tabs = useMemo(() => {
+    const list = views.map((v) => ({ id: `v${v.id}`, view: v, pos: v.position }))
+    list.push({ id: 'notes', pos: project?.notes_tab_position ?? Infinity })
+    return list.sort((a, b) => a.pos - b.pos)
+  }, [views, project?.notes_tab_position])
+  const tabIds = tabs.map((t) => t.id)
+  const reorderTabs = (ids) =>
+    ids.forEach((tid, i) => {
+      if (tid === 'notes') {
+        if (project.notes_tab_position !== i) s.updateProject(project.id, { notes_tab_position: i })
+      } else {
+        const v = s.views[Number(tid.slice(1))]
+        if (v && v.position !== i) s.updateView(v.id, { position: i })
+      }
+    })
+  const moveTab = (tid, dir) => {
+    const i = tabIds.indexOf(tid)
+    if (i + dir < 0 || i + dir >= tabIds.length) return
+    reorderTabs(arrayMove(tabIds, i, i + dir))
+  }
 
   useEffect(() => {
     try {
@@ -90,10 +115,24 @@ export function ProjectPage() {
               no, ese píxel daba un mini scroll vertical. touch-pan-x: con el
               dedo, la fila solo se desliza de lado (no arrastra la página) */}
           <div className="-mb-px flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto touch-pan-x overflow-y-hidden overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {views.map((v) => (
-              <ViewTab key={v.id} view={v} active={v.id === view?.id} onSelect={() => selectView(v)} canDelete={views.length > 1} />
-            ))}
-            <NotesTab active={notesTab} count={notesCount} onSelect={() => selectView({ id: 'notes' })} />
+            {/* Las pestañas se ordenan arrastrando (en el móvil, manteniendo
+                pulsada) o con «Mover…» en su menú */}
+            <SortableList ids={tabIds} onReorder={reorderTabs} handle={false} horizontal>
+              {() =>
+                tabs.map((t, i) => (
+                  <SortableRow key={t.id} id={t.id} handle={false} className="shrink-0 touch-drag">
+                    {() => {
+                      const move = { left: i > 0 ? () => moveTab(t.id, -1) : null, right: i < tabs.length - 1 ? () => moveTab(t.id, 1) : null }
+                      return t.id === 'notes' ? (
+                        <NotesTab active={notesTab} count={notesCount} onSelect={() => selectView({ id: 'notes' })} move={move} />
+                      ) : (
+                        <ViewTab view={t.view} active={t.view.id === view?.id} onSelect={() => selectView(t.view)} canDelete={views.length > 1} move={move} />
+                      )
+                    }}
+                  </SortableRow>
+                ))
+              }
+            </SortableList>
             <NewViewButton project={project} onCreated={selectView} />
           </div>
           {searching && (
@@ -204,7 +243,7 @@ function ProjectHeader({ project, done, total, onSettings }) {
   )
 }
 
-function ViewTab({ view, active, onSelect, canDelete }) {
+function ViewTab({ view, active, onSelect, canDelete, move }) {
   const Icon = kindIcon(view.kind)
   const menu = usePopover()
   const { updateView, deleteView } = useStore.getState()
@@ -227,6 +266,7 @@ function ViewTab({ view, active, onSelect, canDelete }) {
             className="h-9 w-full rounded-lg bg-sunken px-2.5 text-[14px] outline-none"
           />
         </div>
+        <MoveItems move={move} close={menu.close} />
         <MenuLabel>Tipo de vista</MenuLabel>
         {VIEW_KINDS.map((k) => (
           <MenuItem key={k.id} icon={k.icon} active={view.kind === k.id} onClick={() => updateView(view.id, { kind: k.id })}>
@@ -246,17 +286,38 @@ function ViewTab({ view, active, onSelect, canDelete }) {
   )
 }
 
-function NotesTab({ active, count, onSelect }) {
+function NotesTab({ active, count, onSelect, move }) {
+  const menu = usePopover()
   return (
-    <button
-      onClick={onSelect}
-      className={cx('relative flex h-10 items-center gap-1.5 whitespace-nowrap px-2.5 text-[13.5px] transition-colors', active ? 'text-ink' : 'text-muted hover:text-ink')}
-    >
-      <NotebookText size={15} />
-      Apuntes
-      {count > 0 && <span className="text-[12px] tabular-nums text-faint">{count}</span>}
-      {active && <motion.span layoutId="view-underline" transition={spring} className="absolute inset-x-1.5 bottom-0 h-[2px] rounded-full bg-ink" />}
-    </button>
+    <>
+      <button
+        onClick={(e) => (active ? menu.toggle(e) : onSelect())}
+        className={cx('relative flex h-10 items-center gap-1.5 whitespace-nowrap px-2.5 text-[13.5px] transition-colors', active ? 'text-ink' : 'text-muted hover:text-ink')}
+      >
+        <NotebookText size={15} />
+        Apuntes
+        {count > 0 && <span className="text-[12px] tabular-nums text-faint">{count}</span>}
+        {active && <motion.span layoutId="view-underline" transition={spring} className="absolute inset-x-1.5 bottom-0 h-[2px] rounded-full bg-ink" />}
+      </button>
+      <Popover open={menu.open} anchor={menu.anchor} onClose={menu.close} width={230}>
+        <MoveItems move={move} close={menu.close} />
+      </Popover>
+    </>
+  )
+}
+
+function MoveItems({ move, close }) {
+  if (!move || (!move.left && !move.right)) return null
+  return (
+    <>
+      <MenuItem icon={ArrowLeft} onClick={() => (close(), move.left())} className={move.left ? '' : 'pointer-events-none opacity-40'}>
+        Mover a la izquierda
+      </MenuItem>
+      <MenuItem icon={ArrowRight} onClick={() => (close(), move.right())} className={move.right ? '' : 'pointer-events-none opacity-40'}>
+        Mover a la derecha
+      </MenuItem>
+      <Divider />
+    </>
   )
 }
 

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { closestCenter, DndContext, KeyboardSensor, MouseSensor, PointerSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core'
-import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
+import { arrayMove, horizontalListSortingStrategy, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { haptic } from '../lib/layers'
 
@@ -16,7 +16,7 @@ import { haptic } from '../lib/layers'
 // de un arrastre (si no, soltar un proyecto en la barra lateral lo abría)
 let lastDrop = 0
 
-export function SortableList({ ids, onReorder, children, handle = true }) {
+export function SortableList({ ids, onReorder, children, handle = true, horizontal = false }) {
   const [active, setActive] = useState(null)
   const sensors = useSensors(
     ...(handle
@@ -28,7 +28,7 @@ export function SortableList({ ids, onReorder, children, handle = true }) {
     <DndContext
       sensors={sensors}
       collisionDetection={closestCenter}
-      modifiers={[({ transform }) => ({ ...transform, x: 0 })]}
+      modifiers={[({ transform }) => (horizontal ? { ...transform, y: 0 } : { ...transform, x: 0 })]}
       onDragStart={(e) => (haptic(8), setActive(e.active.id))}
       onDragCancel={() => setActive(null)}
       onDragEnd={({ active: a, over }) => {
@@ -38,7 +38,7 @@ export function SortableList({ ids, onReorder, children, handle = true }) {
         onReorder(arrayMove(ids, ids.indexOf(a.id), ids.indexOf(over.id)))
       }}
     >
-      <SortableContext items={ids} strategy={verticalListSortingStrategy}>
+      <SortableContext items={ids} strategy={horizontal ? horizontalListSortingStrategy : verticalListSortingStrategy}>
         {children({ active })}
       </SortableContext>
     </DndContext>
