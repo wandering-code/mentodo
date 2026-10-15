@@ -5,6 +5,7 @@ import { es } from 'date-fns/locale'
 import { ArrowLeft, FileText, Folder, ListRestart, MoreHorizontal, Pin, PinOff, Plus, Search, Trash2 } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { ProjectPicker } from './Pickers'
+import { SortableList, SortableRow } from './Sortable'
 import { Button, cx, Empty, IconButton, MenuItem, Popover, useIsMobile, usePopover } from './ui'
 
 const Editor = lazy(() => import('./Editor').then((m) => ({ default: m.Editor })))
@@ -51,6 +52,7 @@ export function NotesBoard({ projectId = null }) {
   const notesMap = useStore((s) => s.notes)
   const projects = useStore((s) => s.projects)
   const createNote = useStore((s) => s.createNote)
+  const updateNote = useStore((s) => s.updateNote)
   const [params, setParams] = useSearchParams()
   const mobile = useIsMobile(768)
   const nav = useNavigate()
@@ -66,7 +68,9 @@ export function NotesBoard({ projectId = null }) {
     else if (filter !== 'all') list = list.filter((n) => n.project_id === Number(filter))
     const term = q.trim().toLowerCase()
     if (term) list = list.filter((n) => n.title.toLowerCase().includes(term) || noteText(n).toLowerCase().includes(term))
-    return list.sort((a, b) => Number(b.pinned) - Number(a.pinned) || (b.updated_at || '').localeCompare(a.updated_at || ''))
+    // Orden manual: primero los fijados y luego el resto, cada grupo en el
+    // orden en que se hayan colocado arrastrando
+    return list.sort((a, b) => Number(b.pinned) - Number(a.pinned) || a.position - b.position || b.id - a.id)
   }, [notesMap, projectId, filter, q])
 
   const open = (n) => {
@@ -87,6 +91,55 @@ export function NotesBoard({ projectId = null }) {
     return Object.values(projects).filter((p) => ids.has(p.id))
   }, [notesMap, projects])
 
+  const pinned = notes.filter((n) => n.pinned)
+  const others = notes.filter((n) => !n.pinned)
+
+  // Reordenar dentro de un grupo reparte entre esos apuntes las MISMAS
+  // posiciones que ya tenían: así no se descoloca nada respecto a los apuntes
+  // que no se ven (otros proyectos, otro filtro)
+  const reorder = (group) => (ids) => {
+    const slots = group.map((n) => n.position).sort((a, b) => a - b)
+    ids.forEach((id, i) => {
+      const n = notesMap[id]
+      if (n && n.position !== slots[i]) updateNote(id, { position: slots[i] })
+    })
+  }
+
+  // Funciones de pintado (no componentes): si fueran componentes definidos
+  // aquí dentro, cada render los recrearía y un arrastre en curso se perdería
+  const noteRow = (n) => (
+    <button
+      key={n.id}
+      onClick={() => open(n)}
+      className={cx('flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors active:bg-hover', current?.id === n.id && !mobile ? 'bg-hover' : 'hover:bg-hover')}
+    >
+      <span className="text-[18px] leading-none">{n.icon}</span>
+      <span className="min-w-0 flex-1">
+        <span className="flex items-center gap-1.5">
+          <span className={cx('truncate text-[15px] font-medium sm:text-[14px]', !n.title && 'text-faint')}>{n.title || 'Sin título'}</span>
+          {n.pinned && <Pin size={12} className="shrink-0 text-accent" />}
+        </span>
+        {!projectId && (
+          <span className="mt-0.5 block truncate text-[12.5px] text-faint">
+            {n.project_id ? `${projects[n.project_id]?.icon} ${projects[n.project_id]?.name}` : 'General'}
+          </span>
+        )}
+      </span>
+    </button>
+  )
+
+  const sortableNotes = (group) => (
+    <SortableList ids={group.map((n) => n.id)} onReorder={reorder(group)} handle={false}>
+      {() =>
+        group.map((n) => (
+          <SortableRow key={n.id} id={n.id} handle={false} className="touch-drag rounded-xl data-[dragging]:bg-surface data-[dragging]:shadow-float">
+            {() => noteRow(n)}
+          </SortableRow>
+        ))
+      }
+    </SortableList>
+  )
+
   const list = (
     <div className={cx('flex min-w-0 flex-col', !mobile && 'w-[300px] shrink-0 border-r border-line pr-3')}>
       <div className="flex items-center gap-2">
@@ -94,7 +147,7 @@ export function NotesBoard({ projectId = null }) {
           <Search size={15} className="text-faint" />
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar en apuntes…" className="min-w-0 flex-1 bg-transparent text-[16px] outline-none placeholder:text-faint sm:text-[14px]" />
         </div>
-        <Button variant="primary" aria-label="Nuevo apunte" title="Nuevo apunte" onClick={create} className="w-10 shrink-0 px-0 sm:w-9">
+        <Button variant="primary" aria-label="Nuevo apunte" title="Nuevo apunte" onClick={create} className="w-10 shrink-0 px-0! sm:w-9">
           <Plus size={18} />
         </Button>
       </div>
@@ -116,26 +169,22 @@ export function NotesBoard({ projectId = null }) {
         </div>
       )}
       <div className="mt-2 flex flex-col">
-        {notes.map((n) => (
-          <button
-            key={n.id}
-            onClick={() => open(n)}
-            className={cx('flex items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors active:bg-hover', current?.id === n.id && !mobile ? 'bg-hover' : 'hover:bg-hover')}
-          >
-            <span className="text-[18px] leading-none">{n.icon}</span>
-            <span className="min-w-0 flex-1">
-              <span className="flex items-center gap-1.5">
-                <span className={cx('truncate text-[15px] font-medium sm:text-[14px]', !n.title && 'text-faint')}>{n.title || 'Sin título'}</span>
-                {n.pinned && <Pin size={12} className="shrink-0 text-accent" />}
-              </span>
-              {!projectId && (
-                <span className="mt-0.5 block truncate text-[12.5px] text-faint">
-                  {n.project_id ? `${projects[n.project_id]?.icon} ${projects[n.project_id]?.name}` : 'General'}
-                </span>
-              )}
-            </span>
-          </button>
-        ))}
+        {q.trim() ? (
+          // Buscando: lista filtrada, sin arrastrar (sería reordenar sobre una
+          // lista incompleta)
+          notes.map((n) => noteRow(n))
+        ) : (
+          <>
+            {pinned.length > 0 && (
+              <>
+                <div className="px-3 pb-1 pt-1 text-[11.5px] font-medium uppercase tracking-wide text-faint">Fijados</div>
+                {sortableNotes(pinned)}
+                {others.length > 0 && <div className="px-3 pb-1 pt-3 text-[11.5px] font-medium uppercase tracking-wide text-faint">Otros</div>}
+              </>
+            )}
+            {sortableNotes(others)}
+          </>
+        )}
         {notes.length === 0 && (
           <Empty icon={FileText} title={q ? 'Nada coincide' : 'Sin apuntes todavía'}>
             {q ? 'Prueba con otras palabras.' : 'Instrucciones, referencias, cuentas… lo que no es una tarea.'}
