@@ -6,8 +6,9 @@ from sqlalchemy.orm import Session
 from ..db import get_db
 from ..deps import Emitter, emitter
 from ..models import Card, Label, LabelGroup, Project, View
-from ..ownership import own_group, own_label, own_project, own_view
-from ..serialize import card_out, group_out, label_out, project_out, view_out
+from ..models import Field as CustomField
+from ..ownership import own_field, own_group, own_label, own_project, own_view
+from ..serialize import card_out, field_out, group_out, label_out, project_out, view_out
 
 router = APIRouter(tags=["projects"])
 
@@ -28,6 +29,7 @@ class ProjectPatch(BaseModel):
     description: str | None = None
     position: float | None = None
     archived: bool | None = None
+    hidden_props: list[str] | None = None
 
 
 # (nombre, varias por tarjeta, es el estado, etiquetas)
@@ -278,4 +280,53 @@ def delete_view(view_id: int, em: Emitter = Depends(emitter), db: Session = Depe
     db.delete(v)
     db.commit()
     em.delete("view", view_id)
+    return {"ok": True}
+
+
+# ── Campos propios ───────────────────────────────────────────────────────────
+
+FIELD_KINDS = "^(date|text|number|checkbox|url)$"
+
+
+class FieldIn(BaseModel):
+    project_id: int
+    name: str = Field(min_length=1, max_length=60)
+    kind: str = Field(pattern=FIELD_KINDS)
+
+
+class FieldPatch(BaseModel):
+    name: str | None = Field(None, min_length=1, max_length=60)
+    position: float | None = None
+
+
+@router.post("/fields", status_code=201)
+def create_field(body: FieldIn, em: Emitter = Depends(emitter), db: Session = Depends(get_db)):
+    own_project(db, em.user.id, body.project_id)
+    top = db.scalar(select(func.max(CustomField.position)).where(CustomField.project_id == body.project_id)) or 0
+    f = CustomField(project_id=body.project_id, name=body.name, kind=body.kind, position=top + 1)
+    db.add(f)
+    db.commit()
+    out = field_out(f)
+    em.upsert("field", out)
+    return out
+
+
+@router.patch("/fields/{field_id}")
+def patch_field(field_id: int, body: FieldPatch, em: Emitter = Depends(emitter), db: Session = Depends(get_db)):
+    f = own_field(db, em.user.id, field_id)
+    for k, v in body.model_dump(exclude_unset=True).items():
+        if v is not None:
+            setattr(f, k, v)
+    db.commit()
+    out = field_out(f)
+    em.upsert("field", out)
+    return out
+
+
+@router.delete("/fields/{field_id}")
+def delete_field(field_id: int, em: Emitter = Depends(emitter), db: Session = Depends(get_db)):
+    f = own_field(db, em.user.id, field_id)
+    db.delete(f)
+    db.commit()
+    em.delete("field", field_id)
     return {"ok": True}

@@ -6,8 +6,9 @@ aunque el bucle pase muchas veces por la misma tarjeta, y si cambia la fecha
 de la tarjeta la clave cambia y vuelve a avisar.
 
 Tipos de regla (`params` entre paréntesis):
-- before_due (minutes): X minutos antes del vencimiento.
-- overdue: cuando una tarjeta sin terminar pasa su fecha.
+- before_due (minutes, field): X minutos antes del vencimiento.
+- overdue (field): cuando una tarjeta sin terminar pasa su fecha.
+  `field` es "due" (la fecha principal, por defecto) o el id de un campo de fecha propio.
 - daily_digest (hour): resumen diario a esa hora con lo que vence hoy.
 - stale (label_id, days): tarjeta que lleva N días con esa etiqueta sin tocarse.
 Además, `remind_at` de cada tarjeta es un recordatorio puntual.
@@ -23,7 +24,7 @@ from sqlalchemy.exc import IntegrityError
 
 from .config import settings
 from .db import SessionLocal
-from .models import Card, Label, Notification, NotificationRule, Project, PushSubscription, User
+from .models import Card, Field, Label, Notification, NotificationRule, Project, PushSubscription, User
 from .realtime import hub
 from .serialize import notification_out
 
@@ -46,6 +47,23 @@ def effective_due(card: Card, tz: ZoneInfo) -> datetime | None:
         d = card.due_at.astimezone(tz).date()
         return datetime.combine(d, time(ALL_DAY_HOUR), tz)
     return card.due_at
+
+
+def rule_due(card: Card, rule: NotificationRule, tz: ZoneInfo) -> datetime | None:
+    """Fecha que vigila una regla: la principal de la tarjeta o un campo de fecha propio."""
+    field = rule.params.get("field") or "due"
+    if field == "due":
+        return effective_due(card, tz)
+    v = (card.values or {}).get(str(field))
+    if not isinstance(v, dict) or not v.get("at"):
+        return None
+    try:
+        at = datetime.fromisoformat(v["at"].replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if v.get("all_day", True):
+        return datetime.combine(at.astimezone(tz).date(), time(ALL_DAY_HOUR), tz)
+    return at
 
 
 def _fmt_offset(minutes: int) -> str:
@@ -119,6 +137,7 @@ def run_checks() -> list[tuple[int, dict]]:
             rules = db.scalars(select(NotificationRule).where(NotificationRule.user_id == user.id)).all()
             projects = {p.id: p for p in db.scalars(select(Project).where(Project.user_id == user.id)).all()}
             cards = db.scalars(select(Card).where(Card.user_id == user.id, Card.done.is_(False))).all()
+            field_names = {f.id: f.name for f in db.scalars(select(Field).where(Field.project_id.in_(list(projects) or [0]))).all()}
 
             def emit(key, title, body, card=None, project_id=None, url="/"):
                 n = create_notification(db, user.id, key, title, body,
@@ -136,18 +155,22 @@ def run_checks() -> list[tuple[int, dict]]:
                 if card.remind_at and card.remind_at <= now and now - card.remind_at < timedelta(hours=12):
                     emit(f"remind:{card.id}:{card.remind_at.isoformat()}", f"⏰ {title}", pname,
                          card, url=_card_url(card))
-                due = effective_due(card, tz)
-                if not due:
-                    continue
                 for r in _rules_for(rules, "before_due", card.project_id):
+                    due = rule_due(card, r, tz)
+                    if not due:
+                        continue
                     minutes = int(r.params.get("minutes", 1440))
                     fire_at = due - timedelta(minutes=minutes)
+                    what = field_names.get(r.params.get("field"), "Vence")
                     if fire_at <= now < due:
-                        emit(f"before:{r.id}:{card.id}:{due.isoformat()}", f"Vence {_fmt_offset(minutes)}: {title}",
+                        emit(f"before:{r.id}:{card.id}:{due.isoformat()}", f"{what} {_fmt_offset(minutes)}: {title}",
                              pname, card, url=_card_url(card))
                 for r in _rules_for(rules, "overdue", card.project_id):
-                    if due <= now and now - due < timedelta(days=3):
-                        emit(f"overdue:{r.id}:{card.id}:{due.isoformat()}", f"Vencida: {title}", pname,
+                    due = rule_due(card, r, tz)
+                    if due and due <= now and now - due < timedelta(days=3):
+                        what = field_names.get(r.params.get("field"))
+                        emit(f"overdue:{r.id}:{card.id}:{due.isoformat()}",
+                             f"{what} pasada: {title}" if what else f"Vencida: {title}", pname,
                              card, url=_card_url(card))
 
             # Tarjetas estancadas con una etiqueta concreta

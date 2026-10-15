@@ -15,6 +15,7 @@ const KIND_KEY = {
   group: 'groups',
   label: 'labels',
   view: 'views',
+  field: 'fields',
   card: 'cards',
   rule: 'rules',
 }
@@ -31,6 +32,7 @@ export const useStore = create((set, getState) => ({
   groups: {},
   labels: {},
   views: {},
+  fields: {},
   cards: {},
   rules: {},
   notifications: [],
@@ -49,6 +51,7 @@ export const useStore = create((set, getState) => ({
         groups: byId(d.groups),
         labels: byId(d.labels),
         views: byId(d.views),
+        fields: byId(d.fields || []),
         cards: byId(d.cards),
         rules: byId(d.rules),
         notifications: d.notifications,
@@ -215,6 +218,26 @@ export const useStore = create((set, getState) => ({
     }
   },
 
+  // ── Campos propios ──
+  async createField(body) {
+    try {
+      const f = await post('/fields', body)
+      set((s) => ({ fields: { ...s.fields, [f.id]: f } }))
+      return f
+    } catch (e) {
+      fail(e)
+    }
+  },
+  updateField: (id, body) => optimisticPatch(set, getState, 'fields', `/fields/${id}`, id, body),
+  async deleteField(id) {
+    set((s) => ({ fields: without(s.fields, id) }))
+    try {
+      await del(`/fields/${id}`)
+    } catch (e) {
+      fail(e)
+    }
+  },
+
   // ── Vistas ──
   async createView(body) {
     try {
@@ -261,7 +284,18 @@ export const useStore = create((set, getState) => ({
       if (doneNow && !card.done) local.done = true
       if (doneBefore && !doneNow && card.done) local.done = false
     }
-    if (card && body.project_id !== undefined && body.project_id !== card.project_id) local.label_ids = []
+    if (card && body.values) {
+      const merged = { ...card.values }
+      for (const [k, v] of Object.entries(body.values)) {
+        if (v === null || v === '') delete merged[k]
+        else merged[k] = v
+      }
+      local.values = merged
+    }
+    if (card && body.project_id !== undefined && body.project_id !== card.project_id) {
+      local.label_ids = []
+      local.values = {}
+    }
     return optimisticPatch(set, getState, 'cards', `/cards/${id}`, id, body, local)
   },
   deleteCard(id) {
@@ -326,7 +360,7 @@ export const useStore = create((set, getState) => ({
     try {
       await post('/auth/logout')
     } catch {}
-    set({ status: 'anon', user: null, projects: {}, cards: {}, groups: {}, labels: {}, views: {}, rules: {}, notifications: [] })
+    set({ status: 'anon', user: null, projects: {}, cards: {}, groups: {}, labels: {}, views: {}, fields: {}, rules: {}, notifications: [] })
   },
 }))
 
@@ -375,6 +409,7 @@ function removeLocal(next, kind, id) {
     next.groups = Object.fromEntries(Object.entries(next.groups).filter(([, g]) => g.project_id !== id))
     next.labels = Object.fromEntries(Object.entries(next.labels).filter(([, l]) => !gids.includes(l.group_id)))
     next.views = Object.fromEntries(Object.entries(next.views).filter(([, v]) => v.project_id !== id))
+    next.fields = Object.fromEntries(Object.entries(next.fields).filter(([, f]) => f.project_id !== id))
     next.cards = Object.fromEntries(Object.entries(next.cards).filter(([, c]) => c.project_id !== id))
     next.rules = Object.fromEntries(Object.entries(next.rules).filter(([, r]) => r.project_id !== id))
   } else if (kind === 'group') {

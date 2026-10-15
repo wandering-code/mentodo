@@ -2,10 +2,10 @@ import { useMemo, useState } from 'react'
 import { motion } from 'motion/react'
 import { ArrowDown, ArrowUp, Plus } from 'lucide-react'
 import { useStore } from '../lib/store'
-import { projectGroups, sortCards } from '../lib/cards'
-import { DueBadge } from '../components/CardTile'
-import { DatePicker, LabelPicker } from '../components/Pickers'
-import { Checkbox, cx, LabelChip, Popover, Toggle, usePopover } from '../components/ui'
+import { sortCards } from '../lib/cards'
+import { hiddenInCard, hiddenInProject, projectProps } from '../lib/props'
+import { PropValue } from '../components/Properties'
+import { Checkbox, cx } from '../components/ui'
 
 function HeaderCell({ field, children, view, className }) {
   const updateView = useStore((s) => s.updateView)
@@ -23,55 +23,6 @@ function HeaderCell({ field, children, view, className }) {
         {current === 'desc' && <ArrowDown size={12} className="text-accent" />}
       </button>
     </th>
-  )
-}
-
-function LabelCell({ card, group }) {
-  const labels = useStore((s) => s.labels)
-  const updateCard = useStore((s) => s.updateCard)
-  const pop = usePopover()
-  const mine = card.label_ids.map((id) => labels[id]).filter((l) => l && l.group_id === group.id)
-  return (
-    <td className="border-b border-line px-1.5">
-      <button onClick={pop.toggle} className="flex min-h-9 w-full flex-wrap items-center gap-1 rounded-md px-1.5 py-1 hover:bg-hover">
-        {mine.map((l) => (
-          <LabelChip key={l.id} label={l} size="sm" />
-        ))}
-      </button>
-      <Popover open={pop.open} anchor={pop.anchor} onClose={pop.close} width={240}>
-        <LabelPicker
-          group={group}
-          selected={card.label_ids}
-          onChange={(label_ids) => {
-            updateCard(card.id, { label_ids })
-            if (!group.multi) pop.close()
-          }}
-        />
-      </Popover>
-    </td>
-  )
-}
-
-function DateCell({ card }) {
-  const updateCard = useStore((s) => s.updateCard)
-  const pop = usePopover()
-  return (
-    <td className="border-b border-line px-1.5">
-      <button onClick={pop.toggle} className="flex h-9 w-full items-center whitespace-nowrap rounded-md px-1.5 hover:bg-hover">
-        <DueBadge card={card} />
-      </button>
-      <Popover open={pop.open} anchor={pop.anchor} onClose={pop.close} width={272}>
-        <DatePicker
-          value={card.due_at}
-          allDay={card.due_all_day}
-          onChange={(due_at, due_all_day) => {
-            updateCard(card.id, { due_at, due_all_day })
-            if (due_all_day) pop.close()
-          }}
-          onClear={() => (pop.close(), updateCard(card.id, { due_at: null }))}
-        />
-      </Popover>
-    </td>
   )
 }
 
@@ -107,10 +58,16 @@ function TitleCell({ card, onOpen }) {
   )
 }
 
+const SORT_KEY = { due: 'due_at', remind: 'remind_at', estimate: 'estimate_minutes', todo: 'in_todo' }
+const sortKey = (p) => (p.group ? `group:${p.group.id}` : p.field ? `f:${p.field.id}` : SORT_KEY[p.key])
+
 export function TableView({ project, view, cards, onOpen }) {
   const s = useStore()
-  const groups = useMemo(() => projectGroups(s, project.id), [s.groups, project.id]) // eslint-disable-line react-hooks/exhaustive-deps
-  const sorted = useMemo(() => sortCards(cards, view.config.sort, s), [cards, view.config.sort, s.labels]) // eslint-disable-line react-hooks/exhaustive-deps
+  const props = useMemo(
+    () => projectProps(s, project.id).filter((p) => !hiddenInProject(project, p.key)),
+    [s.groups, s.fields, project], // eslint-disable-line react-hooks/exhaustive-deps
+  )
+  const sorted = useMemo(() => sortCards(cards, view.config.sort, s), [cards, view.config.sort, s.labels, s.fields]) // eslint-disable-line react-hooks/exhaustive-deps
   const [draft, setDraft] = useState('')
 
   const add = async (e) => {
@@ -125,21 +82,15 @@ export function TableView({ project, view, cards, onOpen }) {
       <table className="w-full min-w-[720px] border-separate border-spacing-0">
         <thead>
           <tr>
-            <HeaderCell field="title" view={view} className="w-[38%] min-w-60">
+            <HeaderCell field="title" view={view} className="w-[34%] min-w-60">
               Título
             </HeaderCell>
-            {groups.map((g) => (
-              <HeaderCell key={g.id} field={`group:${g.id}`} view={view}>
-                {g.name}
+            {props.map((p) => (
+              <HeaderCell key={p.key} field={sortKey(p)} view={view} className="min-w-28">
+                <p.icon size={13} className="text-faint" />
+                {p.name}
               </HeaderCell>
             ))}
-            <HeaderCell field="due_at" view={view}>
-              Fecha
-            </HeaderCell>
-            <HeaderCell field="estimate_minutes" view={view}>
-              Est.
-            </HeaderCell>
-            <th className="sticky top-0 z-[1] h-9 border-b border-line bg-bg px-3 text-left text-[12.5px] font-medium text-muted">To Do</th>
           </tr>
         </thead>
         <tbody>
@@ -153,16 +104,11 @@ export function TableView({ project, view, cards, onOpen }) {
               className="group transition-colors hover:bg-[color-mix(in_oklab,var(--hover)_60%,transparent)]"
             >
               <TitleCell card={c} onOpen={onOpen} />
-              {groups.map((g) => (
-                <LabelCell key={g.id} card={c} group={g} />
+              {props.map((p) => (
+                <td key={p.key} className="border-b border-line px-1.5">
+                  {!hiddenInCard(c, p.key) && <PropValue prop={p} card={c} compact />}
+                </td>
               ))}
-              <DateCell card={c} />
-              <td className="border-b border-line px-3 text-[13px] tabular-nums text-muted">
-                {c.estimate_minutes ? (c.estimate_minutes < 60 ? `${c.estimate_minutes} min` : `${c.estimate_minutes / 60} h`) : ''}
-              </td>
-              <td className="border-b border-line px-3">
-                <Toggle checked={c.in_todo} onChange={(in_todo) => s.updateCard(c.id, { in_todo })} label="En To Do" />
-              </td>
             </motion.tr>
           ))}
         </tbody>

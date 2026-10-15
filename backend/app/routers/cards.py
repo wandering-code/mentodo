@@ -24,6 +24,7 @@ class CardIn(BaseModel):
     estimate_minutes: int | None = None
     label_ids: list[int] = []
     position: float | None = None
+    values: dict = {}
 
 
 class CardPatch(BaseModel):
@@ -38,6 +39,9 @@ class CardPatch(BaseModel):
     estimate_minutes: int | None = None
     position: float | None = None
     label_ids: list[int] | None = None
+    hidden_props: list[str] | None = None
+    # Cambios parciales de campos propios: {"<field_id>": valor | null}
+    values: dict | None = None
 
 
 def _project_labels(db: Session, project_id: int | None) -> dict[int, tuple[Label, LabelGroup]]:
@@ -115,7 +119,7 @@ def create_card(body: CardIn, em: Emitter = Depends(emitter), db: Session = Depe
         position = (top or 0) - 1
     c = Card(user_id=em.user.id, project_id=body.project_id, title=body.title, content=body.content,
              in_todo=body.in_todo, due_at=body.due_at, due_all_day=body.due_all_day,
-             estimate_minutes=body.estimate_minutes, position=position)
+             estimate_minutes=body.estimate_minutes, position=position, values=body.values)
     db.add(c)
     db.flush()
     if body.label_ids:
@@ -134,10 +138,20 @@ def patch_card(card_id: int, body: CardPatch, em: Emitter = Depends(emitter), db
         if data["project_id"] is not None:
             own_project(db, em.user.id, data["project_id"])
         c.project_id = data["project_id"]
-        c.labels = []  # las etiquetas son de cada proyecto
-    for k in ("title", "content", "in_todo", "due_at", "due_all_day", "remind_at", "estimate_minutes", "position"):
-        if k in data:
+        c.labels = []  # las etiquetas y los campos son de cada proyecto
+        c.values = {}
+    for k in ("title", "content", "in_todo", "due_at", "due_all_day", "remind_at", "estimate_minutes", "position",
+              "hidden_props"):
+        if k in data and not (k == "hidden_props" and data[k] is None):
             setattr(c, k, data[k])
+    if data.get("values"):
+        merged = dict(c.values or {})
+        for key, val in data["values"].items():
+            if val is None or val == "":
+                merged.pop(str(key), None)
+            else:
+                merged[str(key)] = val
+        c.values = merged
     if data.get("label_ids") is not None:
         _apply_labels(db, c, data["label_ids"])
     elif data.get("done") is not None and data["done"] != c.done:

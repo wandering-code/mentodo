@@ -1,15 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'motion/react'
 import { formatDistanceToNowStrict } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { AlarmClock, CalendarDays, CircleCheckBig, Clock3, Folder, ListTodo, Maximize2, Minimize2, MoreHorizontal, Tag, Trash2, X } from 'lucide-react'
+import { CircleCheckBig, Folder, Maximize2, Minimize2, MoreHorizontal, Trash2, X } from 'lucide-react'
 import { useStore } from '../lib/store'
-import { projectGroups } from '../lib/cards'
-import { humanDate, toDateTimeInput } from '../lib/dates'
 import { Editor } from './Editor'
-import { DatePicker, LabelPicker, ProjectPicker } from './Pickers'
-import { Checkbox, cx, IconButton, LabelChip, MenuItem, Popover, softSpring, Toggle, useIsMobile, usePopover } from './ui'
+import { ProjectPicker } from './Pickers'
+import { Properties } from './Properties'
+import { Checkbox, cx, IconButton, MenuItem, Popover, softSpring, useIsMobile, usePopover } from './ui'
 
 export function CardPanel({ cardId, onClose }) {
   const card = useStore((s) => (cardId ? s.cards[cardId] : null))
@@ -63,12 +62,10 @@ function CardBody({ card, onClose, mobile, wide, onToggleWide }) {
   const s = useStore()
   const { updateCard, deleteCard } = s
   const project = card.project_id ? s.projects[card.project_id] : null
-  const groups = useMemo(() => projectGroups(s, card.project_id), [s.groups, card.project_id]) // eslint-disable-line react-hooks/exhaustive-deps
   const [title, setTitle] = useState(card.title)
   const titleRef = useRef(null)
   const more = usePopover()
   const move = usePopover()
-  const date = usePopover()
 
   useEffect(() => {
     if (document.activeElement !== titleRef.current) setTitle(card.title)
@@ -134,37 +131,7 @@ function CardBody({ card, onClose, mobile, wide, onToggleWide }) {
             />
           </div>
 
-          <div className="mt-5 flex flex-col gap-0.5 text-[14px]">
-            {groups.map((g) => (
-              <GroupRow key={g.id} group={g} card={card} />
-            ))}
-            {!project && (
-              <Row icon={Folder} label="Proyecto">
-                <button onClick={move.toggle} className="h-8 rounded-lg px-2 text-faint hover:bg-hover">
-                  Elegir proyecto…
-                </button>
-              </Row>
-            )}
-            <Row icon={CalendarDays} label="Fecha">
-              <button
-                onClick={date.toggle}
-                className={cx('h-8 rounded-lg px-2 transition-colors hover:bg-hover', card.due_at ? 'text-ink' : 'text-faint')}
-              >
-                {card.due_at ? humanDate(card.due_at, card.due_all_day) : 'Sin fecha'}
-              </button>
-            </Row>
-            <Row icon={AlarmClock} label="Recordarme">
-              <ReminderInput card={card} />
-            </Row>
-            <Row icon={Clock3} label="Estimación">
-              <EstimateInput card={card} />
-            </Row>
-            <Row icon={ListTodo} label="En To Do">
-              <div className="flex h-8 items-center px-2">
-                <Toggle checked={card.in_todo} onChange={(in_todo) => updateCard(card.id, { in_todo })} label="Mostrar en To Do general" />
-              </div>
-            </Row>
-          </div>
+          <Properties card={card} project={project} onMove={move.toggle} />
 
           <div className="my-5 h-px bg-line" />
           <Editor cardId={card.id} content={card.content} onSave={(content) => updateCard(card.id, { content })} />
@@ -212,113 +179,6 @@ function CardBody({ card, onClose, mobile, wide, onToggleWide }) {
           }}
         />
       </Popover>
-      <Popover open={date.open} anchor={date.anchor} onClose={date.close} width={272}>
-        <DatePicker
-          value={card.due_at}
-          allDay={card.due_all_day}
-          onChange={(due_at, due_all_day) => {
-            updateCard(card.id, { due_at, due_all_day })
-            if (due_all_day) date.close()
-          }}
-          onClear={() => {
-            date.close()
-            updateCard(card.id, { due_at: null })
-          }}
-        />
-      </Popover>
     </>
-  )
-}
-
-function Row({ icon: Icon, label, children }) {
-  return (
-    <div className="flex min-h-9 items-center gap-2">
-      <div className="flex w-32 shrink-0 items-center gap-2 text-muted sm:w-36">
-        <Icon size={15} className="text-faint" />
-        <span className="truncate">{label}</span>
-      </div>
-      <div className="flex min-w-0 flex-1 flex-wrap items-center">{children}</div>
-    </div>
-  )
-}
-
-function GroupRow({ group, card }) {
-  const labels = useStore((s) => s.labels)
-  const updateCard = useStore((s) => s.updateCard)
-  const pop = usePopover()
-  const mine = card.label_ids.map((id) => labels[id]).filter((l) => l && l.group_id === group.id).sort((a, b) => a.position - b.position)
-  return (
-    <Row icon={Tag} label={group.name}>
-      <button onClick={pop.toggle} className="flex min-h-8 flex-wrap items-center gap-1 rounded-lg px-2 py-1 text-left transition-colors hover:bg-hover">
-        {mine.length ? mine.map((l) => <LabelChip key={l.id} label={l} />) : <span className="text-faint">Vacío</span>}
-      </button>
-      <Popover open={pop.open} anchor={pop.anchor} onClose={pop.close} width={250}>
-        <LabelPicker
-          group={group}
-          selected={card.label_ids}
-          onChange={(label_ids) => {
-            updateCard(card.id, { label_ids })
-            if (!group.multi) pop.close()
-          }}
-        />
-      </Popover>
-    </Row>
-  )
-}
-
-function EstimateInput({ card }) {
-  const updateCard = useStore((s) => s.updateCard)
-  const opts = [5, 15, 30, 60, 120, 240]
-  const label = (m) => (m < 60 ? `${m} min` : `${m / 60} h`)
-  return (
-    <div className="flex flex-wrap gap-1 px-1">
-      {opts.map((m) => (
-        <button
-          key={m}
-          onClick={() => updateCard(card.id, { estimate_minutes: card.estimate_minutes === m ? null : m })}
-          className={cx(
-            'h-7 rounded-md px-2 text-[12.5px] transition-colors',
-            card.estimate_minutes === m ? 'bg-accent-soft font-medium text-accent' : 'text-faint hover:bg-hover hover:text-muted',
-          )}
-        >
-          {label(m)}
-        </button>
-      ))}
-    </div>
-  )
-}
-
-function ReminderInput({ card }) {
-  const updateCard = useStore((s) => s.updateCard)
-  const ref = useRef(null)
-  return (
-    <div className="relative flex items-center">
-      <button
-        onClick={() => {
-          try {
-            ref.current.showPicker()
-          } catch {
-            ref.current.focus()
-          }
-        }}
-        className={cx('h-8 rounded-lg px-2 transition-colors hover:bg-hover', card.remind_at ? 'text-ink' : 'text-faint')}
-      >
-        {card.remind_at ? humanDate(card.remind_at, false) : 'Sin recordatorio'}
-      </button>
-      {card.remind_at && (
-        <IconButton size="sm" label="Quitar recordatorio" onClick={() => updateCard(card.id, { remind_at: null })}>
-          <X size={14} />
-        </IconButton>
-      )}
-      <input
-        ref={ref}
-        type="datetime-local"
-        tabIndex={-1}
-        aria-hidden
-        value={toDateTimeInput(card.remind_at)}
-        onChange={(e) => updateCard(card.id, { remind_at: e.target.value ? new Date(e.target.value).toISOString() : null })}
-        className="pointer-events-none absolute left-0 top-full h-0 w-0 opacity-0"
-      />
-    </div>
   )
 }

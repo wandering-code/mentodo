@@ -40,6 +40,9 @@ class Project(Base):
     description = Column(Text, nullable=False, default="")
     position = Column(Float, nullable=False, default=0)
     archived = Column(Boolean, nullable=False, default=False)
+    # Propiedades ocultas en todo el proyecto: "due", "remind", "estimate",
+    # "todo", "g:<grupo>", "f:<campo>"
+    hidden_props = Column(JSON, nullable=False, default=list)
     created_at = Column(DateTime(timezone=True), default=now)
     updated_at = Column(DateTime(timezone=True), default=now, onupdate=now)
 
@@ -94,10 +97,25 @@ class Card(Base):
     remind_at = Column(DateTime(timezone=True), nullable=True)
     estimate_minutes = Column(Integer, nullable=True)
     position = Column(Float, nullable=False, default=0)
+    # Valores de los campos propios del proyecto: {"<field_id>": valor}. Las
+    # fechas se guardan como {"at": iso, "all_day": bool}.
+    values = Column(JSON, nullable=False, default=dict)
+    # Propiedades ocultas solo en esta tarjeta (mismas claves que en Project)
+    hidden_props = Column(JSON, nullable=False, default=list)
     created_at = Column(DateTime(timezone=True), default=now)
     updated_at = Column(DateTime(timezone=True), default=now, onupdate=now)
 
     labels = relationship("Label", secondary=card_labels, lazy="selectin")
+
+
+class Field(Base):
+    """Propiedad creada por el usuario en un proyecto (además de las etiquetas)."""
+    __tablename__ = "fields"
+    id = Column(Integer, primary_key=True)
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
+    name = Column(String(60), nullable=False)
+    kind = Column(String(12), nullable=False)  # date | text | number | checkbox | url
+    position = Column(Float, nullable=False, default=0)
 
 
 class View(Base):

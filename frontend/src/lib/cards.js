@@ -58,6 +58,18 @@ export function sortCards(cards, sort = [], s) {
         const gid = Number(field.slice(6))
         va = labelRank(s, a, gid)
         vb = labelRank(s, b, gid)
+      } else if (field.startsWith('f:')) {
+        const v = (c) => {
+          const x = c.values?.[field.slice(2)]
+          if (x === undefined || x === null || x === '') return null
+          if (typeof x === 'object') return x.at ?? null
+          if (typeof x === 'boolean') return x ? 1 : 0
+          return typeof x === 'string' ? x.toLowerCase() : x
+        }
+        va = v(a)
+        vb = v(b)
+        if (va === null && vb !== null) return 1
+        if (vb === null && va !== null) return -1
       } else if (field === 'title') {
         const r = a.title.localeCompare(b.title, 'es', { sensitivity: 'base' })
         if (r) return r * m

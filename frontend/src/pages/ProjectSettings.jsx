@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router'
 import { Reorder, motion } from 'motion/react'
-import { Archive, ArchiveRestore, ArrowLeft, CircleCheck, GripVertical, Plus, Trash2 } from 'lucide-react'
+import { Archive, ArchiveRestore, ArrowLeft, CircleCheck, Eye, EyeOff, GripVertical, Plus, Trash2 } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { groupLabels, projectGroups } from '../lib/cards'
+import { FIELD_KINDS, fieldIcon, hiddenInProject, projectProps } from '../lib/props'
 import { LABEL_COLORS, PROJECT_ICONS } from '../lib/palette'
 import { ColorPicker } from '../components/Pickers'
 import { RulesEditor } from '../components/RulesEditor'
@@ -116,6 +117,86 @@ function GroupCard({ group }) {
   )
 }
 
+function PropertiesSettings({ project }) {
+  const s = useStore()
+  const props = useMemo(() => projectProps(s, project.id), [s.groups, s.fields, project.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  const [kind, setKind] = useState(null)
+  const [name, setName] = useState('')
+  const toggle = (key, visible) =>
+    s.updateProject(project.id, {
+      hidden_props: visible ? (project.hidden_props || []).filter((k) => k !== key) : [...(project.hidden_props || []), key],
+    })
+  const create = async (e) => {
+    e.preventDefault()
+    if (!name.trim() || !kind) return
+    await s.createField({ project_id: project.id, name: name.trim(), kind })
+    setName('')
+    setKind(null)
+  }
+  return (
+    <div className="rounded-2xl border border-line bg-surface p-2">
+      {props.map((p) => {
+        const visible = !hiddenInProject(project, p.key)
+        return (
+          <div key={p.key} className="flex items-center gap-3 rounded-lg px-2.5 py-1.5">
+            <p.icon size={16} className={visible ? 'text-muted' : 'text-faint'} />
+            {p.field ? (
+              <input
+                defaultValue={p.name}
+                onBlur={(e) => e.target.value.trim() && e.target.value !== p.name && s.updateField(p.field.id, { name: e.target.value.trim() })}
+                onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+                className={cx('h-8 min-w-0 flex-1 rounded-md bg-transparent px-1.5 text-[14px] outline-none hover:bg-hover focus:bg-sunken', !visible && 'text-faint')}
+              />
+            ) : (
+              <span className={cx('flex-1 px-1.5 text-[14px]', !visible && 'text-faint')}>{p.name}</span>
+            )}
+            <span className="hidden text-[12px] text-faint sm:inline">
+              {p.group ? 'Etiquetas' : p.field ? FIELD_KINDS.find((k) => k.id === p.field.kind)?.name : 'De serie'}
+            </span>
+            <IconButton size="sm" label={visible ? 'Ocultar' : 'Mostrar'} onClick={() => toggle(p.key, !visible)}>
+              {visible ? <Eye size={15} /> : <EyeOff size={15} />}
+            </IconButton>
+            {p.field ? (
+              <IconButton size="sm" label="Borrar propiedad" onClick={() => confirm(`¿Borrar «${p.name}» y sus valores?`) && s.deleteField(p.field.id)}>
+                <Trash2 size={14} />
+              </IconButton>
+            ) : (
+              <span className="size-7" />
+            )}
+          </div>
+        )
+      })}
+      <div className="mt-1 border-t border-line px-2.5 pb-1 pt-3">
+        {kind ? (
+          <form onSubmit={create} className="flex items-center gap-2">
+            {(() => {
+              const K = fieldIcon(kind)
+              return <K size={16} className="text-accent" />
+            })()}
+            <input autoFocus value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Escape' && setKind(null)} placeholder="Nombre de la propiedad" className="h-8 flex-1 bg-transparent text-[14px] outline-none placeholder:text-faint" />
+            <Button size="sm" variant="primary" disabled={!name.trim()}>
+              Crear
+            </Button>
+            <Button size="sm" type="button" onClick={() => setKind(null)}>
+              Cancelar
+            </Button>
+          </form>
+        ) : (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="mr-1 text-[13px] text-faint">Nueva:</span>
+            {FIELD_KINDS.map((k) => (
+              <Button key={k.id} size="sm" variant="outline" onClick={() => setKind(k.id)}>
+                <k.icon size={14} /> {k.name}
+              </Button>
+            ))}
+            <span className="text-[12.5px] text-faint">· las de etiquetas, abajo</span>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export function ProjectSettings() {
   const { projectId } = useParams()
   const id = Number(projectId)
@@ -141,6 +222,13 @@ export function ProjectSettings() {
             </button>
           ))}
         </div>
+      </SettingsSection>
+
+      <SettingsSection
+        title="Propiedades"
+        description="Lo que aparece en cada tarjeta. Ocultar no borra nada: los valores se conservan y puedes volver a mostrarla cuando quieras. También puedes ocultar una propiedad solo en una tarjeta desde su nombre, dentro de la tarjeta."
+      >
+        <PropertiesSettings project={project} />
       </SettingsSection>
 
       <SettingsSection

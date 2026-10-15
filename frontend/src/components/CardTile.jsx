@@ -1,9 +1,10 @@
 import { forwardRef, memo } from 'react'
-import { AlarmClock, CalendarDays, Clock3, FileText, ListTodo } from 'lucide-react'
+import { AlarmClock, CalendarClock, CalendarDays, Clock3, FileText, ListTodo } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { dueInfo } from '../lib/cards'
 import { humanDate } from '../lib/dates'
 import { Checkbox, cx, LabelChip } from './ui'
+import { useCardMeta } from './Properties'
 
 function hasContent(c) {
   return !!c.content?.content?.some((n) => n.content?.length || n.type !== 'paragraph')
@@ -44,10 +45,11 @@ export function DueBadge({ card, className }) {
 export const CardTile = memo(
   forwardRef(function CardTile({ card, hideGroupId, onOpen, dragging, overlay, style, ...rest }, ref) {
     const labels = useStore((s) => s.labels)
+    const meta = useCardMeta(card)
     const updateCard = useStore((s) => s.updateCard)
     const chips = card.label_ids
       .map((id) => labels[id])
-      .filter((l) => l && l.group_id !== hideGroupId)
+      .filter((l) => l && meta.show(`g:${l.group_id}`) && l.group_id !== hideGroupId)
       .sort((a, b) => a.group_id - b.group_id || a.position - b.position)
     const cl = checklist(card)
     return (
@@ -69,13 +71,19 @@ export const CardTile = memo(
             {card.title || <span className="text-faint">Sin título</span>}
           </div>
         </div>
-        {(chips.length > 0 || card.due_at || cl || card.in_todo || card.estimate_minutes || card.remind_at || hasContent(card)) && (
+        {(chips.length > 0 || card.due_at || meta.dates.length > 0 || cl || card.in_todo || card.estimate_minutes || card.remind_at || hasContent(card)) && (
           <div className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1.5 pl-[26px]">
             {chips.map((l) => (
               <LabelChip key={l.id} label={l} size="sm" />
             ))}
-            <DueBadge card={card} />
-            {card.estimate_minutes && (
+            {meta.show('due') && <DueBadge card={card} />}
+            {meta.dates.map(({ field, value }) => (
+              <span key={field.id} className="inline-flex items-center gap-1 text-[12px] text-muted" title={field.name}>
+                <CalendarClock size={12} />
+                <span className="text-faint">{field.name}</span> {humanDate(value.at, value.all_day)}
+              </span>
+            ))}
+            {meta.show('estimate') && card.estimate_minutes && (
               <span className="inline-flex items-center gap-1 text-[12px] text-muted">
                 <Clock3 size={12} />
                 {card.estimate_minutes < 60 ? `${card.estimate_minutes}m` : `${card.estimate_minutes / 60}h`}
@@ -87,9 +95,9 @@ export const CardTile = memo(
                 {cl.done}/{cl.total}
               </span>
             )}
-            {card.remind_at && <AlarmClock size={12} className="text-muted" />}
+            {meta.show('remind') && card.remind_at && <AlarmClock size={12} className="text-muted" />}
             {!cl && hasContent(card) && <FileText size={12} className="text-faint" />}
-            {card.in_todo && <span className="size-1.5 rounded-full bg-accent" title="En To Do" />}
+            {meta.show('todo') && card.in_todo && <span className="size-1.5 rounded-full bg-accent" title="En To Do" />}
           </div>
         )}
       </div>

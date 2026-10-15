@@ -1,7 +1,7 @@
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from .models import Card, Label, LabelGroup, NotificationRule, Project, View
+from .models import Card, Field, Label, LabelGroup, NotificationRule, Project, View
 
 
 def own_project(db: Session, user_id: int, project_id: int) -> Project:
@@ -47,3 +47,11 @@ def own_rule(db: Session, user_id: int, rule_id: int) -> NotificationRule:
     if not r or r.user_id != user_id:
         raise HTTPException(404, "Regla no encontrada")
     return r
+
+
+def own_field(db: Session, user_id: int, field_id: int) -> Field:
+    f = db.get(Field, field_id)
+    if not f:
+        raise HTTPException(404, "Propiedad no encontrada")
+    own_project(db, user_id, f.project_id)
+    return f

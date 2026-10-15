@@ -26,6 +26,7 @@ function RuleRow({ rule, projectId }) {
   const s = useStore()
   const kind = RULE_KINDS.find((k) => k.id === rule.kind)
   const set = (params) => s.updateRule(rule.id, { params: { ...rule.params, ...params } })
+  const dateFields = Object.values(s.fields).filter((f) => f.project_id === projectId && f.kind === 'date')
   const labels = projectId ? projectGroups(s, projectId).flatMap((g) => groupLabels(s, g.id).map((l) => ({ ...l, group: g.name }))) : []
   return (
     <motion.div
@@ -38,6 +39,16 @@ function RuleRow({ rule, projectId }) {
       <kind.icon size={17} className="text-accent" />
       <span className="text-[14px] font-medium">{kind.name}</span>
       <div className="flex flex-1 flex-wrap items-center gap-2 text-[13.5px] text-muted">
+        {(rule.kind === 'before_due' || rule.kind === 'overdue') && dateFields.length > 0 && (
+          <select className={select} value={rule.params.field || 'due'} onChange={(e) => set({ field: e.target.value === 'due' ? 'due' : Number(e.target.value) })}>
+            <option value="due">Fecha</option>
+            {dateFields.map((f) => (
+              <option key={f.id} value={f.id}>
+                {f.name}
+              </option>
+            ))}
+          </select>
+        )}
         {rule.kind === 'before_due' && (
           <select className={select} value={rule.params.minutes} onChange={(e) => set({ minutes: Number(e.target.value) })}>
             {OFFSETS.map(([m, t]) => (

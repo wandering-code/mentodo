@@ -5,6 +5,7 @@ import {
   ArrowDown, ArrowUp, Calendar, Columns3, Eye, EyeOff, Filter, Layers, List, Plus, Search, Settings2, SortAsc, Table2, Trash2, X,
 } from 'lucide-react'
 import { useStore } from '../lib/store'
+import { fieldIcon } from '../lib/props'
 import { applyFilter, groupLabels, projectGroups, projectViews, SORT_FIELDS, visibleCards } from '../lib/cards'
 import { BoardView } from '../views/BoardView'
 import { TableView } from '../views/TableView'
@@ -260,7 +261,8 @@ function Toolbar({ project, view }) {
   const setCfg = (patch) => s.updateView(view.id, { config: { ...cfg, ...patch } })
   const sorts = cfg.sort || []
   const filterLabels = cfg.filter?.labels || []
-  const sortName = (f) => (f.startsWith('group:') ? s.groups[Number(f.slice(6))]?.name : SORT_FIELDS.find((x) => x.id === f)?.name) || f
+  const sortName = (f) =>
+    (f.startsWith('group:') ? s.groups[Number(f.slice(6))]?.name : f.startsWith('f:') ? s.fields[Number(f.slice(2))]?.name : SORT_FIELDS.find((x) => x.id === f)?.name) || f
 
   const pill = (activeState) =>
     cx('inline-flex h-7 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-2 text-[13px] transition-colors', activeState ? 'bg-accent-soft text-accent' : 'text-muted hover:bg-hover hover:text-ink')
@@ -324,6 +326,13 @@ function Toolbar({ project, view }) {
           .map((g) => (
             <MenuItem key={g.id} icon={Layers} onClick={() => setCfg({ sort: [...sorts, { field: `group:${g.id}`, dir: 'asc' }] })}>
               {g.name}
+            </MenuItem>
+          ))}
+        {Object.values(s.fields)
+          .filter((f) => f.project_id === project.id && !sorts.some((x) => x.field === `f:${f.id}`))
+          .map((f) => (
+            <MenuItem key={`f${f.id}`} icon={fieldIcon(f.kind)} onClick={() => setCfg({ sort: [...sorts, { field: `f:${f.id}`, dir: 'asc' }] })}>
+              {f.name}
             </MenuItem>
           ))}
         {SORT_FIELDS.filter((f) => f.id !== 'position' && !sorts.some((x) => x.field === f.id)).map((f) => (

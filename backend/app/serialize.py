@@ -1,4 +1,4 @@
-from .models import Card, Label, LabelGroup, Notification, NotificationRule, Project, User, View
+from .models import Card, Field, Label, LabelGroup, Notification, NotificationRule, Project, User, View
 
 
 def iso(dt):
@@ -16,7 +16,7 @@ def user_out(u: User):
 def project_out(p: Project):
     return {
         "id": p.id, "name": p.name, "icon": p.icon, "color": p.color, "description": p.description,
-        "position": p.position, "archived": p.archived,
+        "position": p.position, "archived": p.archived, "hidden_props": p.hidden_props or [],
         "created_at": iso(p.created_at), "updated_at": iso(p.updated_at),
     }
 
@@ -40,6 +40,7 @@ def card_out(c: Card):
         "due_at": iso(c.due_at), "due_all_day": c.due_all_day, "remind_at": iso(c.remind_at),
         "estimate_minutes": c.estimate_minutes, "position": c.position,
         "label_ids": sorted(l.id for l in c.labels),
+        "values": c.values or {}, "hidden_props": c.hidden_props or [],
         "created_at": iso(c.created_at), "updated_at": iso(c.updated_at),
     }
 
@@ -62,3 +63,7 @@ def notification_out(n: Notification):
         "id": n.id, "card_id": n.card_id, "project_id": n.project_id, "title": n.title,
         "body": n.body, "read": n.read, "created_at": iso(n.created_at),
     }
+
+
+def field_out(f: Field):
+    return {"id": f.id, "project_id": f.project_id, "name": f.name, "kind": f.kind, "position": f.position}
