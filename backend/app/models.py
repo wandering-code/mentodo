@@ -152,6 +152,21 @@ class Note(Base):
     updated_at = Column(DateTime(timezone=True), default=now, onupdate=now)
 
 
+class Attachment(Base):
+    """Archivo adjunto a una tarjeta o a un apunte. El fichero vive en
+    uploads/<user_id>/<stored_name> (fuera de la imagen de Docker)."""
+    __tablename__ = "attachments"
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    card_id = Column(Integer, ForeignKey("cards.id", ondelete="CASCADE"), nullable=True, index=True)
+    note_id = Column(Integer, ForeignKey("notes.id", ondelete="CASCADE"), nullable=True, index=True)
+    filename = Column(String(255), nullable=False)
+    mime = Column(String(120), nullable=False, default="application/octet-stream")
+    size = Column(Integer, nullable=False, default=0)
+    stored_name = Column(String(80), nullable=False, unique=True)
+    created_at = Column(DateTime(timezone=True), default=now)
+
+
 class CardEvent(Base):
     """Historial mínimo para la revisión semanal: de momento, aplazamientos."""
     __tablename__ = "card_events"

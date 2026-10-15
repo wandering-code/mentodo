@@ -1,4 +1,4 @@
-from .models import Card, CardLink, Field, Label, Note, LabelGroup, Notification, NotificationRule, Project, User, View
+from .models import Attachment, Card, CardLink, Field, Label, Note, LabelGroup, Notification, NotificationRule, Project, User, View
 
 
 def iso(dt):
@@ -83,3 +83,10 @@ def note_out(n: Note):
 
 def link_out(l: CardLink):
     return {"id": l.id, "from_id": l.from_id, "to_id": l.to_id, "kind": l.kind}
+
+
+def attachment_out(a: Attachment):
+    return {
+        "id": a.id, "card_id": a.card_id, "note_id": a.note_id, "filename": a.filename,
+        "mime": a.mime, "size": a.size, "created_at": iso(a.created_at),
+    }

@@ -8,6 +8,10 @@ services:
       - db
     env_file:
       - ./backend/.env
+    # Los adjuntos viven fuera del contenedor: sobreviven a cada rebuild y
+    # entran en la copia de seguridad (scripts/backup.sh)
+    volumes:
+      - ./backend/uploads:/app/uploads
 
   db:
     image: postgres:16

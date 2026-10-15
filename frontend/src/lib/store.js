@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { toast } from 'sonner'
-import { ApiError, del, get, patch, post } from './api'
+import { ApiError, CLIENT_ID, del, get, patch, post } from './api'
 import { applyLook } from './theme'
 
 const byId = (list) => Object.fromEntries(list.map((x) => [x.id, x]))
@@ -19,6 +19,7 @@ const KIND_KEY = {
   note: 'notes',
   template: 'templates',
   link: 'links',
+  attachment: 'attachments',
   card: 'cards',
   rule: 'rules',
 }
@@ -39,6 +40,7 @@ export const useStore = create((set, getState) => ({
   notes: {},
   templates: {},
   links: {},
+  attachments: {},
   cards: {},
   rules: {},
   notifications: [],
@@ -61,6 +63,7 @@ export const useStore = create((set, getState) => ({
         notes: byId(d.notes || []),
         templates: byId(d.templates || []),
         links: byId(d.links || []),
+        attachments: byId(d.attachments || []),
         cards: byId(d.cards),
         rules: byId(d.rules),
         notifications: d.notifications,
@@ -297,6 +300,37 @@ export const useStore = create((set, getState) => ({
       fail(e)
     }
   },
+  // ── Adjuntos ──
+  async uploadAttachment(file, target) {
+    const form = new FormData()
+    form.append('file', file)
+    if (target.card_id) form.append('card_id', target.card_id)
+    if (target.note_id) form.append('note_id', target.note_id)
+    try {
+      const res = await fetch('/api/attachments', { method: 'POST', body: form, credentials: 'include', headers: { 'x-client-id': CLIENT_ID } })
+      if (!res.ok) {
+        let msg = 'No se pudo subir el archivo'
+        try {
+          msg = (await res.json()).detail || msg
+        } catch {}
+        throw new ApiError(res.status, msg)
+      }
+      const a = await res.json()
+      set((s) => ({ attachments: { ...s.attachments, [a.id]: a } }))
+      return a
+    } catch (e) {
+      fail(e)
+    }
+  },
+  async deleteAttachment(id) {
+    set((s) => ({ attachments: without(s.attachments, id) }))
+    try {
+      await del(`/attachments/${id}`)
+    } catch (e) {
+      fail(e)
+    }
+  },
+
   // ── Relaciones ──
   async createLink(body) {
     try {
@@ -454,7 +488,7 @@ export const useStore = create((set, getState) => ({
     try {
       await post('/auth/logout')
     } catch {}
-    set({ status: 'anon', user: null, projects: {}, cards: {}, groups: {}, labels: {}, views: {}, fields: {}, notes: {}, templates: {}, links: {}, rules: {}, notifications: [] })
+    set({ status: 'anon', user: null, projects: {}, cards: {}, groups: {}, labels: {}, views: {}, fields: {}, notes: {}, templates: {}, links: {}, attachments: {}, rules: {}, notifications: [] })
   },
 }))
 
@@ -525,6 +559,7 @@ function removeLocal(next, kind, id) {
     next.templates = without(next.templates, id)
     // El servidor borra sus relaciones en cascada (sin avisar de cada una)
     next.links = Object.fromEntries(Object.entries(next.links).filter(([, l]) => l.from_id !== id && l.to_id !== id))
+    next.attachments = Object.fromEntries(Object.entries(next.attachments).filter(([, a]) => a.card_id !== id))
   } else if (KIND_KEY[kind]) {
     next[KIND_KEY[kind]] = without(next[KIND_KEY[kind]], id)
   }

@@ -11,7 +11,7 @@ from .db import SessionLocal
 from .models import User
 from .notify import scheduler_loop
 from .realtime import hub
-from .routers import admin, auth, cards, links, me, notes, projects, workspace
+from .routers import admin, attachments, auth, cards, links, me, notes, projects, workspace
 
 logging.basicConfig(level=logging.INFO)
 
@@ -41,7 +41,7 @@ async def lifespan(_app: FastAPI):
 
 
 app = FastAPI(title="Mentodo", lifespan=lifespan)
-for r in (auth.router, me.router, admin.router, projects.router, cards.router, links.router, notes.router, workspace.router):
+for r in (auth.router, me.router, admin.router, projects.router, cards.router, links.router, notes.router, attachments.router, workspace.router):
     app.include_router(r)
 
 

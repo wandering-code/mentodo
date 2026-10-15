@@ -11,11 +11,11 @@ from ..models import (
     Card, Label, LabelGroup, Notification, NotificationRule, Project, PushSubscription, User, View,
 )
 from ..models import Field as CustomField
-from ..models import CardLink, Note
+from ..models import Attachment, CardLink, Note
 from ..notify import create_notification
 from ..ownership import own_project, own_rule
 from ..serialize import (
-    card_out, field_out, group_out, link_out, note_out, label_out, notification_out, project_out, rule_out, user_out, view_out,
+    attachment_out, card_out, field_out, group_out, link_out, note_out, label_out, notification_out, project_out, rule_out, user_out, view_out,
 )
 
 router = APIRouter(tags=["workspace"])
@@ -37,6 +37,7 @@ def bootstrap(user: User = Depends(current_user), db: Session = Depends(get_db))
     templates = [c for c in all_cards if c.is_template]
     notes = db.scalars(select(Note).where(Note.user_id == user.id)).all()
     links = db.scalars(select(CardLink).where(CardLink.user_id == user.id)).all()
+    attachments = db.scalars(select(Attachment).where(Attachment.user_id == user.id)).all()
     rules = db.scalars(select(NotificationRule).where(NotificationRule.user_id == user.id)).all()
     notifs = db.scalars(select(Notification).where(Notification.user_id == user.id)
                         .order_by(Notification.created_at.desc()).limit(60)).all()
@@ -49,6 +50,7 @@ def bootstrap(user: User = Depends(current_user), db: Session = Depends(get_db))
         "fields": [field_out(f) for f in fields],
         "notes": [note_out(n) for n in notes],
         "links": [link_out(l) for l in links],
+        "attachments": [attachment_out(a) for a in attachments],
         "cards": [card_out(c) for c in cards],
         "templates": [card_out(c) for c in templates],
         "rules": [rule_out(r) for r in rules],

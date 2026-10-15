@@ -6,6 +6,7 @@ import { ArrowLeft, FileText, Folder, ListRestart, MoreHorizontal, Pin, PinOff, 
 import { useStore } from '../lib/store'
 import { ProjectPicker } from './Pickers'
 import { SortableList, SortableRow } from './Sortable'
+import { Attachments, useUploader } from './Attachments'
 import { Button, cx, Empty, IconButton, MenuItem, Popover, useIsMobile, usePopover } from './ui'
 
 const Editor = lazy(() => import('./Editor').then((m) => ({ default: m.Editor })))
@@ -255,8 +256,9 @@ function NoteEditor({ note }) {
     setResetKey((k) => k + 1)
   }
 
+  const uploader = useUploader({ note_id: note.id })
   return (
-    <article>
+    <article {...uploader.dropProps}>
       <div className="flex items-start gap-2">
         <button onClick={icon.toggle} className="grid size-11 shrink-0 place-items-center rounded-xl text-[26px] transition-colors hover:bg-hover">
           {note.icon}
@@ -295,6 +297,7 @@ function NoteEditor({ note }) {
           </Button>
         )}
       </div>
+      <Attachments noteId={note.id} />
       <div className="mt-5 border-t border-line pt-5">
         <Suspense fallback={<div className="min-h-[200px]" />}>
           <Editor

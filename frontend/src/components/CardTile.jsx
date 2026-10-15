@@ -1,5 +1,5 @@
 import { forwardRef, memo } from 'react'
-import { AlarmClock, CalendarClock, ListTree, Lock, Repeat, CalendarDays, Clock3, FileText, ListTodo } from 'lucide-react'
+import { AlarmClock, CalendarClock, ListTree, Lock, Paperclip, Repeat, CalendarDays, Clock3, FileText, ListTodo } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { dueInfo } from '../lib/cards'
 import { humanDate } from '../lib/dates'
@@ -48,6 +48,7 @@ export const CardTile = memo(
     const labels = useStore((s) => s.labels)
     const meta = useCardMeta(card)
     const badges = badgesFromKey(useStore((s) => linkBadgesKey(s, card.id)))
+    const files = useStore((s) => Object.values(s.attachments).reduce((n, a) => n + (a.card_id === card.id ? 1 : 0), 0))
     const updateCard = useStore((s) => s.updateCard)
     const chips = card.label_ids
       .map((id) => labels[id])
@@ -73,7 +74,7 @@ export const CardTile = memo(
             {card.title || <span className="text-faint">Sin título</span>}
           </div>
         </div>
-        {(chips.length > 0 || card.due_at || card.recurrence || badges.blocked || badges.subtasks || meta.dates.length > 0 || cl || card.in_todo || card.estimate_minutes || card.remind_at || hasContent(card)) && (
+        {(chips.length > 0 || card.due_at || files > 0 || card.recurrence || badges.blocked || badges.subtasks || meta.dates.length > 0 || cl || card.in_todo || card.estimate_minutes || card.remind_at || hasContent(card)) && (
           <div className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1.5 pl-[26px]">
             {chips.map((l) => (
               <LabelChip key={l.id} label={l} size="sm" />
@@ -106,6 +107,12 @@ export const CardTile = memo(
               <span className={cx('inline-flex items-center gap-1 text-[12px] tabular-nums', badges.subtasks.done === badges.subtasks.total ? 'text-accent' : 'text-muted')}>
                 <ListTree size={12} />
                 {badges.subtasks.done}/{badges.subtasks.total}
+              </span>
+            )}
+            {files > 0 && (
+              <span className="inline-flex items-center gap-0.5 text-[12px] tabular-nums text-muted" title="Adjuntos">
+                <Paperclip size={12} />
+                {files}
               </span>
             )}
             {card.recurrence && <Repeat size={12} className="text-muted" title="Se repite" />}

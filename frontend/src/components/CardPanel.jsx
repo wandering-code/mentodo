@@ -9,6 +9,7 @@ import { useStore } from '../lib/store'
 import { ProjectPicker } from './Pickers'
 import { Properties } from './Properties'
 import { Relations } from './Relations'
+import { Attachments, useUploader } from './Attachments'
 import { Checkbox, cx, Divider, IconButton, MenuItem, Popover, Scrim, useDragToClose, useIsMobile, usePopover } from './ui'
 import { ARRIVE, css, LEAVE, useLatest, usePresence } from '../lib/layers'
 
@@ -104,6 +105,8 @@ function CardBody({ card, onClose, mobile, wide, onToggleWide, dragHandlers }) {
   const s = useStore()
   const { updateCard, deleteCard, duplicateCard } = s
   const isTemplate = !!card.is_template
+  // Soltar o pegar archivos en cualquier parte de la tarjeta los adjunta
+  const uploader = useUploader({ card_id: card.id })
   const nav = useNavigate()
   const loc = useLocation()
   // La copia se abre en el sitio de la original (sin dejar otra entrada en el
@@ -175,7 +178,7 @@ function CardBody({ card, onClose, mobile, wide, onToggleWide, dragHandlers }) {
       </header>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="min-h-0 flex-1 overflow-y-auto" {...(isTemplate ? {} : uploader.dropProps)}>
         <div className={cx('mx-auto px-5 pb-6 pt-3 sm:px-8', wide && 'max-w-3xl')}>
           {isTemplate && <TemplateName card={card} />}
           <div className="flex items-start gap-3">
@@ -202,6 +205,7 @@ function CardBody({ card, onClose, mobile, wide, onToggleWide, dragHandlers }) {
 
           <Properties card={card} project={project} onMove={move.toggle} />
           {!isTemplate && <Relations card={card} />}
+          {!isTemplate && <Attachments cardId={card.id} />}
 
           <div className="my-5 h-px bg-line" />
           <EditorBoundary key={card.id}>

@@ -205,9 +205,45 @@ def run_checks() -> list[tuple[int, dict]]:
     return created
 
 
+def purge_orphan_files():
+    """Borra del disco los adjuntos que ya no pertenecen a nada (su tarjeta,
+    apunte o proyecto se borró: la base de datos borra la fila en cascada,
+    pero el fichero se quedaba). Solo los de más de una hora, para no pisar
+    una subida a medias."""
+    import os
+    import time as _time
+    from pathlib import Path
+
+    from .models import Attachment
+
+    root = Path(os.getenv("UPLOADS_DIR", "/app/uploads"))
+    if not root.exists():
+        return 0
+    with SessionLocal() as db:
+        keep = {(a.user_id, a.stored_name) for a in db.query(Attachment.user_id, Attachment.stored_name)}
+    removed = 0
+    for folder in root.iterdir():
+        if not folder.is_dir() or not folder.name.isdigit():
+            continue
+        for f in folder.iterdir():
+            if (int(folder.name), f.name) not in keep and _time.time() - f.stat().st_mtime > 3600:
+                f.unlink(missing_ok=True)
+                removed += 1
+    return removed
+
+
 async def scheduler_loop():
     await asyncio.sleep(5)
+    ticks = 0
     while True:
+        ticks += 1
+        if ticks % 60 == 1:
+            try:
+                n = await asyncio.to_thread(purge_orphan_files)
+                if n:
+                    log.info("adjuntos huérfanos borrados: %s", n)
+            except Exception:  # noqa: BLE001
+                log.exception("fallo limpiando adjuntos")
         try:
             created = await asyncio.to_thread(run_checks)
             for user_id, n in created:
