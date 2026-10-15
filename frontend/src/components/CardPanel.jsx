@@ -90,19 +90,14 @@ export function CardPanel({ cardId, onClose }) {
               }
         }
       >
-        {mobile && (
-          <div {...drag.handlers} className="flex shrink-0 cursor-grab justify-center pb-0.5 pt-2.5">
-            <div className="h-[5px] w-10 rounded-full bg-line" />
-          </div>
-        )}
-        <CardBody card={card} onClose={onClose} mobile={mobile} wide={wide} onToggleWide={toggleWide} />
+        <CardBody card={card} onClose={onClose} mobile={mobile} wide={wide} onToggleWide={toggleWide} dragHandlers={mobile ? drag.handlers : null} />
       </section>
     </>,
     document.body,
   )
 }
 
-function CardBody({ card, onClose, mobile, wide, onToggleWide }) {
+function CardBody({ card, onClose, mobile, wide, onToggleWide, dragHandlers }) {
   const s = useStore()
   const { updateCard, deleteCard } = s
   const project = card.project_id ? s.projects[card.project_id] : null
@@ -132,6 +127,14 @@ function CardBody({ card, onClose, mobile, wide, onToggleWide }) {
 
   return (
     <>
+      {/* En el móvil toda la cabecera (asa incluida) se puede arrastrar hacia
+          abajo para cerrar la tarjeta */}
+      <div {...(dragHandlers || {})} className={cx('shrink-0', dragHandlers && 'cursor-grab')}>
+      {dragHandlers && (
+        <div className="flex justify-center pb-1 pt-2.5">
+          <div className="h-[5px] w-10 rounded-full bg-line" />
+        </div>
+      )}
       <header className="flex items-center gap-1 px-2 pt-1 sm:px-3 sm:pt-3">
         <button onClick={move.toggle} className="flex h-8 min-w-0 items-center gap-1.5 rounded-lg px-2 text-[13px] text-muted transition-colors hover:bg-hover hover:text-ink">
           <span>{project ? project.icon : '📥'}</span>
@@ -150,6 +153,7 @@ function CardBody({ card, onClose, mobile, wide, onToggleWide }) {
           <X size={18} />
         </IconButton>
       </header>
+      </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className={cx('mx-auto px-5 pb-6 pt-3 sm:px-8', wide && 'max-w-3xl')}>

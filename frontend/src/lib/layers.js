@@ -124,3 +124,37 @@ export function haptic(ms = 8) {
     navigator.vibrate?.(ms)
   } catch {}
 }
+
+/* Convierte coordenadas de getBoundingClientRect a coordenadas para un
+   elemento position: fixed, y da la zona que de verdad se ve en ese mismo
+   sistema.
+
+   No se puede dar por hecho cómo mide cada navegador: en el iPhone, con el
+   teclado abierto, Safari desplaza la vista (visualViewport.offsetTop > 0) y
+   getBoundingClientRect cuenta desde lo que se ve, mientras que un fixed se
+   coloca respecto a la página. Sumar o no ese desplazamiento a ciegas deja el
+   menú fuera de la pantalla en un navegador u otro. Así que se mide: una sonda
+   fija en (0,0) dice dónde cae ese origen en el sistema de getBoundingClientRect. */
+let probe = null
+export function fixedFrame() {
+  if (!probe) {
+    probe = document.createElement('div')
+    probe.setAttribute('aria-hidden', 'true')
+    probe.style.cssText = 'position:fixed;top:0;left:0;width:0;height:0;visibility:hidden;pointer-events:none'
+    document.body.appendChild(probe)
+  }
+  const o = probe.getBoundingClientRect()
+  const vv = window.visualViewport
+  const vTop = vv ? vv.offsetTop : 0
+  const vLeft = vv ? vv.offsetLeft : 0
+  return {
+    // rect → fixed
+    x: (rx) => rx - o.left,
+    y: (ry) => ry - o.top,
+    // zona visible, en coordenadas de rect
+    top: vTop + o.top,
+    left: vLeft + o.left,
+    height: vv ? vv.height : window.innerHeight,
+    width: vv ? vv.width : window.innerWidth,
+  }
+}

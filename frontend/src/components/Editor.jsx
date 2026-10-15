@@ -14,6 +14,7 @@ import {
   Strikethrough, Type, Underline,
 } from 'lucide-react'
 import { cx } from './ui'
+import { fixedFrame } from '../lib/layers'
 
 /* Colores del texto y del resaltado: se guardan como variables CSS (no como
    hex) para que cambien solos entre modo claro y oscuro. */
@@ -109,6 +110,7 @@ const SlashCommand = Extension.create({
           let comp
           let rectFn = null
           let strip = false
+          let host = null // táctil: el contenedor del editor, donde va la tira
           // Se coloca dentro de lo que DE VERDAD se ve: en el móvil, con el
           // teclado abierto, eso es el visualViewport (no window.innerHeight,
           // que no encoge con el teclado). Pegado a la línea, debajo si cabe;
@@ -117,42 +119,33 @@ const SlashCommand = Extension.create({
             const r = rectFn?.()
             if (!r || !comp) return
             const el = comp.element
-            const vv = window.visualViewport
-            const vTop = vv ? vv.offsetTop : 0
-            const vH = vv ? vv.height : window.innerHeight
-            const vLeft = vv ? vv.offsetLeft : 0
-            const vW = vv ? vv.width : window.innerWidth
-            if (strip) {
-              // Justo encima de la línea (o debajo si la línea está arriba del
-              // todo). Se calcula solo con la posición de la propia línea:
-              // aunque el iPhone informe mal del hueco que deja el teclado, la
-              // línea en la que se escribe siempre está a la vista.
-              const up = r.top - STRIP_H - 8 >= vTop + 4
-              Object.assign(el.style, {
-                position: 'fixed',
-                zIndex: 90,
-                left: `${vLeft + 8}px`,
-                width: `${vW - 16}px`,
-                top: `${up ? r.top - STRIP_H - 8 : r.bottom + 8}px`,
-                bottom: 'auto',
-              })
+            const f = fixedFrame()
+            if (strip && host) {
+              // La tira va DENTRO del contenido de las notas (absolute en su
+              // contenedor), no flotando sobre la pantalla: su distancia a la
+              // línea es una resta entre dos medidas del mismo sistema, así
+              // que no depende de cómo desplace Safari la vista con el
+              // teclado abierto. Se mueve con el texto, como si fuera parte de él.
+              const h = host.getBoundingClientRect()
+              const up = r.top - STRIP_H - 8 >= f.top + 4
+              const y = (up ? r.top - STRIP_H - 8 : r.bottom + 8) - h.top
+              Object.assign(el.style, { position: 'absolute', zIndex: 30, left: '-4px', right: '-4px', top: `${y}px` })
               return
             }
-            const below = vTop + vH - r.bottom - 10
-            const above = r.top - vTop - 10
+            const below = f.top + f.height - r.bottom - 10
+            const above = r.top - f.top - 10
             const down = below >= 220 || below >= above
             const maxH = Math.max(120, Math.min(420, down ? below : above))
             const width = 240
-            const left = Math.max(vLeft + 8, Math.min(r.left, vLeft + vW - width - 8))
-            // Hacia arriba se ancla por el borde de abajo: así queda pegado a
-            // la línea mida lo que mida (su altura aún no se conoce al abrirse)
+            const left = Math.max(f.left + 8, Math.min(r.left, f.left + f.width - width - 8))
             Object.assign(el.style, {
               position: 'fixed',
               zIndex: 90,
               maxHeight: `${maxH}px`,
-              left: `${left}px`,
-              top: down ? `${r.bottom + 6}px` : 'auto',
-              bottom: down ? 'auto' : `${document.documentElement.clientHeight - r.top + 6}px`,
+              left: `${f.x(left)}px`,
+              top: down ? `${f.y(r.bottom + 6)}px` : 'auto',
+              // Hacia arriba se ancla por abajo: pegado a la línea mida lo que mida
+              bottom: down ? 'auto' : `${document.documentElement.clientHeight - f.y(r.top - 6)}px`,
             })
           }
           const onViewport = () => place()
@@ -161,7 +154,11 @@ const SlashCommand = Extension.create({
               strip = isTouch()
               comp = new ReactRenderer(SlashList, { props: { ...props, strip }, editor: props.editor })
               rectFn = props.clientRect
-              document.body.appendChild(comp.element)
+              host = strip ? props.editor.view.dom.parentElement : null
+              if (host) {
+                if (getComputedStyle(host).position === 'static') host.style.position = 'relative'
+                host.appendChild(comp.element)
+              } else document.body.appendChild(comp.element)
               place()
               window.visualViewport?.addEventListener('resize', onViewport)
               window.visualViewport?.addEventListener('scroll', onViewport)

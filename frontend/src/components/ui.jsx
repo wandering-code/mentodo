@@ -166,38 +166,53 @@ export function Scrim({ shown, onClick, z = 'z-[60]', strong }) {
   )
 }
 
-/* Arrastrar hacia abajo para cerrar una hoja, con el gesto solo en el asa:
-   si estuviera en toda la hoja, en el móvil no se podría hacer scroll dentro. */
-export function useDragToClose(onClose, axis = 'y') {
+/* Tirar hacia abajo para cerrar una hoja. Va en la cabecera (asa incluida),
+   no en toda la hoja: si estuviera en toda, dentro no se podría hacer scroll.
+   El gesto solo se adueña del dedo cuando de verdad baja (más de 6px y más
+   vertical que horizontal): así los botones de la cabecera siguen
+   respondiendo a un toque normal. */
+export function useDragToClose(onClose) {
   const [offset, setOffset] = useState(0)
   const [dragging, setDragging] = useState(false)
-  const start = useRef(null)
-  const sign = axis === 'x' ? -1 : 1
+  const g = useRef(null)
+  const end = (e) => {
+    const d = g.current
+    g.current = null
+    if (!d?.active) return
+    const dy = Math.max(0, e.clientY - d.y)
+    const v = (dy / Math.max(1, performance.now() - d.t)) * 1000
+    setDragging(false)
+    setOffset(0)
+    if (dy > 90 || v > 520) onClose()
+  }
   const handlers = {
     onPointerDown: (e) => {
-      try {
-        e.currentTarget.setPointerCapture(e.pointerId)
-      } catch {}
-      start.current = { p: axis === 'x' ? e.clientX : e.clientY, t: performance.now() }
-      setDragging(true)
+      g.current = { x: e.clientX, y: e.clientY, t: performance.now(), active: false, id: e.pointerId, el: e.currentTarget }
     },
     onPointerMove: (e) => {
-      if (!start.current) return
-      const d = ((axis === 'x' ? e.clientX : e.clientY) - start.current.p) * sign
-      setOffset(Math.max(0, d))
+      const d = g.current
+      if (!d) return
+      const dx = e.clientX - d.x
+      const dy = e.clientY - d.y
+      if (!d.active) {
+        if (dy > 6 && dy > Math.abs(dx)) {
+          d.active = true
+          d.t = performance.now()
+          try {
+            d.el.setPointerCapture(d.id)
+          } catch {}
+          setDragging(true)
+        } else if (Math.abs(dx) > 10 || dy < -10) {
+          g.current = null
+          return
+        } else return
+      }
+      setOffset(Math.max(0, dy))
     },
-    onPointerUp: (e) => {
-      if (!start.current) return
-      const d = Math.max(0, ((axis === 'x' ? e.clientX : e.clientY) - start.current.p) * sign)
-      const v = (d / Math.max(1, performance.now() - start.current.t)) * 1000
-      start.current = null
-      setDragging(false)
-      if (d > 90 || v > 520) onClose()
-      setOffset(0)
-    },
+    onPointerUp: end,
+    onPointerCancel: end,
     style: { touchAction: 'none' },
   }
-  handlers.onPointerCancel = handlers.onPointerUp
   return { offset, dragging, handlers }
 }
 
@@ -221,7 +236,7 @@ export function Sheet({ open, onClose, children, className, z = 'z-[70]', full }
           willChange: 'transform',
         }}
       >
-        <div {...drag.handlers} className="flex shrink-0 cursor-grab justify-center pb-2 pt-2.5">
+        <div {...drag.handlers} className="flex shrink-0 cursor-grab justify-center pb-3 pt-3">
           <div className="h-[5px] w-10 rounded-full bg-line" />
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 pb-[max(12px,env(safe-area-inset-bottom))]">{children}</div>
