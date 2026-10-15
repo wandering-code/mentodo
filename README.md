@@ -48,6 +48,23 @@ cd frontend && npm ci && npm run build                                          
 Producción: https://mentodo.wanderingcode.dev (nginx `/etc/nginx/sites-enabled/mentodo`, ingress en
 `/etc/cloudflared/config.yml`). El `.env` de producción solo existe en el mini PC.
 
+### Copias de seguridad
+
+`scripts/backup.sh` corre cada día a las 4:15 (cron de `wander` en el mini PC): volcado de Postgres
+(y adjuntos si los hay) en `backend/backups/` y en el pendrive `/mnt/backups/mentodo/`, 30 días.
+Si falla, o el pendrive no está montado, el administrador recibe un aviso en Mentodo. Log en
+`backup.log`. Además, Ajustes → «Exportar todo» descarga un JSON con todo el espacio de trabajo.
+
+Restaurar (¡borra lo que haya en la base de datos!):
+
+```bash
+cd /home/wander/apps/mentodo
+C="docker-compose -f docker-compose.yml -f docker-compose.prod.yml"
+$C stop backend
+$C exec -T db pg_restore -U mentodo -d mentodo --clean --if-exists --no-owner < backend/backups/mentodo_prod_AAAAMMDD_HHMMSS.dump
+$C start backend
+```
+
 ## Marca
 
 Originales del logo en `docs/brand/`. El monograma está redibujado en vector en
