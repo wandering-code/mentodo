@@ -159,7 +159,7 @@ export function Shell() {
         <div className={cx('min-h-0 flex-1 overflow-y-auto overscroll-contain', phone && 'pb-24')} id="scroller">
           {page}
         </div>
-        {phone && (loc.pathname === '/' || loc.pathname === '/inbox' || /^\/p\/\d+$/.test(loc.pathname)) && (
+        {phone && (loc.pathname === '/' || loc.pathname === '/hoy' || loc.pathname === '/inbox' || /^\/p\/\d+$/.test(loc.pathname)) && (
           <button
             onClick={() => setPalette(true)}
             aria-label="Capturar"
@@ -192,7 +192,7 @@ function useTitle() {
       </span>
     ) : ''
   }
-  return { '/': 'To Do', '/inbox': 'Bandeja', '/apuntes': 'Apuntes', '/ajustes': 'Ajustes', '/admin': 'Administración' }[loc.pathname] || ''
+  return { '/hoy': 'Hoy', '/': 'To Do', '/inbox': 'Bandeja', '/apuntes': 'Apuntes', '/ajustes': 'Ajustes', '/admin': 'Administración' }[loc.pathname] || ''
 }
 
 function TopBar({ onMenu, onNotifs }) {

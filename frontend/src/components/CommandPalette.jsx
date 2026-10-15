@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router'
 import { Command } from 'cmdk'
 import { toast } from 'sonner'
-import { CircleCheckBig, CornerDownLeft, FileText, Inbox, LayoutTemplate, NotebookText, Plus, Settings, Zap } from 'lucide-react'
+import { CircleCheckBig, CornerDownLeft, FileText, Inbox, LayoutTemplate, NotebookText, Plus, Settings, Sun, Zap } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { Scrim } from './ui'
 import { ARRIVE, css, LEAVE, useBackToClose, usePresence } from '../lib/layers'
@@ -149,6 +149,9 @@ export function CommandPalette({ open, onClose, onNewProject }) {
                 )}
                 {!q.trim() && (
                   <>
+                    <Command.Item value="hoy" onSelect={() => go('/hoy')} className={item}>
+                      <Sun size={16} className="text-muted" /> Ir a Hoy
+                    </Command.Item>
                     <Command.Item value="todo" onSelect={() => go('/')} className={item}>
                       <CircleCheckBig size={16} className="text-muted" /> Ir a To Do
                     </Command.Item>
