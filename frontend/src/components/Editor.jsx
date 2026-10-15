@@ -51,11 +51,12 @@ const SlashList = forwardRef(function SlashList({ items, command }, ref) {
   }))
   if (!items.length) return null
   return (
-    <div className="w-60 overflow-hidden rounded-xl border border-line bg-surface p-1.5 shadow-float">
+    <div className="max-h-[inherit] w-60 overflow-y-auto overscroll-contain rounded-xl border border-line bg-surface p-1.5 shadow-float">
       <div className="px-2.5 pb-1 pt-1.5 text-[11.5px] font-medium uppercase tracking-wide text-faint">Bloques</div>
       {items.map((it, i) => (
         <button
           key={it.id}
+          ref={i === index ? (el) => el?.scrollIntoView({ block: 'nearest' }) : undefined}
           onMouseDown={(e) => (e.preventDefault(), command(it))}
           onMouseEnter={() => setIndex(i)}
           className={cx('flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-[14px]', i === index && 'bg-hover')}
@@ -82,23 +83,51 @@ const SlashCommand = Extension.create({
         command: ({ editor, range, props }) => props.run(editor.chain().focus().deleteRange(range)).run(),
         render: () => {
           let comp
-          const place = (rect) => {
-            const r = rect?.()
+          let rectFn = null
+          // Se coloca dentro de lo que DE VERDAD se ve: en el móvil, con el
+          // teclado abierto, eso es el visualViewport (no window.innerHeight,
+          // que no encoge con el teclado). Pegado a la línea, debajo si cabe;
+          // si no cabe entero, se ajusta al hueco y se desplaza por dentro.
+          const place = () => {
+            const r = rectFn?.()
             if (!r || !comp) return
             const el = comp.element
-            const h = el.offsetHeight || 300
-            const top = r.bottom + h + 8 > window.innerHeight ? r.top - h - 6 : r.bottom + 6
-            Object.assign(el.style, { position: 'fixed', zIndex: 90, left: `${Math.min(r.left, window.innerWidth - 250)}px`, top: `${Math.max(8, top)}px` })
+            const vv = window.visualViewport
+            const vTop = vv ? vv.offsetTop : 0
+            const vH = vv ? vv.height : window.innerHeight
+            const vLeft = vv ? vv.offsetLeft : 0
+            const vW = vv ? vv.width : window.innerWidth
+            const below = vTop + vH - r.bottom - 10
+            const above = r.top - vTop - 10
+            const down = below >= 220 || below >= above
+            const maxH = Math.max(120, Math.min(420, down ? below : above))
+            const width = 240
+            const left = Math.max(vLeft + 8, Math.min(r.left, vLeft + vW - width - 8))
+            // Hacia arriba se ancla por el borde de abajo: así queda pegado a
+            // la línea mida lo que mida (su altura aún no se conoce al abrirse)
+            Object.assign(el.style, {
+              position: 'fixed',
+              zIndex: 90,
+              maxHeight: `${maxH}px`,
+              left: `${left}px`,
+              top: down ? `${r.bottom + 6}px` : 'auto',
+              bottom: down ? 'auto' : `${document.documentElement.clientHeight - r.top + 6}px`,
+            })
           }
+          const onViewport = () => place()
           return {
             onStart: (props) => {
               comp = new ReactRenderer(SlashList, { props, editor: props.editor })
+              rectFn = props.clientRect
               document.body.appendChild(comp.element)
-              place(props.clientRect)
+              place()
+              window.visualViewport?.addEventListener('resize', onViewport)
+              window.visualViewport?.addEventListener('scroll', onViewport)
             },
             onUpdate: (props) => {
               comp?.updateProps(props)
-              place(props.clientRect)
+              rectFn = props.clientRect
+              place()
             },
             onKeyDown: (props) => {
               if (props.event.key === 'Escape') {
@@ -108,6 +137,8 @@ const SlashCommand = Extension.create({
               return comp?.ref?.onKeyDown(props) ?? false
             },
             onExit: () => {
+              window.visualViewport?.removeEventListener('resize', onViewport)
+              window.visualViewport?.removeEventListener('scroll', onViewport)
               comp?.element.remove()
               comp?.destroy()
               comp = null
