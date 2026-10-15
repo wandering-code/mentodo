@@ -9,6 +9,7 @@ import { currentSubscription, disablePush, enablePush, pushSupported } from '../
 import { stopSync } from '../lib/sync'
 import { RulesEditor } from '../components/RulesEditor'
 import { VaultDialog } from '../components/VaultDialog'
+import { TemplatesManager } from '../components/Templates'
 import { lockVault, useVault, vaultSupported } from '../lib/vault'
 import { Button, cx, Input, spring } from '../components/ui'
 import { SettingsSection } from './ProjectSettings'
@@ -157,6 +158,13 @@ export function SettingsPage() {
         <div className="mt-3">
           <RulesEditor projectId={null} />
         </div>
+      </SettingsSection>
+
+      <SettingsSection
+        title="Plantillas generales"
+        description="Sirven en cualquier proyecto (y en la bandeja): cuerpo, propiedades de serie y fechas relativas. Las que usan etiquetas o campos de un proyecto se crean en los ajustes de ese proyecto."
+      >
+        <TemplatesManager projectId={null} />
       </SettingsSection>
 
       <VaultSection />

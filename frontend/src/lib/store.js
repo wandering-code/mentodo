@@ -17,6 +17,7 @@ const KIND_KEY = {
   view: 'views',
   field: 'fields',
   note: 'notes',
+  template: 'templates',
   card: 'cards',
   rule: 'rules',
 }
@@ -35,6 +36,7 @@ export const useStore = create((set, getState) => ({
   views: {},
   fields: {},
   notes: {},
+  templates: {},
   cards: {},
   rules: {},
   notifications: [],
@@ -55,6 +57,7 @@ export const useStore = create((set, getState) => ({
         views: byId(d.views),
         fields: byId(d.fields || []),
         notes: byId(d.notes || []),
+        templates: byId(d.templates || []),
         cards: byId(d.cards),
         rules: byId(d.rules),
         notifications: d.notifications,
@@ -291,6 +294,42 @@ export const useStore = create((set, getState) => ({
       fail(e)
     }
   },
+  // ── Plantillas ──
+  async createTemplate(projectId) {
+    try {
+      const t = await post('/cards', { project_id: projectId, is_template: true, title: '', template: { name: 'Nueva plantilla', offsets: {} } })
+      set((s) => ({ templates: { ...s.templates, [t.id]: t } }))
+      return t
+    } catch (e) {
+      fail(e)
+    }
+  },
+  async saveAsTemplate(cardId, profile) {
+    try {
+      const t = await post(`/cards/${cardId}/as-template`, { profile })
+      set((s) => ({ templates: { ...s.templates, [t.id]: t } }))
+      return t
+    } catch (e) {
+      fail(e)
+    }
+  },
+  async cardFromTemplate(templateId, body) {
+    try {
+      const c = await post(`/cards/from-template/${templateId}`, body)
+      set((s) => ({ cards: { ...s.cards, [c.id]: c } }))
+      return c
+    } catch (e) {
+      fail(e)
+    }
+  },
+  async deleteTemplate(id) {
+    set((s) => ({ templates: without(s.templates, id) }))
+    try {
+      await del(`/cards/${id}`)
+    } catch (e) {
+      fail(e)
+    }
+  },
   async duplicateCard(id, withContent) {
     try {
       const c = await post(`/cards/${id}/duplicate`, { with_content: withContent })
@@ -305,7 +344,8 @@ export const useStore = create((set, getState) => ({
     // El servidor sincroniza "hecho" con la etiqueta de terminado; aquí se
     // adelanta el mismo cálculo para que el cambio se vea sin esperar.
     const s = getState()
-    const card = s.cards[id]
+    const isTemplate = !s.cards[id] && !!s.templates[id]
+    const card = s.cards[id] || s.templates[id]
     if (card && body.done !== undefined && body.label_ids === undefined) {
       local.label_ids = syncDoneLabels(s, card, body.done)
       local.completed_at = body.done ? new Date().toISOString() : null
@@ -328,7 +368,7 @@ export const useStore = create((set, getState) => ({
       local.label_ids = []
       local.values = {}
     }
-    return optimisticPatch(set, getState, 'cards', `/cards/${id}`, id, body, local)
+    return optimisticPatch(set, getState, isTemplate ? 'templates' : 'cards', `/cards/${id}`, id, body, local)
   },
   deleteCard(id) {
     const card = getState().cards[id]
@@ -392,7 +432,7 @@ export const useStore = create((set, getState) => ({
     try {
       await post('/auth/logout')
     } catch {}
-    set({ status: 'anon', user: null, projects: {}, cards: {}, groups: {}, labels: {}, views: {}, fields: {}, notes: {}, rules: {}, notifications: [] })
+    set({ status: 'anon', user: null, projects: {}, cards: {}, groups: {}, labels: {}, views: {}, fields: {}, notes: {}, templates: {}, rules: {}, notifications: [] })
   },
 }))
 
@@ -443,6 +483,7 @@ function removeLocal(next, kind, id) {
     next.views = Object.fromEntries(Object.entries(next.views).filter(([, v]) => v.project_id !== id))
     next.fields = Object.fromEntries(Object.entries(next.fields).filter(([, f]) => f.project_id !== id))
     next.notes = Object.fromEntries(Object.entries(next.notes).filter(([, n]) => n.project_id !== id))
+    next.templates = Object.fromEntries(Object.entries(next.templates).filter(([, t]) => t.project_id !== id))
     next.cards = Object.fromEntries(Object.entries(next.cards).filter(([, c]) => c.project_id !== id))
     next.rules = Object.fromEntries(Object.entries(next.rules).filter(([, r]) => r.project_id !== id))
   } else if (kind === 'group') {
@@ -457,6 +498,9 @@ function removeLocal(next, kind, id) {
     next.cards = Object.fromEntries(
       Object.entries(next.cards).map(([k, c]) => [k, c.label_ids.includes(id) ? { ...c, label_ids: c.label_ids.filter((l) => l !== id) } : c]),
     )
+  } else if (kind === 'card') {
+    next.cards = without(next.cards, id)
+    next.templates = without(next.templates, id)
   } else if (KIND_KEY[kind]) {
     next[KIND_KEY[kind]] = without(next[KIND_KEY[kind]], id)
   }

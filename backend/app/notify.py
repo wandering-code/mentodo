@@ -136,7 +136,7 @@ def run_checks() -> list[tuple[int, dict]]:
             tz = _tz(user)
             rules = db.scalars(select(NotificationRule).where(NotificationRule.user_id == user.id)).all()
             projects = {p.id: p for p in db.scalars(select(Project).where(Project.user_id == user.id)).all()}
-            cards = db.scalars(select(Card).where(Card.user_id == user.id, Card.done.is_(False))).all()
+            cards = db.scalars(select(Card).where(Card.user_id == user.id, Card.done.is_(False), Card.is_template.is_(False))).all()
             field_names = {f.id: f.name for f in db.scalars(select(Field).where(Field.project_id.in_(list(projects) or [0]))).all()}
 
             def emit(key, title, body, card=None, project_id=None, url="/"):

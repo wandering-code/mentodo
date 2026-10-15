@@ -227,6 +227,8 @@ function AddProperty({ card, project, hidden }) {
 
 /* Valor editable de una propiedad (lo usan el panel y la tabla) */
 export function PropValue({ prop, card, compact }) {
+  // En una plantilla, las fechas son relativas al día en que se crea la tarjeta
+  if (card.is_template && (prop.key === 'due' || prop.key === 'remind' || prop.field?.kind === 'date')) return <RelativeDate card={card} dateKey={prop.key} />
   if (prop.group) return <GroupValue group={prop.group} card={card} compact={compact} />
   if (prop.field) return <FieldValue field={prop.field} card={card} compact={compact} />
   if (prop.key === 'due') return <DueValue card={card} compact={compact} />
@@ -234,6 +236,64 @@ export function PropValue({ prop, card, compact }) {
   if (prop.key === 'estimate') return <EstimateValue card={card} compact={compact} />
   if (prop.key === 'todo') return <TodoValue card={card} />
   return null
+}
+
+const REL = [
+  [0, 'Hoy'],
+  [1, 'Mañana'],
+  [2, 'En 2 días'],
+  [3, 'En 3 días'],
+  [7, 'En 1 semana'],
+  [14, 'En 2 semanas'],
+  [30, 'En 1 mes'],
+]
+const relText = (d) => (d == null ? null : REL.find(([n]) => n === d)?.[1] || `En ${d} días`)
+
+function RelativeDate({ card, dateKey }) {
+  const updateCard = useStore((s) => s.updateCard)
+  const pop = usePopover()
+  const offsets = card.template?.offsets || {}
+  const value = offsets[dateKey]
+  const set = (days) => {
+    const next = { ...offsets }
+    if (days == null) delete next[dateKey]
+    else next[dateKey] = days
+    updateCard(card.id, { template: { ...card.template, offsets: next } })
+    pop.close()
+  }
+  return (
+    <>
+      <button onClick={pop.toggle} className={cx('h-8 rounded-lg px-2 transition-colors hover:bg-hover', value == null ? 'text-faint' : 'text-ink')}>
+        {relText(value) || 'Sin fecha'}
+        {dateKey === 'remind' && value != null && <span className="text-faint"> · 9:00</span>}
+      </button>
+      <Popover open={pop.open} anchor={pop.anchor} onClose={pop.close} width={230}>
+        <MenuLabel>Al crear la tarjeta</MenuLabel>
+        <MenuItem active={value == null} onClick={() => set(null)}>
+          Sin fecha
+        </MenuItem>
+        {REL.map(([d, t]) => (
+          <MenuItem key={d} active={value === d} onClick={() => set(d)}>
+            {t}
+          </MenuItem>
+        ))}
+        <Divider />
+        <div className="flex items-center gap-2 px-3 py-2 text-[14px] sm:px-2.5">
+          En
+          <input
+            type="number"
+            min={0}
+            max={3650}
+            inputMode="numeric"
+            defaultValue={value ?? ''}
+            onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.value !== '' && set(Math.max(0, Number(e.currentTarget.value)))}
+            className="h-9 w-16 rounded-lg bg-sunken px-2 text-[16px] outline-none sm:h-8 sm:text-[14px]"
+          />
+          días
+        </div>
+      </Popover>
+    </>
+  )
 }
 
 function GroupValue({ group, card, compact }) {

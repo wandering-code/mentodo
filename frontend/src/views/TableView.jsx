@@ -5,6 +5,7 @@ import { useStore } from '../lib/store'
 import { sortCards } from '../lib/cards'
 import { hiddenInCard, hiddenInProject, projectProps } from '../lib/props'
 import { PropValue } from '../components/Properties'
+import { TemplateButton } from '../components/Templates'
 import { Checkbox, cx } from '../components/ui'
 
 function HeaderCell({ field, children, view, className }) {
@@ -116,6 +117,7 @@ export function TableView({ project, view, cards, onOpen }) {
       <form onSubmit={add} className="flex h-10 items-center gap-2.5 border-b border-line px-3 text-faint">
         <Plus size={16} />
         <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Nueva tarjeta" className="flex-1 bg-transparent text-[14px] text-ink outline-none placeholder:text-faint" />
+        <TemplateButton projectId={project.id} />
       </form>
     </div>
   )

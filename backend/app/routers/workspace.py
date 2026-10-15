@@ -32,7 +32,9 @@ def bootstrap(user: User = Depends(current_user), db: Session = Depends(get_db))
     labels = db.scalars(select(Label).where(Label.group_id.in_(gids))).all() if gids else []
     views = db.scalars(select(View).where(View.project_id.in_(pids))).all() if pids else []
     fields = db.scalars(select(CustomField).where(CustomField.project_id.in_(pids))).all() if pids else []
-    cards = db.scalars(select(Card).where(Card.user_id == user.id)).all()
+    all_cards = db.scalars(select(Card).where(Card.user_id == user.id)).all()
+    cards = [c for c in all_cards if not c.is_template]
+    templates = [c for c in all_cards if c.is_template]
     notes = db.scalars(select(Note).where(Note.user_id == user.id)).all()
     rules = db.scalars(select(NotificationRule).where(NotificationRule.user_id == user.id)).all()
     notifs = db.scalars(select(Notification).where(Notification.user_id == user.id)
@@ -46,6 +48,7 @@ def bootstrap(user: User = Depends(current_user), db: Session = Depends(get_db))
         "fields": [field_out(f) for f in fields],
         "notes": [note_out(n) for n in notes],
         "cards": [card_out(c) for c in cards],
+        "templates": [card_out(c) for c in templates],
         "rules": [rule_out(r) for r in rules],
         "notifications": [notification_out(n) for n in notifs],
         "vapid_public_key": settings.vapid_public_key or None,

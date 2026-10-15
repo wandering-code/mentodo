@@ -3,12 +3,13 @@ import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router'
 import { Command } from 'cmdk'
 import { toast } from 'sonner'
-import { CircleCheckBig, CornerDownLeft, FileText, Inbox, NotebookText, Plus, Settings, Zap } from 'lucide-react'
+import { CircleCheckBig, CornerDownLeft, FileText, Inbox, LayoutTemplate, NotebookText, Plus, Settings, Zap } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { Scrim } from './ui'
 import { ARRIVE, css, LEAVE, useBackToClose, usePresence } from '../lib/layers'
 import { cardPath } from '../lib/nav'
 import { notePath, noteText } from './Notes'
+import { useFromTemplate } from './Templates'
 
 /* ⌘K: buscar cualquier cosa y, si no existe, capturarla a la bandeja con
    Enter. Capturar no debería pedir decidir antes dónde va. */
@@ -16,6 +17,9 @@ export function CommandPalette({ open, onClose, onNewProject }) {
   const [q, setQ] = useState('')
   const cards = useStore((s) => s.cards)
   const notes = useStore((s) => s.notes)
+  const templates = useStore((s) => s.templates)
+  const fromTemplate = useFromTemplate()
+  const here = Number(location.pathname.match(/^\/p\/(\d+)/)?.[1]) || null
   const projects = useStore((s) => s.projects)
   const createCard = useStore((s) => s.createCard)
   const nav = useNavigate()
@@ -26,8 +30,9 @@ export function CommandPalette({ open, onClose, onNewProject }) {
 
   const results = useMemo(() => {
     const term = q.trim().toLowerCase()
-    if (!term) return { cards: [], projects: [], notes: [] }
+    if (!term) return { cards: [], projects: [], notes: [], templates: [] }
     return {
+      templates: Object.values(templates).filter((t) => (t.template?.name || '').toLowerCase().includes(term)).slice(0, 4),
       notes: Object.values(notes)
         .filter((n) => n.title.toLowerCase().includes(term) || noteText(n).toLowerCase().includes(term))
         .sort((a, b) => Number(b.title.toLowerCase().includes(term)) - Number(a.title.toLowerCase().includes(term)))
@@ -38,7 +43,7 @@ export function CommandPalette({ open, onClose, onNewProject }) {
         .sort((a, b) => Number(a.done) - Number(b.done) || (b.updated_at > a.updated_at ? 1 : -1))
         .slice(0, 12),
     }
-  }, [q, cards, projects, notes])
+  }, [q, cards, projects, notes, templates])
 
   const go = (path) => {
     nav(path)
@@ -93,6 +98,27 @@ export function CommandPalette({ open, onClose, onNewProject }) {
                       <Command.Item key={p.id} value={`p${p.id}`} onSelect={() => go(`/p/${p.id}`)} className={item}>
                         <span className="w-4 text-center">{p.icon}</span>
                         {p.name}
+                      </Command.Item>
+                    ))}
+                  </Command.Group>
+                )}
+                {results.templates.length > 0 && (
+                  <Command.Group heading="Nueva tarjeta desde plantilla" className="[&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:pb-1 [&_[cmdk-group-heading]]:pt-3 [&_[cmdk-group-heading]]:text-[11.5px] [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wide [&_[cmdk-group-heading]]:text-faint">
+                    {results.templates.map((t) => (
+                      <Command.Item
+                        key={t.id}
+                        value={`t${t.id}`}
+                        onSelect={() => {
+                          onClose()
+                          // Las de proyecto, en su proyecto; las generales, en el
+                          // proyecto que se esté viendo (o en la bandeja)
+                          fromTemplate(t, { projectId: t.project_id ?? here })
+                        }}
+                        className={item}
+                      >
+                        <LayoutTemplate size={16} className="text-accent" />
+                        <span className="flex-1 truncate">{t.template?.name || 'Sin nombre'}</span>
+                        <span className="truncate text-[12.5px] text-faint">{t.project_id ? `${projects[t.project_id]?.icon} ${projects[t.project_id]?.name}` : 'General'}</span>
                       </Command.Item>
                     ))}
                   </Command.Group>

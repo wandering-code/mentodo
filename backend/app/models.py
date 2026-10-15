@@ -112,6 +112,12 @@ class Card(Base):
     values = Column(JSON, nullable=False, default=dict)
     # Propiedades ocultas solo en esta tarjeta (mismas claves que en Project)
     hidden_props = Column(JSON, nullable=False, default=list)
+    # Plantilla: tarjeta modelo que no sale en las vistas. `template` guarda su
+    # nombre y las fechas relativas: {"name": "...", "offsets": {"due": 0, "f:3": 7}}
+    is_template = Column(Boolean, nullable=False, default=False, server_default="false", index=True)
+    template = Column(JSON, nullable=True)
+    # Repetición: {"freq": "daily|weekly|monthly", "interval": 1, "weekdays": [0..6]}
+    recurrence = Column(JSON, nullable=True)
     created_at = Column(DateTime(timezone=True), default=now)
     updated_at = Column(DateTime(timezone=True), default=now, onupdate=now)
 

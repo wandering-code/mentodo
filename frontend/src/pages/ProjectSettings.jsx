@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router'
 import { motion } from 'motion/react'
 import { SortableList, SortableRow } from '../components/Sortable'
+import { TemplatesManager } from '../components/Templates'
 import { Archive, ArchiveRestore, ArrowLeft, CircleCheck, Eye, EyeOff, GripVertical, Plus, Trash2 } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { groupLabels, projectGroups } from '../lib/cards'
@@ -307,6 +308,13 @@ export function ProjectSettings() {
             <input value={newGroup} onChange={(e) => setNewGroup(e.target.value)} placeholder="Nuevo grupo de etiquetas (p. ej. Área, Contexto, Energía)" className="h-8 flex-1 bg-transparent text-[14px] outline-none placeholder:text-faint" />
           </form>
         </div>
+      </SettingsSection>
+
+      <SettingsSection
+        title="Plantillas"
+        description="Tarjetas modelo de este proyecto: propiedades visibles, cuerpo y valores por defecto (etiquetas, fechas relativas, campos…). Se usan desde el botón de plantillas de cada columna o con ⌘K. También puedes guardar cualquier tarjeta como plantilla desde su menú ···."
+      >
+        <TemplatesManager projectId={id} />
       </SettingsSection>
 
       <SettingsSection title="Avisos de este proyecto" description="Además de los avisos generales (en Ajustes), estas reglas solo se aplican a las tarjetas de este proyecto.">

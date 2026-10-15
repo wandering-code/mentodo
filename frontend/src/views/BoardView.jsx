@@ -13,6 +13,7 @@ import { between, groupLabels, sortCards } from '../lib/cards'
 import { LABEL_COLORS } from '../lib/palette'
 import { CardTile } from '../components/CardTile'
 import { ColorPicker } from '../components/Pickers'
+import { TemplateButton } from '../components/Templates'
 import { cx, Divider, IconButton, MenuItem, Popover, Toggle, useIsMobile, usePopover } from '../components/ui'
 
 const NONE = 'none'
@@ -37,7 +38,7 @@ function SortableCard({ card, groupId, onOpen, disabled }) {
   )
 }
 
-function Column({ id, label, group, cards, onOpen, onAdd, manual }) {
+function Column({ id, label, group, cards, onOpen, onAdd, manual, projectId }) {
   const { setNodeRef, isOver } = useDroppable({ id: `col:${id}`, data: { type: 'column', col: id } })
   const [adding, setAdding] = useState(false)
   const [text, setText] = useState('')
@@ -66,6 +67,7 @@ function Column({ id, label, group, cards, onOpen, onAdd, manual }) {
         )}
         <span className="text-[12.5px] tabular-nums text-faint">{cards.length}</span>
         <span className="flex-1" />
+        <TemplateButton projectId={projectId} labelIds={id === NONE ? [] : [Number(id)]} className="opacity-0 group-hover/col:opacity-100 max-sm:opacity-100" />
         <IconButton size="sm" label="Añadir tarjeta" onClick={() => setAdding(true)} className="opacity-0 group-hover/col:opacity-100 max-sm:opacity-100">
           <Plus size={15} />
         </IconButton>
@@ -350,6 +352,7 @@ export function BoardView({ project, view, cards, onOpen }) {
             onOpen={(c) => performance.now() - lastDrop.current > 350 && onOpen(c)}
             onAdd={add}
             manual={manual}
+            projectId={project.id}
           />
         ))}
         <NewColumn group={group} count={labels.length} />

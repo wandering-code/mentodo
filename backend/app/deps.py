@@ -17,6 +17,10 @@ class Emitter:
         self._scheduled = False
 
     def upsert(self, kind: str, data: dict):
+        # Las plantillas viajan aparte de las tarjetas: el cliente las guarda
+        # en su propia colección y no salen en ninguna vista
+        if kind == "card" and data.get("is_template"):
+            kind = "template"
         self.events.append({"t": "upsert", "k": kind, "d": data})
         self._schedule()
 

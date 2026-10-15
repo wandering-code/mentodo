@@ -25,6 +25,9 @@ class CardIn(BaseModel):
     label_ids: list[int] = []
     position: float | None = None
     values: dict = {}
+    is_template: bool = False
+    template: dict | None = None
+    hidden_props: list[str] = []
 
 
 class CardPatch(BaseModel):
@@ -40,6 +43,8 @@ class CardPatch(BaseModel):
     position: float | None = None
     label_ids: list[int] | None = None
     hidden_props: list[str] | None = None
+    template: dict | None = None
+    recurrence: dict | None = None
     # Cambios parciales de campos propios: {"<field_id>": valor | null}
     values: dict | None = None
 
@@ -119,13 +124,133 @@ def create_card(body: CardIn, em: Emitter = Depends(emitter), db: Session = Depe
         position = (top or 0) - 1
     c = Card(user_id=em.user.id, project_id=body.project_id, title=body.title, content=body.content,
              in_todo=body.in_todo, due_at=body.due_at, due_all_day=body.due_all_day,
-             estimate_minutes=body.estimate_minutes, position=position, values=body.values)
+             estimate_minutes=body.estimate_minutes, position=position, values=body.values,
+             is_template=body.is_template, template=body.template if body.is_template else None,
+             hidden_props=body.hidden_props)
     db.add(c)
     db.flush()
     if body.label_ids:
         _apply_labels(db, c, body.label_ids)
     db.commit()
     out = card_out(c)
+    em.upsert("card", out)
+    return out
+
+
+# ── Plantillas ───────────────────────────────────────────────────────────────
+
+def _local_dt(user_tz: str, days: int, hour: int) -> datetime:
+    """Hoy (en la zona del usuario) + días, a esa hora local, en UTC."""
+    from datetime import time, timedelta
+    from zoneinfo import ZoneInfo
+    try:
+        tz = ZoneInfo(user_tz or "Europe/Madrid")
+    except Exception:
+        tz = ZoneInfo("Europe/Madrid")
+    d = datetime.now(tz).date() + timedelta(days=days)
+    return datetime.combine(d, time(hour), tz).astimezone(timezone.utc)
+
+
+def _start_labels(db: Session, labels: list[Label]) -> list[Label]:
+    """Las etiquetas de partida de una tarjeta nueva: sin la de terminado, que
+    se cambia por la primera etiqueta normal de su grupo."""
+    out = [l for l in labels if not l.marks_done]
+    for done_label in [l for l in labels if l.marks_done]:
+        first = db.scalar(select(Label).where(Label.group_id == done_label.group_id, Label.marks_done.is_(False))
+                          .order_by(Label.position))
+        if first:
+            out.append(first)
+    return out
+
+
+def instantiate(db: Session, user, src: Card, project_id: int | None, *, position: float | None = None,
+                extra_label_ids: list[int] | None = None, dates_from_offsets: bool = True) -> Card:
+    """Tarjeta nueva a partir de una plantilla: mismo contenido, propiedades
+    visibles y valores; fechas calculadas desde hoy con sus desplazamientos."""
+    same_project = src.project_id == project_id
+    offsets = (src.template or {}).get("offsets", {}) if dates_from_offsets else {}
+    values = {k: v for k, v in (src.values or {}).items()} if same_project else {}
+    if position is None:
+        top = db.scalar(select(func.min(Card.position)).where(Card.user_id == user.id, Card.project_id == project_id))
+        position = (top or 0) - 1
+    c = Card(user_id=user.id, project_id=project_id, title=src.title, content=src.content, in_todo=src.in_todo,
+             estimate_minutes=src.estimate_minutes, hidden_props=list(src.hidden_props or []),
+             recurrence=src.recurrence, position=position, values=values)
+    for key, days in offsets.items():
+        if days is None:
+            continue
+        if key == "due":
+            c.due_at, c.due_all_day = _local_dt(user.timezone, int(days), 12), True
+        elif key == "remind":
+            c.remind_at = _local_dt(user.timezone, int(days), 9)
+        elif key.startswith("f:") and same_project:
+            c.values = {**(c.values or {}), key[2:]: {"at": _local_dt(user.timezone, int(days), 12).isoformat(), "all_day": True}}
+    db.add(c)
+    db.flush()
+    labels = _start_labels(db, list(src.labels)) if same_project else []
+    ids = [l.id for l in labels] + list(extra_label_ids or [])
+    if ids:
+        _apply_labels(db, c, ids)
+    return c
+
+
+class FromTemplateIn(BaseModel):
+    project_id: int | None = None
+    label_ids: list[int] = []
+    position: float | None = None
+
+
+@router.post("/from-template/{template_id}", status_code=201)
+def from_template(template_id: int, body: FromTemplateIn, em: Emitter = Depends(emitter), db: Session = Depends(get_db)):
+    src = own_card(db, em.user.id, template_id)
+    if not src.is_template:
+        raise HTTPException(422, "No es una plantilla")
+    if body.project_id is not None:
+        own_project(db, em.user.id, body.project_id)
+    c = instantiate(db, em.user, src, body.project_id, position=body.position, extra_label_ids=body.label_ids)
+    db.commit()
+    out = card_out(c)
+    em.upsert("card", out)
+    return out
+
+
+class AsTemplateIn(BaseModel):
+    profile: bool = False  # True = plantilla general (para cualquier proyecto)
+
+
+@router.post("/{card_id}/as-template", status_code=201)
+def as_template(card_id: int, body: AsTemplateIn, em: Emitter = Depends(emitter), db: Session = Depends(get_db)):
+    """Guarda una tarjeta como plantilla. Sus fechas pasan a ser relativas
+    (días desde hoy) y la de terminado se cambia por el estado inicial."""
+    from datetime import date as _date
+    src = own_card(db, em.user.id, card_id)
+    today = datetime.now(timezone.utc).date()
+
+    def off(dt):
+        return max(0, (dt.date() - today).days) if dt else None
+
+    offsets = {"due": off(src.due_at), "remind": off(src.remind_at)}
+    keep_values = {}
+    for k, v in (src.values or {}).items():
+        if isinstance(v, dict) and v.get("at"):
+            try:
+                offsets[f"f:{k}"] = max(0, (_date.fromisoformat(v["at"][:10]) - today).days)
+            except ValueError:
+                pass
+        else:
+            keep_values[k] = v
+    offsets = {k: v for k, v in offsets.items() if v is not None}
+    project_id = None if body.profile else src.project_id
+    t = Card(user_id=em.user.id, project_id=project_id, title=src.title, content=src.content, in_todo=src.in_todo,
+             estimate_minutes=src.estimate_minutes, hidden_props=list(src.hidden_props or []),
+             values={} if body.profile else keep_values, recurrence=src.recurrence, position=0,
+             is_template=True, template={"name": src.title or "Plantilla", "offsets": offsets})
+    db.add(t)
+    db.flush()
+    if not body.profile:
+        t.labels = _start_labels(db, list(src.labels))
+    db.commit()
+    out = card_out(t)
     em.upsert("card", out)
     return out
 
@@ -178,8 +303,8 @@ def patch_card(card_id: int, body: CardPatch, em: Emitter = Depends(emitter), db
         c.labels = []  # las etiquetas y los campos son de cada proyecto
         c.values = {}
     for k in ("title", "content", "in_todo", "due_at", "due_all_day", "remind_at", "estimate_minutes", "position",
-              "hidden_props"):
-        if k in data and not (k == "hidden_props" and data[k] is None):
+              "hidden_props", "template", "recurrence"):
+        if k in data and not (k in ("hidden_props", "template") and data[k] is None):
             setattr(c, k, data[k])
     if data.get("values"):
         merged = dict(c.values or {})

@@ -4,9 +4,10 @@ import { ChevronRight, Plus } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { groupLabels, sortCards } from '../lib/cards'
 import { CardRow } from '../components/CardRow'
+import { TemplateButton } from '../components/Templates'
 import { Collapse, cx } from '../components/ui'
 
-function Section({ title, cards, onOpen, hideGroupId, onAdd, defaultOpen = true }) {
+function Section({ title, cards, onOpen, hideGroupId, onAdd, defaultOpen = true, projectId, labelIds = [] }) {
   const [open, setOpen] = useState(defaultOpen)
   const [draft, setDraft] = useState('')
   return (
@@ -34,6 +35,7 @@ function Section({ title, cards, onOpen, hideGroupId, onAdd, defaultOpen = true 
               >
                 <Plus size={16} />
                 <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Añadir…" className="flex-1 bg-transparent text-[14px] text-ink outline-none placeholder:text-faint" />
+                {projectId && <TemplateButton projectId={projectId} labelIds={labelIds} />}
               </form>
             )}
       </Collapse>
@@ -49,7 +51,7 @@ export function ListView({ project, view, cards, onOpen }) {
   if (!group) {
     return (
       <div className="mx-auto max-w-3xl px-4 pb-16 sm:px-8">
-        <Section title={<span className="text-[13.5px] font-medium">Todas</span>} cards={sorted} onOpen={onOpen} onAdd={(title) => s.createCard({ project_id: project.id, title })} />
+        <Section title={<span className="text-[13.5px] font-medium">Todas</span>} cards={sorted} onOpen={onOpen} onAdd={(title) => s.createCard({ project_id: project.id, title })} projectId={project.id} />
       </div>
     )
   }
@@ -74,6 +76,8 @@ export function ListView({ project, view, cards, onOpen }) {
           onOpen={onOpen}
           hideGroupId={group.id}
           onAdd={(title) => s.createCard({ project_id: project.id, title, label_ids: [l.id] })}
+          projectId={project.id}
+          labelIds={[l.id]}
         />
       ))}
     </div>

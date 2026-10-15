@@ -2,13 +2,13 @@ import { Component, lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { formatDistanceToNowStrict } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { CircleCheckBig, Copy, CopyPlus, Folder, Maximize2, Minimize2, MoreHorizontal, Trash2, X } from 'lucide-react'
+import { CircleCheckBig, Copy, CopyPlus, Folder, LayoutTemplate, Maximize2, Minimize2, MoreHorizontal, Trash2, X } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router'
 import { toast } from 'sonner'
 import { useStore } from '../lib/store'
 import { ProjectPicker } from './Pickers'
 import { Properties } from './Properties'
-import { Checkbox, cx, IconButton, MenuItem, Popover, Scrim, useDragToClose, useIsMobile, usePopover } from './ui'
+import { Checkbox, cx, Divider, IconButton, MenuItem, Popover, Scrim, useDragToClose, useIsMobile, usePopover } from './ui'
 import { ARRIVE, css, LEAVE, useLatest, usePresence } from '../lib/layers'
 
 // El editor (TipTap) es lo más pesado de la app: se descarga al abrir la
@@ -40,7 +40,7 @@ class EditorBoundary extends Component {
 }
 
 export function CardPanel({ cardId, onClose }) {
-  const live = useStore((s) => (cardId ? s.cards[cardId] : null))
+  const live = useStore((s) => (cardId ? s.cards[cardId] || s.templates[cardId] : null))
   // Mientras se cierra, se sigue pintando la última tarjeta (no un hueco)
   const card = useLatest(live)
   const mobile = useIsMobile()
@@ -102,6 +102,7 @@ export function CardPanel({ cardId, onClose }) {
 function CardBody({ card, onClose, mobile, wide, onToggleWide, dragHandlers }) {
   const s = useStore()
   const { updateCard, deleteCard, duplicateCard } = s
+  const isTemplate = !!card.is_template
   const nav = useNavigate()
   const loc = useLocation()
   // La copia se abre en el sitio de la original (sin dejar otra entrada en el
@@ -147,10 +148,17 @@ function CardBody({ card, onClose, mobile, wide, onToggleWide, dragHandlers }) {
         </div>
       )}
       <header className="flex items-center gap-1 px-2 pt-1 sm:px-3 sm:pt-3">
-        <button onClick={move.toggle} className="flex h-8 min-w-0 items-center gap-1.5 rounded-lg px-2 text-[13px] text-muted transition-colors hover:bg-hover hover:text-ink">
-          <span>{project ? project.icon : '📥'}</span>
-          <span className="truncate">{project ? project.name : 'Bandeja'}</span>
-        </button>
+        {isTemplate ? (
+          <span className="flex h-8 min-w-0 items-center gap-1.5 rounded-lg bg-accent-soft px-2 text-[13px] font-medium text-accent">
+            <LayoutTemplate size={14} />
+            <span className="truncate">Plantilla · {project ? `${project.icon} ${project.name}` : 'general'}</span>
+          </span>
+        ) : (
+          <button onClick={move.toggle} className="flex h-8 min-w-0 items-center gap-1.5 rounded-lg px-2 text-[13px] text-muted transition-colors hover:bg-hover hover:text-ink">
+            <span>{project ? project.icon : '📥'}</span>
+            <span className="truncate">{project ? project.name : 'Bandeja'}</span>
+          </button>
+        )}
         <div className="flex-1" />
         {!mobile && (
           <IconButton label={wide ? 'Reducir' : 'Ampliar'} onClick={onToggleWide}>
@@ -168,8 +176,9 @@ function CardBody({ card, onClose, mobile, wide, onToggleWide, dragHandlers }) {
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className={cx('mx-auto px-5 pb-6 pt-3 sm:px-8', wide && 'max-w-3xl')}>
+          {isTemplate && <TemplateName card={card} />}
           <div className="flex items-start gap-3">
-            <Checkbox checked={card.done} onChange={(done) => updateCard(card.id, { done })} size={24} className="mt-[7px]" />
+            {!isTemplate && <Checkbox checked={card.done} onChange={(done) => updateCard(card.id, { done })} size={24} className="mt-[7px]" />}
             <textarea
               ref={titleRef}
               rows={1}
@@ -182,7 +191,7 @@ function CardBody({ card, onClose, mobile, wide, onToggleWide, dragHandlers }) {
                   e.currentTarget.blur()
                 }
               }}
-              placeholder="Sin título"
+              placeholder={isTemplate ? 'Título con el que nacen las tarjetas (opcional)' : 'Sin título'}
               className={cx(
                 'flex-1 resize-none overflow-hidden bg-transparent text-[22px] sm:text-[26px] font-semibold leading-[1.25] tracking-[-0.022em] outline-none placeholder:text-faint',
                 card.done && 'text-muted',
@@ -202,7 +211,9 @@ function CardBody({ card, onClose, mobile, wide, onToggleWide, dragHandlers }) {
       </div>
 
       <footer className="flex items-center gap-2 border-t border-line px-5 py-2.5 pb-[max(10px,env(safe-area-inset-bottom))] text-[12px] text-faint sm:px-8">
-        {card.done && card.completed_at ? (
+        {isTemplate ? (
+          <span>Las fechas de la plantilla son relativas: se calculan desde el día en que se crea cada tarjeta.</span>
+        ) : card.done && card.completed_at ? (
           <span className="flex items-center gap-1.5">
             <CircleCheckBig size={13} /> Terminada hace {formatDistanceToNowStrict(new Date(card.completed_at), { locale: es })}
           </span>
@@ -210,10 +221,25 @@ function CardBody({ card, onClose, mobile, wide, onToggleWide, dragHandlers }) {
           <span>Creada hace {formatDistanceToNowStrict(new Date(card.created_at), { locale: es })}</span>
         )}
         <span className="flex-1" />
-        <span>Editada hace {formatDistanceToNowStrict(new Date(card.updated_at), { locale: es })}</span>
+        <span className={cx(isTemplate && 'max-sm:hidden')}>Editada hace {formatDistanceToNowStrict(new Date(card.updated_at), { locale: es })}</span>
       </footer>
 
-      <Popover open={more.open} anchor={more.anchor} onClose={more.close} align="end" width={250}>
+      <Popover open={more.open} anchor={more.anchor} onClose={more.close} align="end" width={270}>
+        {isTemplate ? (
+          <MenuItem
+            icon={Trash2}
+            danger
+            onClick={() => {
+              more.close()
+              if (!confirm(`¿Borrar la plantilla «${card.template?.name}»? Las tarjetas creadas con ella no se tocan.`)) return
+              onClose()
+              s.deleteTemplate(card.id)
+            }}
+          >
+            Borrar plantilla
+          </MenuItem>
+        ) : (
+        <>
         <MenuItem icon={Folder} onClick={() => {
             const a = more.anchor
             more.close()
@@ -247,6 +273,30 @@ function CardBody({ card, onClose, mobile, wide, onToggleWide, dragHandlers }) {
         >
           Duplicar solo propiedades
         </MenuItem>
+        <Divider />
+        {project && (
+          <MenuItem
+            icon={LayoutTemplate}
+            onClick={async () => {
+              more.close()
+              const t = await s.saveAsTemplate(card.id, false)
+              if (t) toast.success(`Plantilla «${t.template.name}» creada en ${project.name}`, { action: { label: 'Editar', onClick: () => openCopy(t) } })
+            }}
+          >
+            Guardar como plantilla del proyecto
+          </MenuItem>
+        )}
+        <MenuItem
+          icon={LayoutTemplate}
+          onClick={async () => {
+            more.close()
+            const t = await s.saveAsTemplate(card.id, true)
+            if (t) toast.success(`Plantilla general «${t.template.name}» creada`, { action: { label: 'Editar', onClick: () => openCopy(t) } })
+          }}
+        >
+          Guardar como plantilla general
+        </MenuItem>
+        <Divider />
         <MenuItem
           icon={Trash2}
           danger
@@ -258,6 +308,8 @@ function CardBody({ card, onClose, mobile, wide, onToggleWide, dragHandlers }) {
         >
           Eliminar tarjeta
         </MenuItem>
+        </>
+        )}
       </Popover>
       <Popover open={move.open} anchor={move.anchor} onClose={move.close} width={240}>
         <ProjectPicker
@@ -269,5 +321,23 @@ function CardBody({ card, onClose, mobile, wide, onToggleWide, dragHandlers }) {
         />
       </Popover>
     </>
+  )
+}
+
+/* Nombre de la plantilla (con el que aparece al elegirla) */
+function TemplateName({ card }) {
+  const updateCard = useStore((s) => s.updateCard)
+  return (
+    <input
+      key={card.id + (card.template?.name || '')}
+      defaultValue={card.template?.name || ''}
+      placeholder="Nombre de la plantilla"
+      onBlur={(e) => {
+        const name = e.target.value.trim()
+        if (name && name !== card.template?.name) updateCard(card.id, { template: { ...card.template, name } })
+      }}
+      onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+      className="mb-2 h-9 w-full rounded-lg border border-dashed border-[color-mix(in_oklab,var(--accent)_40%,var(--line))] bg-accent-soft px-3 text-[15px] font-medium text-accent outline-none placeholder:text-[color-mix(in_oklab,var(--accent)_55%,transparent)]"
+    />
   )
 }
