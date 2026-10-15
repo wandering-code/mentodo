@@ -1,5 +1,5 @@
 import { forwardRef, memo } from 'react'
-import { AlarmClock, CalendarClock, CalendarDays, Clock3, FileText, ListTodo } from 'lucide-react'
+import { AlarmClock, CalendarClock, Repeat, CalendarDays, Clock3, FileText, ListTodo } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { dueInfo } from '../lib/cards'
 import { humanDate } from '../lib/dates'
@@ -71,7 +71,7 @@ export const CardTile = memo(
             {card.title || <span className="text-faint">Sin título</span>}
           </div>
         </div>
-        {(chips.length > 0 || card.due_at || meta.dates.length > 0 || cl || card.in_todo || card.estimate_minutes || card.remind_at || hasContent(card)) && (
+        {(chips.length > 0 || card.due_at || card.recurrence || meta.dates.length > 0 || cl || card.in_todo || card.estimate_minutes || card.remind_at || hasContent(card)) && (
           <div className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1.5 pl-[26px]">
             {chips.map((l) => (
               <LabelChip key={l.id} label={l} size="sm" />
@@ -95,6 +95,7 @@ export const CardTile = memo(
                 {cl.done}/{cl.total}
               </span>
             )}
+            {card.recurrence && <Repeat size={12} className="text-muted" title="Se repite" />}
             {meta.show('remind') && card.remind_at && <AlarmClock size={12} className="text-muted" />}
             {!cl && hasContent(card) && <FileText size={12} className="text-faint" />}
             {meta.show('todo') && card.in_todo && <span className="size-1.5 rounded-full bg-accent" title="En To Do" />}

@@ -137,6 +137,111 @@ def create_card(body: CardIn, em: Emitter = Depends(emitter), db: Session = Depe
     return out
 
 
+# ── Repetición ───────────────────────────────────────────────────────────────
+
+def next_date(rule: dict, base, today):
+    """Siguiente fecha de una tarea que se repite, estrictamente después de
+    `base`; si aun así queda en el pasado, se sigue avanzando hasta hoy o
+    después (lo atrasado no se acumula).
+    rule: {"freq": daily|weekly|monthly|yearly, "interval": N, "weekdays": [0..6] (0 = lunes)}"""
+    import calendar
+    from datetime import timedelta
+
+    freq = rule.get("freq", "weekly")
+    n = max(1, int(rule.get("interval") or 1))
+    days = sorted({int(d) for d in rule.get("weekdays") or [] if 0 <= int(d) <= 6})
+
+    def step(d):
+        if freq == "daily":
+            return d + timedelta(days=n)
+        if freq == "weekly":
+            if not days:
+                return d + timedelta(weeks=n)
+            monday = d - timedelta(days=d.weekday())
+            c = d + timedelta(days=1)
+            for _ in range(7 * n + 7):
+                weeks = (c - timedelta(days=c.weekday()) - monday).days // 7
+                if c.weekday() in days and weeks % n == 0:
+                    return c
+                c += timedelta(days=1)
+            return d + timedelta(weeks=n)
+        if freq == "monthly":
+            m = d.month - 1 + n
+            y, m = d.year + m // 12, m % 12 + 1
+            return d.replace(year=y, month=m, day=min(d.day, calendar.monthrange(y, m)[1]))
+        if freq == "yearly":
+            y = d.year + n
+            return d.replace(year=y, day=min(d.day, calendar.monthrange(y, d.month)[1]))
+        return d + timedelta(days=1)
+
+    nxt = step(base)
+    for _ in range(1000):
+        if nxt >= today:
+            break
+        nxt = step(nxt)
+    return nxt
+
+
+def _uncheck(content):
+    if not isinstance(content, dict):
+        return content
+    out = dict(content)
+    if out.get("type") == "taskItem":
+        out["attrs"] = {**(out.get("attrs") or {}), "checked": False}
+    if isinstance(out.get("content"), list):
+        out["content"] = [_uncheck(x) for x in out["content"]]
+    return out
+
+
+def spawn_next(db: Session, user, done_card: Card) -> Card | None:
+    """Al terminar una tarea que se repite: crea la siguiente (mismo
+    contenido con las casillas desmarcadas, fechas avanzadas) y le pasa la
+    repetición, para que volver a marcar o desmarcar la vieja no duplique."""
+    from datetime import timedelta
+    from zoneinfo import ZoneInfo
+
+    rule = done_card.recurrence
+    if not rule or done_card.is_template:
+        return None
+    try:
+        tz = ZoneInfo(user.timezone or "Europe/Madrid")
+    except Exception:
+        tz = ZoneInfo("Europe/Madrid")
+    today = datetime.now(tz).date()
+    due_local = done_card.due_at.astimezone(tz).date() if done_card.due_at else None
+    base = today if rule.get("from") == "done" or not due_local else due_local
+    nxt = next_date(rule, base, today if rule.get("from") != "done" else today + timedelta(days=1))
+    delta = timedelta(days=(nxt - (due_local or base)).days)
+
+    c = Card(user_id=user.id, project_id=done_card.project_id, title=done_card.title,
+             content=_uncheck(done_card.content), in_todo=done_card.in_todo,
+             estimate_minutes=done_card.estimate_minutes, hidden_props=list(done_card.hidden_props or []),
+             recurrence=rule, position=done_card.position)
+    if done_card.due_at:
+        c.due_at, c.due_all_day = done_card.due_at + delta, done_card.due_all_day
+    else:
+        from datetime import time
+        c.due_at, c.due_all_day = datetime.combine(nxt, time(12), tz).astimezone(timezone.utc), True
+    if done_card.remind_at:
+        c.remind_at = done_card.remind_at + delta
+    values = {}
+    for k, v in (done_card.values or {}).items():
+        if isinstance(v, dict) and v.get("at"):
+            try:
+                at = datetime.fromisoformat(v["at"].replace("Z", "+00:00")) + delta
+                values[k] = {**v, "at": at.isoformat()}
+            except ValueError:
+                values[k] = v
+        else:
+            values[k] = v
+    c.values = values
+    db.add(c)
+    db.flush()
+    c.labels = _start_labels(db, list(done_card.labels))
+    done_card.recurrence = None
+    return c
+
+
 # ── Plantillas ───────────────────────────────────────────────────────────────
 
 def _local_dt(user_tz: str, days: int, hour: int) -> datetime:
@@ -272,7 +377,7 @@ def duplicate_card(card_id: int, body: DuplicateIn, em: Emitter = Depends(emitte
         content=src.content if body.with_content else None, in_todo=src.in_todo,
         due_at=src.due_at, due_all_day=src.due_all_day, remind_at=src.remind_at,
         estimate_minutes=src.estimate_minutes, values=dict(src.values or {}),
-        hidden_props=list(src.hidden_props or []),
+        hidden_props=list(src.hidden_props or []), recurrence=src.recurrence,
         position=(src.position + nxt) / 2 if nxt is not None else src.position + 1,
     )
     db.add(c)
@@ -295,6 +400,7 @@ def duplicate_card(card_id: int, body: DuplicateIn, em: Emitter = Depends(emitte
 @router.patch("/{card_id}")
 def patch_card(card_id: int, body: CardPatch, em: Emitter = Depends(emitter), db: Session = Depends(get_db)):
     c = own_card(db, em.user.id, card_id)
+    was_done = c.done
     data = body.model_dump(exclude_unset=True)
     if "project_id" in data and data["project_id"] != c.project_id:
         if data["project_id"] is not None:
@@ -320,9 +426,14 @@ def patch_card(card_id: int, body: CardPatch, em: Emitter = Depends(emitter), db
         _set_done(c, data["done"])
         _sync_labels_with_done(db, c)
     c.updated_at = datetime.now(timezone.utc)
+    spawned = spawn_next(db, em.user, c) if (c.done and not was_done) else None
     db.commit()
     out = card_out(c)
     em.upsert("card", out)
+    if spawned:
+        # echo: también al dispositivo que la ha terminado (la respuesta solo
+        # trae la tarjeta terminada)
+        em.upsert("card", card_out(spawned), echo=True)
     return out
 
 

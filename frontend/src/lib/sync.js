@@ -26,8 +26,11 @@ function open() {
     if (e.data === 'pong') return
     try {
       const msg = JSON.parse(e.data)
-      if (msg.origin === CLIENT_ID) return
-      useStore.getState().applyEvents(msg.events || [])
+      // Lo propio ya está aplicado; salvo lo marcado «echo» (p. ej. la
+      // siguiente repetición de una tarea, que nace en el servidor)
+      const events = msg.origin === CLIENT_ID ? (msg.events || []).filter((ev) => ev.echo) : msg.events || []
+      if (!events.length) return
+      useStore.getState().applyEvents(events)
       if ((msg.events || []).some((ev) => ev.t === 'reload_admin')) window.dispatchEvent(new Event('mentodo:admin'))
     } catch {}
   }

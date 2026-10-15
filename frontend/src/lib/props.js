@@ -1,4 +1,4 @@
-import { AlarmClock, AlignLeft, CalendarDays, CheckSquare, Clock3, Hash, Link2, ListTodo, Tag } from 'lucide-react'
+import { AlarmClock, AlignLeft, CalendarDays, CheckSquare, Clock3, Hash, Link2, ListTodo, Repeat, Tag } from 'lucide-react'
 
 // Todas las propiedades de una tarjeta en un mismo formato, para que panel,
 // tabla y ajustes las traten igual. Claves: "due", "remind", "estimate",
@@ -7,6 +7,7 @@ import { AlarmClock, AlignLeft, CalendarDays, CheckSquare, Clock3, Hash, Link2, 
 export const BUILTIN = [
   { key: 'due', name: 'Fecha', icon: CalendarDays, builtin: true },
   { key: 'remind', name: 'Recordarme', icon: AlarmClock, builtin: true },
+  { key: 'repeat', name: 'Repetir', icon: Repeat, builtin: true },
   { key: 'estimate', name: 'Estimación', icon: Clock3, builtin: true },
   { key: 'todo', name: 'En To Do', icon: ListTodo, builtin: true },
 ]
@@ -72,5 +73,25 @@ export function hasValue(card, prop) {
     const v = fieldValue(card, prop.field)
     return v !== undefined && v !== null && v !== '' && v !== false
   }
-  return { due: !!card.due_at, remind: !!card.remind_at, estimate: !!card.estimate_minutes, todo: card.in_todo }[prop.key]
+  return { due: !!card.due_at, remind: !!card.remind_at, repeat: !!card.recurrence, estimate: !!card.estimate_minutes, todo: card.in_todo }[prop.key]
 }
+
+/* Texto corto de una regla de repetición */
+const WD = ['L', 'M', 'X', 'J', 'V', 'S', 'D']
+const WD_LONG = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo']
+export function repeatText(r) {
+  if (!r) return null
+  const n = Math.max(1, Number(r.interval) || 1)
+  const days = [...new Set(r.weekdays || [])].sort()
+  let t
+  if (r.freq === 'daily') t = n === 1 ? 'Cada día' : `Cada ${n} días`
+  else if (r.freq === 'weekly') {
+    if (n === 1 && days.join() === '0,1,2,3,4') t = 'Días laborables'
+    else if (n === 1 && days.length === 1) t = `Cada ${WD_LONG[days[0]]}`
+    else t = (n === 1 ? 'Cada semana' : `Cada ${n} semanas`) + (days.length ? `: ${days.map((d) => WD[d]).join(', ')}` : '')
+  } else if (r.freq === 'monthly') t = n === 1 ? 'Cada mes' : `Cada ${n} meses`
+  else if (r.freq === 'yearly') t = n === 1 ? 'Cada año' : `Cada ${n} años`
+  else t = 'Se repite'
+  return r.from === 'done' ? `${t} · desde que la termino` : t
+}
+export { WD }

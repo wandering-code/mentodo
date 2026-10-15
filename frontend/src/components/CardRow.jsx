@@ -1,5 +1,5 @@
 import { motion } from 'motion/react'
-import { CalendarClock, Clock3 } from 'lucide-react'
+import { CalendarClock, Clock3, Repeat } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { checklist, DueBadge } from './CardTile'
 import { Checkbox, cx, LabelChip } from './ui'
@@ -63,6 +63,7 @@ function Meta({ card, chips, cl, meta, project }) {
         </span>
       )}
       {meta.show('due') && <DueBadge card={card} />}
+      {card.recurrence && <Repeat size={12} className="text-muted" />}
       {meta.dates.map(({ field, value }) => (
         <span key={field.id} className="inline-flex items-center gap-1 text-[12px] text-muted" title={field.name}>
           <CalendarClock size={12} />

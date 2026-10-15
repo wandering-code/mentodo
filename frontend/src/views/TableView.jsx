@@ -10,6 +10,12 @@ import { Checkbox, cx } from '../components/ui'
 
 function HeaderCell({ field, children, view, className }) {
   const updateView = useStore((s) => s.updateView)
+  if (!field)
+    return (
+      <th className={cx('sticky top-0 z-[1] h-9 border-b border-line bg-bg px-3 text-left text-[12.5px] font-medium text-muted', className)}>
+        <span className="inline-flex items-center gap-1 whitespace-nowrap">{children}</span>
+      </th>
+    )
   const sort = view.config.sort || []
   const current = sort[0]?.field === field ? sort[0].dir : null
   const cycle = () => {

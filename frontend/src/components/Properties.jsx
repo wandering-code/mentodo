@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { ArrowDown, ArrowUp, ExternalLink, EyeOff, Folder, Pencil, Plus, Tag, Trash2, X } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { humanDate, toDateTimeInput } from '../lib/dates'
-import { FIELD_KINDS, fieldValue, hasValue, hiddenInCard, hiddenInProject, movedOrder, projectProps } from '../lib/props'
+import { FIELD_KINDS, fieldValue, hasValue, hiddenInCard, hiddenInProject, movedOrder, projectProps, repeatText, WD } from '../lib/props'
 import { DatePicker, LabelPicker } from './Pickers'
 import { cx, Divider, IconButton, LabelChip, MenuItem, MenuLabel, Popover, Toggle, usePopover } from './ui'
 
@@ -234,6 +234,7 @@ export function PropValue({ prop, card, compact }) {
   if (prop.key === 'due') return <DueValue card={card} compact={compact} />
   if (prop.key === 'remind') return <ReminderValue card={card} compact={compact} />
   if (prop.key === 'estimate') return <EstimateValue card={card} compact={compact} />
+  if (prop.key === 'repeat') return <RepeatValue card={card} compact={compact} />
   if (prop.key === 'todo') return <TodoValue card={card} />
   return null
 }
@@ -291,6 +292,98 @@ function RelativeDate({ card, dateKey }) {
           />
           días
         </div>
+      </Popover>
+    </>
+  )
+}
+
+function RepeatValue({ card, compact }) {
+  const updateCard = useStore((s) => s.updateCard)
+  const pop = usePopover()
+  const r = card.recurrence
+  const today = (card.due_at ? new Date(card.due_at) : new Date()).getDay()
+  const wd = (today + 6) % 7 // lunes = 0
+  const set = (rule) => updateCard(card.id, { recurrence: rule })
+  const presets = [
+    ['Cada día', { freq: 'daily', interval: 1 }],
+    ['Días laborables', { freq: 'weekly', interval: 1, weekdays: [0, 1, 2, 3, 4] }],
+    ['Cada semana', { freq: 'weekly', interval: 1, weekdays: [wd] }],
+    ['Cada 2 semanas', { freq: 'weekly', interval: 2, weekdays: [wd] }],
+    ['Cada mes', { freq: 'monthly', interval: 1 }],
+    ['Cada año', { freq: 'yearly', interval: 1 }],
+  ]
+  const cur = r || { freq: 'weekly', interval: 1, weekdays: [wd] }
+  const patch = (p) => set({ ...cur, ...p })
+  const text = repeatText(r)
+  return (
+    <>
+      <button
+        onClick={pop.toggle}
+        className={cx('h-8 min-w-0 truncate rounded-lg px-2 text-left transition-colors hover:bg-hover', r ? 'text-ink' : 'text-faint', compact && 'w-full text-[13px]')}
+      >
+        {text || (compact ? '' : 'No se repite')}
+      </button>
+      <Popover open={pop.open} anchor={pop.anchor} onClose={pop.close} width={290}>
+        <MenuItem active={!r} onClick={() => (set(null), pop.close())}>
+          No se repite
+        </MenuItem>
+        {presets.map(([t, rule]) => (
+          <MenuItem key={t} active={!!r && repeatText(r) === repeatText({ ...rule, from: r.from })} onClick={() => (set({ ...rule, from: r?.from }), pop.close())}>
+            {t}
+          </MenuItem>
+        ))}
+        <Divider />
+        <MenuLabel>Personalizar</MenuLabel>
+        <div className="flex items-center gap-2 px-3 pb-2 text-[14px] sm:px-2.5">
+          Cada
+          <input
+            type="number"
+            min={1}
+            max={365}
+            inputMode="numeric"
+            key={cur.interval}
+            defaultValue={cur.interval || 1}
+            onBlur={(e) => patch({ interval: Math.max(1, Number(e.target.value) || 1) })}
+            onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+            className="h-9 w-14 rounded-lg bg-sunken px-2 text-[16px] outline-none sm:h-8 sm:text-[14px]"
+          />
+          <select
+            value={cur.freq}
+            onChange={(e) => patch({ freq: e.target.value, weekdays: e.target.value === 'weekly' ? cur.weekdays?.length ? cur.weekdays : [wd] : undefined })}
+            className="h-9 flex-1 rounded-lg bg-sunken px-2 text-[16px] outline-none sm:h-8 sm:text-[14px]"
+          >
+            <option value="daily">días</option>
+            <option value="weekly">semanas</option>
+            <option value="monthly">meses</option>
+            <option value="yearly">años</option>
+          </select>
+        </div>
+        {cur.freq === 'weekly' && (
+          <div className="flex gap-1 px-3 pb-2 sm:px-2.5">
+            {WD.map((d, i) => {
+              const on = (cur.weekdays || []).includes(i)
+              return (
+                <button
+                  key={i}
+                  onClick={() => {
+                    const next = on ? cur.weekdays.filter((x) => x !== i) : [...(cur.weekdays || []), i]
+                    if (next.length) patch({ weekdays: next.sort() })
+                  }}
+                  className={cx('grid size-9 place-items-center rounded-lg text-[13px] font-medium transition-colors sm:size-8', on ? 'bg-accent text-accent-ink' : 'bg-sunken text-muted hover:text-ink')}
+                >
+                  {d}
+                </button>
+              )
+            })}
+          </div>
+        )}
+        <label className="flex items-center gap-3 px-3 py-2 text-[14px] sm:px-2.5">
+          <span className="flex-1">
+            Contar desde que la termino
+            <span className="block text-[12px] text-faint">Si no, desde su fecha (aunque la termines tarde)</span>
+          </span>
+          <Toggle checked={cur.from === 'done'} onChange={(v) => patch({ from: v ? 'done' : undefined })} />
+        </label>
       </Popover>
     </>
   )

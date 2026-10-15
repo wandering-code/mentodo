@@ -16,12 +16,15 @@ class Emitter:
         self._origin = client_id
         self._scheduled = False
 
-    def upsert(self, kind: str, data: dict):
+    def upsert(self, kind: str, data: dict, echo: bool = False):
         # Las plantillas viajan aparte de las tarjetas: el cliente las guarda
         # en su propia colección y no salen en ninguna vista
         if kind == "card" and data.get("is_template"):
             kind = "template"
-        self.events.append({"t": "upsert", "k": kind, "d": data})
+        ev = {"t": "upsert", "k": kind, "d": data}
+        if echo:
+            ev["echo"] = True  # también para el dispositivo que hizo el cambio
+        self.events.append(ev)
         self._schedule()
 
     def delete(self, kind: str, id_: int):
