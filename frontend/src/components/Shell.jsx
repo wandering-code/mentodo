@@ -22,7 +22,38 @@ function useWide(bp) {
   return w
 }
 
+// Solo al abrir la app (o recargar): volver a lo último que se estaba viendo
+let restoredLast = false
+
+/* Lo último que se veía (página, vista, tarjeta o apunte abiertos) se guarda
+   por usuario en este dispositivo, y al volver a entrar se recupera. Solo si
+   se entra por la raíz: un enlace directo a otra cosa manda. */
+function useRememberPlace() {
+  const loc = useLocation()
+  const nav = useNavigate()
+  const userId = useStore((s) => s.user?.id)
+  const storeKey = `mentodo:last:${userId}`
+
+  useEffect(() => {
+    if (restoredLast || !userId) return
+    restoredLast = true
+    if (loc.pathname !== '/' || loc.search) return
+    try {
+      const last = localStorage.getItem(storeKey)
+      if (last && last !== '/') nav(last, { replace: true })
+    } catch {}
+  }, [userId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!userId || !restoredLast) return
+    try {
+      localStorage.setItem(storeKey, loc.pathname + loc.search)
+    } catch {}
+  }, [loc.pathname, loc.search, userId, storeKey])
+}
+
 export function Shell() {
+  useRememberPlace()
   const [palette, setPalette] = useState(false)
   const [newProject, setNewProject] = useState(false)
   const [notifs, setNotifs] = useState(false)

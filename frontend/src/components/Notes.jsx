@@ -120,18 +120,19 @@ export function NotesBoard({ projectId = null }) {
           <button
             key={n.id}
             onClick={() => open(n)}
-            className={cx('flex items-start gap-3 rounded-xl px-3 py-2.5 text-left transition-colors active:bg-hover', current?.id === n.id && !mobile ? 'bg-hover' : 'hover:bg-hover')}
+            className={cx('flex items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors active:bg-hover', current?.id === n.id && !mobile ? 'bg-hover' : 'hover:bg-hover')}
           >
-            <span className="mt-0.5 text-[18px] leading-none">{n.icon}</span>
+            <span className="text-[18px] leading-none">{n.icon}</span>
             <span className="min-w-0 flex-1">
               <span className="flex items-center gap-1.5">
                 <span className={cx('truncate text-[15px] font-medium sm:text-[14px]', !n.title && 'text-faint')}>{n.title || 'Sin título'}</span>
                 {n.pinned && <Pin size={12} className="shrink-0 text-accent" />}
               </span>
-              <span className="mt-0.5 block truncate text-[12.5px] text-faint">
-                {!projectId && n.project_id ? `${projects[n.project_id]?.icon} ${projects[n.project_id]?.name} · ` : ''}
-                {noteText(n).slice(0, 80) || 'Vacío'}
-              </span>
+              {!projectId && (
+                <span className="mt-0.5 block truncate text-[12.5px] text-faint">
+                  {n.project_id ? `${projects[n.project_id]?.icon} ${projects[n.project_id]?.name}` : 'General'}
+                </span>
+              )}
             </span>
           </button>
         ))}

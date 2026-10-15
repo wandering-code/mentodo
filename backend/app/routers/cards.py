@@ -130,6 +130,43 @@ def create_card(body: CardIn, em: Emitter = Depends(emitter), db: Session = Depe
     return out
 
 
+class DuplicateIn(BaseModel):
+    with_content: bool = True
+
+
+@router.post("/{card_id}/duplicate", status_code=201)
+def duplicate_card(card_id: int, body: DuplicateIn, em: Emitter = Depends(emitter), db: Session = Depends(get_db)):
+    """Copia de una tarjeta: mismas propiedades (proyecto, etiquetas, fechas,
+    campos propios…) y, si se pide, el mismo contenido. Sale sin terminar y
+    justo detrás de la original."""
+    src = own_card(db, em.user.id, card_id)
+    nxt = db.scalar(select(func.min(Card.position)).where(
+        Card.user_id == em.user.id, Card.project_id == src.project_id, Card.position > src.position))
+    c = Card(
+        user_id=em.user.id, project_id=src.project_id, title=f"{src.title} (copia)".strip(),
+        content=src.content if body.with_content else None, in_todo=src.in_todo,
+        due_at=src.due_at, due_all_day=src.due_all_day, remind_at=src.remind_at,
+        estimate_minutes=src.estimate_minutes, values=dict(src.values or {}),
+        hidden_props=list(src.hidden_props or []),
+        position=(src.position + nxt) / 2 if nxt is not None else src.position + 1,
+    )
+    db.add(c)
+    db.flush()
+    # Las etiquetas, salvo la de terminado: la copia empieza pendiente, en la
+    # primera etiqueta normal del grupo de estado
+    labels = [l for l in src.labels if not l.marks_done]
+    for done_label in [l for l in src.labels if l.marks_done]:
+        first = db.scalar(select(Label).where(Label.group_id == done_label.group_id, Label.marks_done.is_(False))
+                          .order_by(Label.position))
+        if first:
+            labels.append(first)
+    c.labels = labels
+    db.commit()
+    out = card_out(c)
+    em.upsert("card", out)
+    return out
+
+
 @router.patch("/{card_id}")
 def patch_card(card_id: int, body: CardPatch, em: Emitter = Depends(emitter), db: Session = Depends(get_db)):
     c = own_card(db, em.user.id, card_id)

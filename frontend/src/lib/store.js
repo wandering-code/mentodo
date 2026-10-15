@@ -291,6 +291,15 @@ export const useStore = create((set, getState) => ({
       fail(e)
     }
   },
+  async duplicateCard(id, withContent) {
+    try {
+      const c = await post(`/cards/${id}/duplicate`, { with_content: withContent })
+      set((s) => ({ cards: { ...s.cards, [c.id]: c } }))
+      return c
+    } catch (e) {
+      fail(e)
+    }
+  },
   updateCard(id, body) {
     const local = { ...body }
     // El servidor sincroniza "hecho" con la etiqueta de terminado; aquí se

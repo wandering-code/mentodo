@@ -2,7 +2,9 @@ import { Component, lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { formatDistanceToNowStrict } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { CircleCheckBig, Folder, Maximize2, Minimize2, MoreHorizontal, Trash2, X } from 'lucide-react'
+import { CircleCheckBig, Copy, CopyPlus, Folder, Maximize2, Minimize2, MoreHorizontal, Trash2, X } from 'lucide-react'
+import { useLocation, useNavigate } from 'react-router'
+import { toast } from 'sonner'
 import { useStore } from '../lib/store'
 import { ProjectPicker } from './Pickers'
 import { Properties } from './Properties'
@@ -99,7 +101,16 @@ export function CardPanel({ cardId, onClose }) {
 
 function CardBody({ card, onClose, mobile, wide, onToggleWide, dragHandlers }) {
   const s = useStore()
-  const { updateCard, deleteCard } = s
+  const { updateCard, deleteCard, duplicateCard } = s
+  const nav = useNavigate()
+  const loc = useLocation()
+  // La copia se abre en el sitio de la original (sin dejar otra entrada en el
+  // historial: «atrás» sigue cerrando la tarjeta)
+  const openCopy = (c) => {
+    const p = new URLSearchParams(loc.search)
+    p.set('card', c.id)
+    nav({ pathname: loc.pathname, search: `?${p}` }, { replace: true, state: loc.state })
+  }
   const project = card.project_id ? s.projects[card.project_id] : null
   const [title, setTitle] = useState(card.title)
   const titleRef = useRef(null)
@@ -202,13 +213,39 @@ function CardBody({ card, onClose, mobile, wide, onToggleWide, dragHandlers }) {
         <span>Editada hace {formatDistanceToNowStrict(new Date(card.updated_at), { locale: es })}</span>
       </footer>
 
-      <Popover open={more.open} anchor={more.anchor} onClose={more.close} align="end" width={220}>
+      <Popover open={more.open} anchor={more.anchor} onClose={more.close} align="end" width={250}>
         <MenuItem icon={Folder} onClick={() => {
             const a = more.anchor
             more.close()
             move.openAt(a)
           }}>
           Mover a otro proyecto
+        </MenuItem>
+        <MenuItem
+          icon={CopyPlus}
+          onClick={async () => {
+            more.close()
+            const c = await duplicateCard(card.id, true)
+            if (c) {
+              openCopy(c)
+              toast.success('Tarjeta duplicada con su contenido')
+            }
+          }}
+        >
+          Duplicar con contenido
+        </MenuItem>
+        <MenuItem
+          icon={Copy}
+          onClick={async () => {
+            more.close()
+            const c = await duplicateCard(card.id, false)
+            if (c) {
+              openCopy(c)
+              toast.success('Tarjeta duplicada (solo propiedades)')
+            }
+          }}
+        >
+          Duplicar solo propiedades
         </MenuItem>
         <MenuItem
           icon={Trash2}

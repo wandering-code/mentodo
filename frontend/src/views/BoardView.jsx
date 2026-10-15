@@ -207,6 +207,8 @@ export function BoardView({ project, view, cards, onOpen }) {
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   )
   const lastDrop = useRef(0)
+  const boardRef = useRef(null)
+  const dragDx = useRef(0)
   const phone = useIsMobile()
 
   if (!group) {
@@ -220,6 +222,7 @@ export function BoardView({ project, view, cards, onOpen }) {
   }
 
   const onDragStart = ({ active }) => {
+    dragDx.current = 0
     haptic(10)
     setActive(active.id)
     setLive(columns)
@@ -286,7 +289,11 @@ export function BoardView({ project, view, cards, onOpen }) {
     })
   }
 
-  const order = [...(cols[NONE]?.length || active ? [NONE] : []), ...labels.map((l) => String(l.id))]
+  // «Sin …» solo si ya tiene tarjetas. Antes también aparecía al empezar a
+  // arrastrar, y esa columna nueva al principio hacía que el navegador
+  // corrigiera el scroll (+1 columna) y, al soltar y desaparecer, el tablero
+  // saltaba de lado aunque solo se hubiera reordenado en vertical
+  const order = [...(columns[NONE]?.length ? [NONE] : []), ...labels.map((l) => String(l.id))]
   const activeCard = active ? s.cards[active] : null
 
   return (
@@ -298,9 +305,16 @@ export function BoardView({ project, view, cards, onOpen }) {
         if (dock.length) return dock
         return p.length ? p : closestCorners(args)
       }}
-      // Desplazamiento automático suave y solo pegado al borde: con el valor
-      // por defecto, en el móvil el tablero corría hasta el final
-      autoScroll={{ threshold: { x: 0.08, y: 0.12 }, acceleration: 4 }}
+      // Desplazamiento automático suave y solo pegado al borde. Y de lado
+      // SOLO si la tarjeta se ha movido de verdad en horizontal: al reordenar
+      // dentro de una columna cerca del borde, el tablero se desplazaba solo y
+      // al soltar el imán de columnas lo encajaba de lado
+      autoScroll={{
+        threshold: { x: 0.08, y: 0.12 },
+        acceleration: 4,
+        canScroll: (el) => el !== boardRef.current || Math.abs(dragDx.current) > 60,
+      }}
+      onDragMove={({ delta }) => (dragDx.current = delta.x)}
       measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
       onDragStart={onDragStart}
       onDragOver={onDragOver}
@@ -308,6 +322,7 @@ export function BoardView({ project, view, cards, onOpen }) {
       onDragCancel={() => (setActive(null), setLive(null))}
     >
       <div
+        ref={boardRef}
         className={cx(
           'flex min-h-[60vh] items-start gap-3 overflow-x-auto overscroll-x-contain px-4 pb-10 pt-1 sm:px-8 max-sm:scroll-px-4 max-sm:[&>*]:snap-start',
           // El imán de columnas se apaga mientras se arrastra: peleaba con el
