@@ -37,7 +37,10 @@ const norm = (t) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 
 /* ── Menú "/" ─────────────────────────────────────────────────────────────── */
 
-const SlashList = forwardRef(function SlashList({ items, command }, ref) {
+const isTouch = () => window.matchMedia('(pointer: coarse)').matches
+const STRIP_H = 58
+
+const SlashList = forwardRef(function SlashList({ items, command, strip }, ref) {
   const [index, setIndex] = useState(0)
   useEffect(() => setIndex(0), [items])
   useImperativeHandle(ref, () => ({
@@ -50,6 +53,27 @@ const SlashList = forwardRef(function SlashList({ items, command }, ref) {
     },
   }))
   if (!items.length) return null
+  if (strip) {
+    // Táctil: una sola fila, deslizable de lado. Tan baja que siempre cabe
+    // justo encima de la línea, con el teclado abierto o no.
+    return (
+      <div className="entra flex gap-1.5 overflow-x-auto overscroll-contain rounded-2xl border border-line bg-surface p-1.5 shadow-float [scrollbar-width:none]" style={{ "--entra-desde": "translateY(6px)", "--entra-dura": "200ms" }}>
+        {items.map((it, i) => (
+          <button
+            key={it.id}
+            onMouseDown={(e) => (e.preventDefault(), command(it))}
+            className={cx(
+              'flex h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-xl px-3 text-[14.5px] active:bg-hover',
+              i === index ? 'bg-hover text-ink' : 'text-ink',
+            )}
+          >
+            <it.icon size={17} className="text-muted" />
+            {it.name}
+          </button>
+        ))}
+      </div>
+    )
+  }
   return (
     <div className="max-h-[inherit] w-60 overflow-y-auto overscroll-contain rounded-xl border border-line bg-surface p-1.5 shadow-float">
       <div className="px-2.5 pb-1 pt-1.5 text-[11.5px] font-medium uppercase tracking-wide text-faint">Bloques</div>
@@ -84,6 +108,7 @@ const SlashCommand = Extension.create({
         render: () => {
           let comp
           let rectFn = null
+          let strip = false
           // Se coloca dentro de lo que DE VERDAD se ve: en el móvil, con el
           // teclado abierto, eso es el visualViewport (no window.innerHeight,
           // que no encoge con el teclado). Pegado a la línea, debajo si cabe;
@@ -97,6 +122,22 @@ const SlashCommand = Extension.create({
             const vH = vv ? vv.height : window.innerHeight
             const vLeft = vv ? vv.offsetLeft : 0
             const vW = vv ? vv.width : window.innerWidth
+            if (strip) {
+              // Justo encima de la línea (o debajo si la línea está arriba del
+              // todo). Se calcula solo con la posición de la propia línea:
+              // aunque el iPhone informe mal del hueco que deja el teclado, la
+              // línea en la que se escribe siempre está a la vista.
+              const up = r.top - STRIP_H - 8 >= vTop + 4
+              Object.assign(el.style, {
+                position: 'fixed',
+                zIndex: 90,
+                left: `${vLeft + 8}px`,
+                width: `${vW - 16}px`,
+                top: `${up ? r.top - STRIP_H - 8 : r.bottom + 8}px`,
+                bottom: 'auto',
+              })
+              return
+            }
             const below = vTop + vH - r.bottom - 10
             const above = r.top - vTop - 10
             const down = below >= 220 || below >= above
@@ -117,7 +158,8 @@ const SlashCommand = Extension.create({
           const onViewport = () => place()
           return {
             onStart: (props) => {
-              comp = new ReactRenderer(SlashList, { props, editor: props.editor })
+              strip = isTouch()
+              comp = new ReactRenderer(SlashList, { props: { ...props, strip }, editor: props.editor })
               rectFn = props.clientRect
               document.body.appendChild(comp.element)
               place()
@@ -125,7 +167,7 @@ const SlashCommand = Extension.create({
               window.visualViewport?.addEventListener('scroll', onViewport)
             },
             onUpdate: (props) => {
-              comp?.updateProps(props)
+              comp?.updateProps({ ...props, strip })
               rectFn = props.clientRect
               place()
             },
