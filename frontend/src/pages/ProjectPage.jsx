@@ -84,7 +84,11 @@ export function ProjectPage() {
 
       <div className="sticky top-0 z-10 bg-[color-mix(in_oklab,var(--bg)_90%,transparent)] backdrop-blur-md">
         <div className="flex items-center gap-1 border-b border-line px-4 sm:px-8">
-          <div className="-mb-px flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto [scrollbar-width:none]">
+          {/* La fila baja 1px sobre la línea divisoria (-mb-px) para que el
+              subrayado de la pestaña activa la tape; el subrayado va DENTRO
+              de la fila (bottom-0) y el scroll vertical queda prohibido: si
+              no, ese píxel daba un mini scroll vertical */}
+          <div className="-mb-px flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto overflow-y-hidden overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {views.map((v) => (
               <ViewTab key={v.id} view={v} active={v.id === view?.id} onSelect={() => selectView(v)} canDelete={views.length > 1} />
             ))}
@@ -211,7 +215,7 @@ function ViewTab({ view, active, onSelect, canDelete }) {
       >
         <Icon size={15} />
         {view.name}
-        {active && <motion.span layoutId="view-underline" transition={spring} className="absolute inset-x-1.5 -bottom-px h-[2px] rounded-full bg-ink" />}
+        {active && <motion.span layoutId="view-underline" transition={spring} className="absolute inset-x-1.5 bottom-0 h-[2px] rounded-full bg-ink" />}
       </button>
       <Popover open={menu.open} anchor={menu.anchor} onClose={menu.close} width={230}>
         <div className="px-1 pb-1">
@@ -250,7 +254,7 @@ function NotesTab({ active, count, onSelect }) {
       <NotebookText size={15} />
       Apuntes
       {count > 0 && <span className="text-[12px] tabular-nums text-faint">{count}</span>}
-      {active && <motion.span layoutId="view-underline" transition={spring} className="absolute inset-x-1.5 -bottom-px h-[2px] rounded-full bg-ink" />}
+      {active && <motion.span layoutId="view-underline" transition={spring} className="absolute inset-x-1.5 bottom-0 h-[2px] rounded-full bg-ink" />}
     </button>
   )
 }
