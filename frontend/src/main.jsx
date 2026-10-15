@@ -9,6 +9,18 @@ createRoot(document.getElementById('root')).render(
   </StrictMode>,
 )
 
+// Sin menú contextual del navegador (clic derecho / pulsación larga en
+// Android): en una app confunde, y deja el gesto libre para menús propios.
+// Se respeta en los campos de texto, donde sirve para pegar y corregir.
+// Para un menú propio: escuchar «contextmenu» en el elemento y hacer
+// e.preventDefault() ahí; este listener global solo actúa si nadie lo ha hecho.
+document.addEventListener('contextmenu', (e) => {
+  if (e.defaultPrevented) return
+  const t = e.target
+  if (t instanceof Element && t.closest('input, textarea, select, [contenteditable="true"], .ProseMirror')) return
+  e.preventDefault()
+})
+
 // Safari ignora user-scalable=no: el pellizco para hacer zoom se bloquea aquí
 for (const ev of ['gesturestart', 'gesturechange', 'gestureend']) {
   document.addEventListener(ev, (e) => e.preventDefault(), { passive: false })
