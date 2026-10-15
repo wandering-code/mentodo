@@ -12,7 +12,21 @@ import { CardRow } from '../components/CardRow'
 
 const key = (d) => fmt(d, 'yyyy-MM-dd')
 
-function Chip({ card, onOpen, overlay }) {
+/* La fecha que muestra el calendario: la principal («due») o una propiedad
+   de fecha propia («f:<id>»), según elija la vista */
+export function readDate(card, dateKey) {
+  if (!dateKey || dateKey === 'due') return card.due_at ? { at: card.due_at, allDay: card.due_all_day } : null
+  const v = card.values?.[dateKey.slice(2)]
+  return v?.at ? { at: v.at, allDay: v.all_day ?? true } : null
+}
+
+export function dateBody(dateKey, at, allDay) {
+  if (!dateKey || dateKey === 'due') return { due_at: at, due_all_day: allDay }
+  return { values: { [dateKey.slice(2)]: { at, all_day: allDay } } }
+}
+
+function Chip({ card, onOpen, overlay, dateKey }) {
+  const dt = readDate(card, dateKey)
   const { setNodeRef, attributes, listeners, isDragging } = useDraggable({ id: card.id, disabled: overlay })
   return (
     <button
@@ -23,18 +37,18 @@ function Chip({ card, onOpen, overlay }) {
       onClick={(e) => (e.stopPropagation(), onOpen?.(card))}
       className={cx(
         'touch-drag flex w-full items-center gap-1.5 truncate rounded-md px-1.5 py-[3px] text-left text-[12px] leading-tight transition-colors [touch-action:manipulation]',
-        card.done ? 'text-faint line-through' : dueInfo(card)?.overdue ? 'lbl text-danger' : 'bg-accent-soft text-ink hover:brightness-95',
+        card.done ? 'text-faint line-through' : dt && !card.done && new Date(dt.at) < new Date(new Date().setHours(0, 0, 0, 0)) ? 'lbl text-danger' : 'bg-accent-soft text-ink hover:brightness-95',
         isDragging && 'opacity-30',
         overlay && 'shadow-float bg-surface',
       )}
     >
-      {!card.due_all_day && <span className="shrink-0 tabular-nums text-muted">{fmt(new Date(card.due_at), 'HH:mm')}</span>}
+      {dt && !dt.allDay && <span className="shrink-0 tabular-nums text-muted">{fmt(new Date(dt.at), 'HH:mm')}</span>}
       <span className="truncate">{card.title || 'Sin título'}</span>
     </button>
   )
 }
 
-function Day({ day, month, cards, onOpen, onAdd, compact, selected, onSelect }) {
+function Day({ day, month, cards, onOpen, onAdd, compact, selected, onSelect, dateKey }) {
   const { setNodeRef, isOver } = useDroppable({ id: key(day) })
   const today = isSameDay(day, new Date())
   return (
@@ -72,14 +86,15 @@ function Day({ day, month, cards, onOpen, onAdd, compact, selected, onSelect }) 
         </div>
       )}
       {!compact && cards.slice(0, 4).map((c) => (
-        <Chip key={c.id} card={c} onOpen={onOpen} />
+        <Chip key={c.id} card={c} onOpen={onOpen} dateKey={dateKey} />
       ))}
       {!compact && cards.length > 4 && <span className="px-1.5 text-[11.5px] text-faint">+{cards.length - 4} más</span>}
     </div>
   )
 }
 
-export function CalendarView({ project, cards, onOpen }) {
+export function CalendarView({ project, view, cards, onOpen }) {
+  const dateKey = view?.config?.date_key || 'due'
   const s = useStore()
   const [month, setMonth] = useState(() => startOfMonth(new Date()))
   // En el móvil no caben los títulos en cada día: puntos en la rejilla y,
@@ -103,11 +118,15 @@ export function CalendarView({ project, cards, onOpen }) {
 
   const byDay = useMemo(() => {
     const m = {}
-    for (const c of cards) if (c.due_at) (m[key(new Date(c.due_at))] ||= []).push(c)
-    for (const k in m) m[k].sort((a, b) => Number(a.done) - Number(b.done) || (a.due_all_day ? 0 : 1) - (b.due_all_day ? 0 : 1) || a.due_at.localeCompare(b.due_at))
+    for (const c of cards) {
+      const d = readDate(c, dateKey)
+      if (d) (m[key(new Date(d.at))] ||= []).push(c)
+    }
+    const at = (c) => readDate(c, dateKey)
+    for (const k in m) m[k].sort((a, b) => Number(a.done) - Number(b.done) || (at(a).allDay ? 0 : 1) - (at(b).allDay ? 0 : 1) || at(a).at.localeCompare(at(b).at))
     return m
-  }, [cards])
-  const undated = cards.filter((c) => !c.due_at && !c.done).length
+  }, [cards, dateKey])
+  const undated = cards.filter((c) => !readDate(c, dateKey) && !c.done).length
 
   const go = (n) => {
     setDir(n)
@@ -120,16 +139,22 @@ export function CalendarView({ project, cards, onOpen }) {
     const card = s.cards[active.id]
     const [y, mo, d] = over.id.split('-').map(Number)
     const target = new Date(y, mo - 1, d)
-    if (card.due_all_day || !card.due_at) s.updateCard(card.id, { due_at: allDayIso(target), due_all_day: true })
+    const cur = readDate(card, dateKey)
+    if (!cur || cur.allDay) s.updateCard(card.id, dateBody(dateKey, allDayIso(target), true))
     else {
-      const old = new Date(card.due_at)
+      const old = new Date(cur.at)
       target.setHours(old.getHours(), old.getMinutes())
-      s.updateCard(card.id, { due_at: target.toISOString() })
+      s.updateCard(card.id, dateBody(dateKey, target.toISOString(), false))
     }
   }
 
   const add = async (day) => {
-    const c = await s.createCard({ project_id: project.id, title: '', due_at: allDayIso(day), due_all_day: true })
+    const iso = allDayIso(day)
+    const c = await s.createCard(
+      dateKey === 'due'
+        ? { project_id: project.id, title: '', due_at: iso, due_all_day: true }
+        : { project_id: project.id, title: '', values: { [dateKey.slice(2)]: { at: iso, all_day: true } } },
+    )
     if (c) onOpen(c)
   }
 
@@ -177,6 +202,7 @@ export function CalendarView({ project, cards, onOpen }) {
                   onOpen={onOpen}
                   onAdd={add}
                   compact={compact}
+                  dateKey={dateKey}
                   selected={isSameDay(d, selected)}
                   onSelect={setSelected}
                 />
@@ -198,7 +224,7 @@ export function CalendarView({ project, cards, onOpen }) {
             {!(byDay[key(selected)] || []).length && <p className="px-1 py-3 text-[14px] text-faint">Nada para este día.</p>}
           </div>
         )}
-        <DragOverlay dropAnimation={null}>{active ? <div className="w-36"><Chip card={s.cards[active]} overlay /></div> : null}</DragOverlay>
+        <DragOverlay dropAnimation={null}>{active ? <div className="w-36"><Chip card={s.cards[active]} overlay dateKey={dateKey} /></div> : null}</DragOverlay>
       </DndContext>
     </div>
   )

@@ -6,7 +6,7 @@ import {
 } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { useCardNav } from '../lib/nav'
-import { fieldIcon } from '../lib/props'
+import { fieldIcon, projectProps } from '../lib/props'
 import { applyFilter, groupLabels, projectGroups, projectViews, SORT_FIELDS, visibleCards } from '../lib/cards'
 import { BoardView } from '../views/BoardView'
 import { TableView } from '../views/TableView'
@@ -293,7 +293,9 @@ function Toolbar({ project, view }) {
   const group = usePopover()
   const sort = usePopover()
   const filter = usePopover()
+  const dateSel = usePopover()
   const cfg = view.config
+  const dateProps = projectProps(s, project.id).filter((p) => p.key === 'due' || p.field?.kind === 'date')
   const setCfg = (patch) => s.updateView(view.id, { config: { ...cfg, ...patch } })
   const sorts = cfg.sort || []
   const filterLabels = cfg.filter?.labels || []
@@ -321,6 +323,12 @@ function Toolbar({ project, view }) {
           {sorts.length ? `Orden: ${sorts.map((x) => sortName(x.field)).join(', ')}` : 'Ordenar'}
         </button>
       )}
+      {view.kind === 'calendar' && (
+        <button onClick={dateSel.toggle} className={pill(false)}>
+          <Calendar size={14} />
+          <span><span className="max-sm:hidden">Fecha: </span>{dateProps.find((p) => p.key === (cfg.date_key || 'due'))?.name || 'Fecha'}</span>
+        </button>
+      )}
       <button onClick={filter.toggle} className={pill(filterLabels.length)}>
         <Filter size={14} />
         Filtrar{filterLabels.length ? ` · ${filterLabels.length}` : ''}
@@ -331,6 +339,15 @@ function Toolbar({ project, view }) {
         <span className="sm:hidden">{cfg.hide_done ? 'Sin terminadas' : 'Terminadas'}</span>
       </button>
 
+      <Popover open={dateSel.open} anchor={dateSel.anchor} onClose={dateSel.close} width={240}>
+        <MenuLabel>Mostrar en el calendario</MenuLabel>
+        {dateProps.map((p) => (
+          <MenuItem key={p.key} icon={p.icon} active={(cfg.date_key || 'due') === p.key} onClick={() => (setCfg({ date_key: p.key }), dateSel.close())}>
+            {p.name}
+          </MenuItem>
+        ))}
+        {dateProps.length < 2 && <p className="px-3 pb-2 pt-1 text-[12.5px] text-faint">Añade otra propiedad de tipo Fecha desde una tarjeta para poder elegirla aquí.</p>}
+      </Popover>
       <Popover open={group.open} anchor={group.anchor} onClose={group.close} width={220}>
         <MenuLabel>Agrupar por</MenuLabel>
         {view.kind === 'list' && (
