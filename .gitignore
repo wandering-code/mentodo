@@ -30,3 +30,6 @@ backend/uploads/*
 
 # Capturas del MCP de Playwright
 .playwright-mcp/
+
+# Log de las copias de seguridad del mini PC
+backup.log

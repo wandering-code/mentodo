@@ -52,6 +52,23 @@ def bootstrap(user: User = Depends(current_user), db: Session = Depends(get_db))
     }
 
 
+@router.get("/export")
+def export_all(user: User = Depends(current_user), db: Session = Depends(get_db)):
+    """Todo el espacio de trabajo en un JSON descargable (los secretos de la
+    bóveda van tal cual: cifrados). Copia propia, independiente del servidor."""
+    from datetime import datetime, timezone
+
+    from fastapi.responses import JSONResponse
+
+    data = bootstrap(user, db)
+    data.pop("vapid_public_key", None)
+    data["notifications"] = []
+    data["exported_at"] = datetime.now(timezone.utc).isoformat()
+    data["format"] = "mentodo-export-1"
+    stamp = datetime.now().strftime("%Y-%m-%d")
+    return JSONResponse(data, headers={"Content-Disposition": f'attachment; filename="mentodo-{user.username}-{stamp}.json"'})
+
+
 # ── Reglas de notificación ───────────────────────────────────────────────────
 
 class RuleIn(BaseModel):

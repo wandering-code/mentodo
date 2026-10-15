@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'motion/react'
-import { Bell, BellOff, Check, Lock, LockOpen, LogOut, Monitor, Moon, Send, Sun } from 'lucide-react'
+import { Bell, BellOff, Check, Download, Lock, LockOpen, LogOut, Monitor, Moon, Send, Sun } from 'lucide-react'
 import { toast } from 'sonner'
 import { useStore } from '../lib/store'
 import { post } from '../lib/api'
@@ -160,6 +160,17 @@ export function SettingsPage() {
       </SettingsSection>
 
       <VaultSection />
+
+      <SettingsSection
+        title="Tus datos"
+        description="Cada noche se hace una copia de seguridad automática en el servidor. Además, puedes descargar aquí una copia de todo lo tuyo (proyectos, tarjetas, apuntes…) en un archivo; los secretos de la bóveda van cifrados."
+      >
+        <a href="/api/export" download>
+          <Button variant="outline" type="button">
+            <Download size={15} /> Exportar todo
+          </Button>
+        </a>
+      </SettingsSection>
 
       <SettingsSection title="Perfil">
         <div className="grid max-w-md gap-3">
