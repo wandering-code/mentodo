@@ -30,6 +30,8 @@ class ProjectPatch(BaseModel):
     position: float | None = None
     archived: bool | None = None
     hidden_props: list[str] | None = None
+    prop_names: dict[str, str] | None = None
+    prop_order: list[str] | None = None
 
 
 # (nombre, varias por tarjeta, es el estado, etiquetas)

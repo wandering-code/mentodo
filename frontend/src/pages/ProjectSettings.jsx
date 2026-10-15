@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router'
-import { Reorder, motion, useDragControls } from 'motion/react'
+import { motion } from 'motion/react'
+import { SortableList, SortableRow } from '../components/Sortable'
 import { Archive, ArchiveRestore, ArrowLeft, CircleCheck, Eye, EyeOff, GripVertical, Plus, Trash2 } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { groupLabels, projectGroups } from '../lib/cards'
-import { FIELD_KINDS, fieldIcon, hiddenInProject, projectProps } from '../lib/props'
+import { defaultName, FIELD_KINDS, fieldIcon, hiddenInProject, projectProps } from '../lib/props'
 import { LABEL_COLORS, PROJECT_ICONS } from '../lib/palette'
 import { ColorPicker } from '../components/Pickers'
 import { RulesEditor } from '../components/RulesEditor'
@@ -20,17 +21,17 @@ export function SettingsSection({ title, description, children }) {
   )
 }
 
-function LabelRow({ label, isStatus, onDrop }) {
+function LabelRow({ label, isStatus }) {
   const { updateLabel, deleteLabel } = useStore.getState()
   const color = usePopover()
   // Se reordena solo desde el asa: con el gesto en toda la fila, en el móvil
   // no se podía hacer scroll por la página pasando el dedo por encima
-  const controls = useDragControls()
   return (
-    <Reorder.Item value={label.id} transition={spring} dragListener={false} dragControls={controls} onDragEnd={onDrop} className="group flex items-center gap-2 rounded-lg bg-surface py-1 pr-1">
+    <SortableRow id={label.id} className="group flex items-center gap-2 rounded-lg bg-surface py-1 pr-1 data-[dragging]:shadow-float">
+      {({ handleProps }) => (
+      <>
       <span
-        onPointerDown={(e) => controls.start(e)}
-        style={{ touchAction: 'none' }}
+        {...handleProps}
         className="grid h-9 w-5 shrink-0 cursor-grab place-items-center text-faint opacity-0 group-hover:opacity-100 max-sm:opacity-100"
       >
         <GripVertical size={15} />
@@ -63,20 +64,18 @@ function LabelRow({ label, isStatus, onDrop }) {
       <Popover open={color.open} anchor={color.anchor} onClose={color.close} width={200}>
         <ColorPicker value={label.color} onChange={(c) => (updateLabel(label.id, { color: c }), color.close())} />
       </Popover>
-    </Reorder.Item>
+      </>
+      )}
+    </SortableRow>
   )
 }
 
 function GroupCard({ group }) {
   const s = useStore()
   const labels = useMemo(() => groupLabels(s, group.id), [s.labels, group.id]) // eslint-disable-line react-hooks/exhaustive-deps
-  const [order, setOrder] = useState(null)
   const [name, setName] = useState('')
-  const ids = order || labels.map((l) => l.id)
-  const commit = () => {
-    order?.forEach((id, i) => s.labels[id] && s.labels[id].position !== i && s.updateLabel(id, { position: i }))
-    setOrder(null)
-  }
+  const ids = labels.map((l) => l.id)
+  const reorder = (next) => next.forEach((id, i) => s.labels[id] && s.labels[id].position !== i && s.updateLabel(id, { position: i }))
   const add = async (e) => {
     e.preventDefault()
     if (!name.trim()) return
@@ -115,9 +114,11 @@ function GroupCard({ group }) {
           </label>
         )}
       </div>
-      <Reorder.Group axis="y" values={ids} onReorder={setOrder} className="mt-2 flex flex-col">
-        {ids.map((id) => s.labels[id] && <LabelRow key={id} label={s.labels[id]} isStatus={group.is_status} onDrop={commit} />)}
-      </Reorder.Group>
+      <div className="mt-2 flex flex-col">
+        <SortableList ids={ids} onReorder={reorder}>
+          {() => ids.map((id) => s.labels[id] && <LabelRow key={id} label={s.labels[id]} isStatus={group.is_status} />)}
+        </SortableList>
+      </div>
       <form onSubmit={add} className="mt-1 flex items-center gap-2 pl-6">
         <Plus size={15} className="text-faint" />
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nueva etiqueta" className="h-8 flex-1 bg-transparent text-[14px] outline-none placeholder:text-faint" />
@@ -126,15 +127,86 @@ function GroupCard({ group }) {
   )
 }
 
+function PropertyRow({ p, project }) {
+  const s = useStore.getState()
+  const visible = !hiddenInProject(project, p.key)
+  const rename = (v) => {
+    const name = v.trim()
+    if (!name || name === p.name) return
+    if (p.group) s.updateGroup(p.group.id, { name })
+    else if (p.field) s.updateField(p.field.id, { name })
+    else s.updateProject(project.id, { prop_names: { ...(project.prop_names || {}), [p.key]: name } })
+  }
+  const toggle = () =>
+    s.updateProject(project.id, {
+      hidden_props: visible ? [...(project.hidden_props || []), p.key] : (project.hidden_props || []).filter((k) => k !== p.key),
+    })
+  const custom = !p.group && !p.field && project.prop_names?.[p.key]
+  return (
+    <SortableRow id={p.key} className="group flex items-center gap-2 rounded-lg bg-surface py-1 pr-1 data-[dragging]:shadow-float">
+      {({ handleProps }) => (
+      <>
+      <span
+        {...handleProps}
+        className="grid h-9 w-6 shrink-0 cursor-grab place-items-center text-faint opacity-60 group-hover:opacity-100 max-sm:opacity-100"
+        aria-label="Arrastrar para reordenar"
+      >
+        <GripVertical size={15} />
+      </span>
+      <p.icon size={16} className={cx('shrink-0', visible ? 'text-muted' : 'text-faint')} />
+      <input
+        key={p.name}
+        defaultValue={p.name}
+        onBlur={(e) => rename(e.target.value)}
+        onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+        className={cx('h-9 min-w-0 flex-1 rounded-md bg-transparent px-1.5 text-[15px] outline-none hover:bg-hover focus:bg-sunken sm:h-8 sm:text-[14px]', !visible && 'text-faint')}
+      />
+      {custom && (
+        <button
+          title={`Volver a «${defaultName(p.key)}»`}
+          onClick={() => {
+            const { [p.key]: _, ...rest } = project.prop_names
+            s.updateProject(project.id, { prop_names: rest })
+          }}
+          className="hidden shrink-0 rounded-md px-1.5 text-[12px] text-faint hover:text-muted sm:inline"
+        >
+          ↺ {defaultName(p.key)}
+        </button>
+      )}
+      <span className="hidden w-16 shrink-0 text-right text-[12px] text-faint sm:inline">
+        {p.group ? 'Etiquetas' : p.field ? FIELD_KINDS.find((k) => k.id === p.field.kind)?.name : 'De serie'}
+      </span>
+      <IconButton size="sm" label={visible ? 'Ocultar' : 'Mostrar'} onClick={toggle}>
+        {visible ? <Eye size={15} /> : <EyeOff size={15} />}
+      </IconButton>
+      {p.field || p.group ? (
+        <IconButton
+          size="sm"
+          label="Borrar propiedad"
+          onClick={() => {
+            if (!confirm(`¿Borrar «${p.name}»${p.group ? ' y todas sus etiquetas' : ' y sus valores'}?`)) return
+            if (p.field) s.deleteField(p.field.id)
+            else s.deleteGroup(p.group.id)
+          }}
+        >
+          <Trash2 size={14} />
+        </IconButton>
+      ) : (
+        <span className="size-8 shrink-0 sm:size-7" />
+      )}
+      </>
+      )}
+    </SortableRow>
+  )
+}
+
 function PropertiesSettings({ project }) {
   const s = useStore()
-  const props = useMemo(() => projectProps(s, project.id), [s.groups, s.fields, project.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  const props = useMemo(() => projectProps(s, project.id), [s.groups, s.fields, s.projects, project.id]) // eslint-disable-line react-hooks/exhaustive-deps
   const [kind, setKind] = useState(null)
   const [name, setName] = useState('')
-  const toggle = (key, visible) =>
-    s.updateProject(project.id, {
-      hidden_props: visible ? (project.hidden_props || []).filter((k) => k !== key) : [...(project.hidden_props || []), key],
-    })
+  const keys = props.map((p) => p.key)
+  const byKey = Object.fromEntries(props.map((p) => [p.key, p]))
   const create = async (e) => {
     e.preventDefault()
     if (!name.trim() || !kind) return
@@ -144,37 +216,11 @@ function PropertiesSettings({ project }) {
   }
   return (
     <div className="rounded-2xl border border-line bg-surface p-2">
-      {props.map((p) => {
-        const visible = !hiddenInProject(project, p.key)
-        return (
-          <div key={p.key} className="flex items-center gap-3 rounded-lg px-2.5 py-1.5">
-            <p.icon size={16} className={visible ? 'text-muted' : 'text-faint'} />
-            {p.field ? (
-              <input
-                defaultValue={p.name}
-                onBlur={(e) => e.target.value.trim() && e.target.value !== p.name && s.updateField(p.field.id, { name: e.target.value.trim() })}
-                onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
-                className={cx('h-8 min-w-0 flex-1 rounded-md bg-transparent px-1.5 text-[14px] outline-none hover:bg-hover focus:bg-sunken', !visible && 'text-faint')}
-              />
-            ) : (
-              <span className={cx('flex-1 px-1.5 text-[14px]', !visible && 'text-faint')}>{p.name}</span>
-            )}
-            <span className="hidden text-[12px] text-faint sm:inline">
-              {p.group ? 'Etiquetas' : p.field ? FIELD_KINDS.find((k) => k.id === p.field.kind)?.name : 'De serie'}
-            </span>
-            <IconButton size="sm" label={visible ? 'Ocultar' : 'Mostrar'} onClick={() => toggle(p.key, !visible)}>
-              {visible ? <Eye size={15} /> : <EyeOff size={15} />}
-            </IconButton>
-            {p.field ? (
-              <IconButton size="sm" label="Borrar propiedad" onClick={() => confirm(`¿Borrar «${p.name}» y sus valores?`) && s.deleteField(p.field.id)}>
-                <Trash2 size={14} />
-              </IconButton>
-            ) : (
-              <span className="size-7" />
-            )}
-          </div>
-        )
-      })}
+      <div className="flex flex-col">
+        <SortableList ids={keys} onReorder={(order) => s.updateProject(project.id, { prop_order: order })}>
+          {() => keys.map((k) => <PropertyRow key={k} p={byKey[k]} project={project} />)}
+        </SortableList>
+      </div>
       <div className="mt-1 border-t border-line px-2.5 pb-1 pt-3">
         {kind ? (
           <form onSubmit={create} className="flex items-center gap-2">
@@ -235,7 +281,7 @@ export function ProjectSettings() {
 
       <SettingsSection
         title="Propiedades"
-        description="Lo que aparece en cada tarjeta. Ocultar no borra nada: los valores se conservan y puedes volver a mostrarla cuando quieras. También puedes ocultar una propiedad solo en una tarjeta desde su nombre, dentro de la tarjeta."
+        description="Lo que aparece en cada tarjeta, en este orden. Arrastra desde ⋮⋮ para reordenar y toca un nombre para cambiarlo (también los de serie: «Fecha» puede ser «Inicio»). Ocultar no borra nada; también puedes ocultar una propiedad solo en una tarjeta desde su nombre, dentro de la tarjeta."
       >
         <PropertiesSettings project={project} />
       </SettingsSection>

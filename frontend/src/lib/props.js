@@ -22,16 +22,41 @@ export const FIELD_KINDS = [
 export const fieldIcon = (kind) => FIELD_KINDS.find((k) => k.id === kind)?.icon || AlignLeft
 
 export function projectProps(s, projectId) {
+  const project = projectId ? s.projects[projectId] : null
+  const names = project?.prop_names || {}
   const groups = Object.values(s.groups)
     .filter((g) => g.project_id === projectId)
     .sort((a, b) => a.position - b.position)
     .map((g) => ({ key: `g:${g.id}`, name: g.name, icon: Tag, group: g }))
+  const builtin = BUILTIN.map((b) => ({ ...b, name: names[b.key] || b.name }))
   const fields = Object.values(s.fields)
     .filter((f) => f.project_id === projectId)
     .sort((a, b) => a.position - b.position)
     .map((f) => ({ key: `f:${f.id}`, name: f.name, icon: fieldIcon(f.kind), field: f }))
-  return [...groups, ...BUILTIN, ...fields]
+  const all = [...groups, ...builtin, ...fields]
+  // El orden elegido en el proyecto manda; lo que no esté en él (una
+  // propiedad recién creada) va detrás, en el orden de siempre
+  const order = project?.prop_order || []
+  const rank = (p) => {
+    const i = order.indexOf(p.key)
+    return i === -1 ? order.length + all.indexOf(p) : i
+  }
+  return all.sort((a, b) => rank(a) - rank(b))
 }
+
+/* Mueve una propiedad un puesto arriba (-1) o abajo (+1) y devuelve el orden
+   completo nuevo, listo para guardar en el proyecto */
+export function movedOrder(props, key, dir) {
+  const keys = props.map((p) => p.key)
+  const i = keys.indexOf(key)
+  const j = i + dir
+  if (i < 0 || j < 0 || j >= keys.length) return null
+  ;[keys[i], keys[j]] = [keys[j], keys[i]]
+  return keys
+}
+
+/* Nombre por defecto de una propiedad de serie (para «Restablecer nombre») */
+export const defaultName = (key) => BUILTIN.find((b) => b.key === key)?.name
 
 export const hiddenInProject = (project, key) => !!project?.hidden_props?.includes(key)
 export const hiddenInCard = (card, key) => !!card?.hidden_props?.includes(key)

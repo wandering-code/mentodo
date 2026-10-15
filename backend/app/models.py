@@ -43,6 +43,10 @@ class Project(Base):
     # Propiedades ocultas en todo el proyecto: "due", "remind", "estimate",
     # "todo", "g:<grupo>", "f:<campo>"
     hidden_props = Column(JSON, nullable=False, default=list)
+    # Nombres propios para las propiedades de serie: {"due": "Inicio", ...}
+    prop_names = Column(JSON, nullable=False, default=dict)
+    # Orden de las propiedades en tarjeta y tabla (mismas claves que hidden_props)
+    prop_order = Column(JSON, nullable=False, default=list)
     created_at = Column(DateTime(timezone=True), default=now)
     updated_at = Column(DateTime(timezone=True), default=now, onupdate=now)
 

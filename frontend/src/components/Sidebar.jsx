@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router'
-import { motion, Reorder } from 'motion/react'
+import { motion } from 'motion/react'
+import { SortableList, SortableRow } from './Sortable'
 import { Archive, Bell, ChevronRight, CircleCheckBig, Inbox, Plus, Search, Settings, Shield } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { Collapse, cx, IconButton, Kbd, spring } from './ui'
@@ -60,16 +61,12 @@ export function Sidebar({ onSearch, onNewProject, onNotifications, onNavigate, t
   )
   const archived = useMemo(() => Object.values(projectsMap).filter((p) => p.archived), [projectsMap])
   const unread = notifications.filter((n) => !n.read).length
-  const [order, setOrder] = useState(null)
-  const shown = order ? order.map((id) => projectsMap[id]).filter(Boolean) : projects
+  const shown = projects
 
-  const commitOrder = () => {
-    if (!order) return
-    order.forEach((id, i) => {
+  const reorder = (ids) =>
+    ids.forEach((id, i) => {
       if (projectsMap[id] && projectsMap[id].position !== i) updateProject(id, { position: i })
     })
-    setOrder(null)
-  }
 
   return (
     <div className="flex h-full flex-col">
@@ -109,9 +106,11 @@ export function Sidebar({ onSearch, onNewProject, onNotifications, onNavigate, t
         </IconButton>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
-        <Reorder.Group axis="y" values={shown.map((p) => p.id)} onReorder={setOrder} className="flex flex-col">
-          {shown.map((p) => (
-            <Reorder.Item key={p.id} value={p.id} onDragEnd={commitOrder} transition={spring} dragListener={!touch} className="relative">
+        <div className="flex flex-col">
+        <SortableList ids={shown.map((p) => p.id)} onReorder={reorder} handle={false}>
+          {() => shown.map((p) => (
+            <SortableRow key={p.id} id={p.id} handle={false} className="relative">
+              {() => (
               <NavLink
                 to={`/p/${p.id}`}
                 onClick={onNavigate}
@@ -134,9 +133,11 @@ export function Sidebar({ onSearch, onNewProject, onNotifications, onNavigate, t
                   </>
                 )}
               </NavLink>
-            </Reorder.Item>
+              )}
+            </SortableRow>
           ))}
-        </Reorder.Group>
+        </SortableList>
+        </div>
         {projects.length === 0 && (
           <button onClick={onNewProject} className="flex h-8 w-full items-center gap-2.5 rounded-lg px-2.5 text-[14px] text-faint hover:bg-hover hover:text-muted">
             <Plus size={15} /> Crea tu primer proyecto

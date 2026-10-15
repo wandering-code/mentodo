@@ -271,7 +271,11 @@ function Toolbar({ project, view }) {
   const sorts = cfg.sort || []
   const filterLabels = cfg.filter?.labels || []
   const sortName = (f) =>
-    (f.startsWith('group:') ? s.groups[Number(f.slice(6))]?.name : f.startsWith('f:') ? s.fields[Number(f.slice(2))]?.name : SORT_FIELDS.find((x) => x.id === f)?.name) || f
+    (f.startsWith('group:')
+      ? s.groups[Number(f.slice(6))]?.name
+      : f.startsWith('f:')
+        ? s.fields[Number(f.slice(2))]?.name
+        : (f === 'due_at' && project.prop_names?.due) || SORT_FIELDS.find((x) => x.id === f)?.name) || f
 
   const pill = (activeState) =>
     cx('inline-flex h-7 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-2 text-[13px] transition-colors', activeState ? 'bg-accent-soft text-accent' : 'text-muted hover:bg-hover hover:text-ink')
@@ -347,7 +351,7 @@ function Toolbar({ project, view }) {
           ))}
         {SORT_FIELDS.filter((f) => f.id !== 'position' && !sorts.some((x) => x.field === f.id)).map((f) => (
           <MenuItem key={f.id} onClick={() => setCfg({ sort: [...sorts, { field: f.id, dir: 'asc' }] })}>
-            {f.name}
+            {sortName(f.id)}
           </MenuItem>
         ))}
         {sorts.length > 0 && (

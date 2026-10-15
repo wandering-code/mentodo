@@ -1,9 +1,9 @@
 import { useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { ExternalLink, EyeOff, Folder, Pencil, Plus, Tag, Trash2, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, ExternalLink, EyeOff, Folder, Pencil, Plus, Tag, Trash2, X } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { humanDate, toDateTimeInput } from '../lib/dates'
-import { FIELD_KINDS, fieldValue, hasValue, hiddenInCard, hiddenInProject, projectProps } from '../lib/props'
+import { FIELD_KINDS, fieldValue, hasValue, hiddenInCard, hiddenInProject, movedOrder, projectProps } from '../lib/props'
 import { DatePicker, LabelPicker } from './Pickers'
 import { cx, Divider, IconButton, LabelChip, MenuItem, MenuLabel, Popover, Toggle, usePopover } from './ui'
 
@@ -12,7 +12,7 @@ import { cx, Divider, IconButton, LabelChip, MenuItem, MenuLabel, Popover, Toggl
    o en todo el proyecto, y recuperar desde «Añadir propiedad». */
 export function Properties({ card, project, onMove }) {
   const s = useStore()
-  const props = useMemo(() => projectProps(s, card.project_id), [s.groups, s.fields, card.project_id]) // eslint-disable-line react-hooks/exhaustive-deps
+  const props = useMemo(() => projectProps(s, card.project_id), [s.groups, s.fields, s.projects, card.project_id]) // eslint-disable-line react-hooks/exhaustive-deps
   const visible = props.filter((p) => !hiddenInProject(project, p.key) && !hiddenInCard(card, p.key))
   const hidden = props.filter((p) => hiddenInProject(project, p.key) || hiddenInCard(card, p.key))
 
@@ -27,8 +27,8 @@ export function Properties({ card, project, onMove }) {
       )}
       <AnimatePresence initial={false}>
         {visible.map((p) => (
-          <motion.div key={p.key} initial={{ opacity: 0, transform: 'translateY(-4px)' }} animate={{ opacity: 1, transform: 'translateY(0px)' }} exit={{ opacity: 0, transition: { duration: 0.12 } }} transition={{ duration: 0.22, ease: [0.32, 0.72, 0, 1] }}>
-            <PropRow prop={p} card={card} project={project} />
+          <motion.div key={p.key} layout="position" initial={{ opacity: 0, transform: 'translateY(-4px)' }} animate={{ opacity: 1, transform: 'translateY(0px)' }} exit={{ opacity: 0, transition: { duration: 0.12 } }} transition={{ duration: 0.22, ease: [0.32, 0.72, 0, 1] }}>
+            <PropRow prop={p} card={card} project={project} all={props} />
           </motion.div>
         ))}
       </AnimatePresence>
@@ -53,7 +53,7 @@ export function Row({ icon: Icon, label, children, onLabel }) {
   )
 }
 
-function PropRow({ prop, card, project }) {
+function PropRow({ prop, card, project, all }) {
   const menu = usePopover()
   const s = useStore.getState()
   const [renaming, setRenaming] = useState(false)
@@ -75,8 +75,17 @@ function PropRow({ prop, card, project }) {
     setRenaming(false)
     if (!name.trim() || name === prop.name) return
     if (prop.group) s.updateGroup(prop.group.id, { name: name.trim() })
-    if (prop.field) s.updateField(prop.field.id, { name: name.trim() })
+    else if (prop.field) s.updateField(prop.field.id, { name: name.trim() })
+    else s.updateProject(project.id, { prop_names: { ...(project.prop_names || {}), [prop.key]: name.trim() } })
   }
+  // Subir/bajar dentro del orden completo del proyecto (también cuenta lo
+  // oculto, para que al volver a mostrarlo aparezca donde estaba)
+  const i = all.findIndex((p) => p.key === prop.key)
+  const move = (dir) => {
+    const order = movedOrder(all, prop.key, dir)
+    if (order) s.updateProject(project.id, { prop_order: order })
+  }
+  const canRename = !!project || prop.group || prop.field
 
   return (
     <>
@@ -84,7 +93,7 @@ function PropRow({ prop, card, project }) {
         <PropValue prop={prop} card={card} />
       </Row>
       <Popover open={menu.open} anchor={menu.anchor} onClose={() => (menu.close(), setRenaming(false))} width={250}>
-        {(prop.group || prop.field) &&
+        {canRename &&
           (renaming ? (
             <div className="px-1 pb-1">
               <input
@@ -100,6 +109,17 @@ function PropRow({ prop, card, project }) {
               Renombrar
             </MenuItem>
           ))}
+        {project && (
+          <>
+            <MenuItem icon={ArrowUp} onClick={() => move(-1)} className={i <= 0 ? 'pointer-events-none opacity-40' : ''}>
+              Subir
+            </MenuItem>
+            <MenuItem icon={ArrowDown} onClick={() => move(1)} className={i >= all.length - 1 ? 'pointer-events-none opacity-40' : ''}>
+              Bajar
+            </MenuItem>
+            <Divider />
+          </>
+        )}
         <MenuItem icon={EyeOff} onClick={hideInCard}>
           Ocultar en esta tarjeta
         </MenuItem>
