@@ -22,7 +22,8 @@ def project_out(p: Project):
 
 
 def group_out(g: LabelGroup):
-    return {"id": g.id, "project_id": g.project_id, "name": g.name, "multi": g.multi, "position": g.position}
+    return {"id": g.id, "project_id": g.project_id, "name": g.name, "multi": g.multi,
+            "is_status": g.is_status, "position": g.position}
 
 
 def label_out(l: Label):

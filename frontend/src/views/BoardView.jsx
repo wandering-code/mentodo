@@ -141,10 +141,12 @@ function Column({ id, label, group, cards, onOpen, onAdd, manual }) {
             >
               Color
             </MenuItem>
-            <div className="flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-[14px]">
-              <span className="flex-1">Cuenta como hecho</span>
-              <Toggle checked={label.marks_done} onChange={(v) => updateLabel(label.id, { marks_done: v })} />
-            </div>
+            {group.is_status && (
+              <div className="flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-[14px]">
+                <span className="flex-1">Significa terminado</span>
+                <Toggle checked={label.marks_done} onChange={(v) => updateLabel(label.id, { marks_done: v })} />
+              </div>
+            )}
             <Divider />
             <MenuItem
               danger

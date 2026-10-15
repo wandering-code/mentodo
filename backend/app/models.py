@@ -52,6 +52,9 @@ class LabelGroup(Base):
     project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
     name = Column(String(60), nullable=False)
     multi = Column(Boolean, nullable=False, default=False)  # ¿una tarjeta puede tener varias del grupo?
+    # El grupo que hace de "estado" de la tarjeta (uno por proyecto como mucho).
+    # Solo en él tiene sentido una etiqueta "de terminado".
+    is_status = Column(Boolean, nullable=False, default=False)
     position = Column(Float, nullable=False, default=0)
 
 
@@ -62,7 +65,8 @@ class Label(Base):
     name = Column(String(60), nullable=False)
     color = Column(String(20), nullable=False, default="gris")
     position = Column(Float, nullable=False, default=0)
-    # Una tarjeta con esta etiqueta cuenta como terminada (p. ej. "Hecho")
+    # Una tarjeta con esta etiqueta cuenta como terminada (p. ej. "Hecho"). Solo
+    # puede estar activa en una etiqueta del grupo de estado: el servidor lo garantiza.
     marks_done = Column(Boolean, nullable=False, default=False)
 
 

@@ -146,7 +146,30 @@ export const useStore = create((set, getState) => ({
       fail(e)
     }
   },
-  updateGroup: (id, body) => optimisticPatch(set, getState, 'groups', `/groups/${id}`, id, body),
+  updateGroup(id, body) {
+    // Solo un grupo de estado por proyecto y sus etiquetas "de terminado" van
+    // con él: el servidor lo garantiza, aquí se adelanta para verlo al instante
+    const g = getState().groups[id]
+    if (g && body.is_status !== undefined && body.is_status !== g.is_status) {
+      set((s) => {
+        const groups = { ...s.groups }
+        const labels = { ...s.labels }
+        const clear = (gid) => {
+          for (const l of Object.values(labels)) if (l.group_id === gid && l.marks_done) labels[l.id] = { ...l, marks_done: false }
+        }
+        if (body.is_status) {
+          for (const o of Object.values(groups))
+            if (o.project_id === g.project_id && o.is_status && o.id !== id) {
+              groups[o.id] = { ...o, is_status: false }
+              clear(o.id)
+            }
+        } else clear(id)
+        return { groups, labels }
+      })
+    }
+    const local = body.is_status ? { ...body, multi: false } : body
+    return optimisticPatch(set, getState, 'groups', `/groups/${id}`, id, body, local)
+  },
   async deleteGroup(id) {
     set((s) => {
       const next = { ...s }
@@ -168,7 +191,17 @@ export const useStore = create((set, getState) => ({
       fail(e)
     }
   },
-  updateLabel: (id, body) => optimisticPatch(set, getState, 'labels', `/labels/${id}`, id, body),
+  updateLabel(id, body) {
+    const l = getState().labels[id]
+    if (l && body.marks_done) {
+      set((s) => ({
+        labels: Object.fromEntries(
+          Object.entries(s.labels).map(([k, o]) => [k, o.group_id === l.group_id && o.id !== id && o.marks_done ? { ...o, marks_done: false } : o]),
+        ),
+      }))
+    }
+    return optimisticPatch(set, getState, 'labels', `/labels/${id}`, id, body)
+  },
   async deleteLabel(id) {
     set((s) => {
       const next = { ...s }

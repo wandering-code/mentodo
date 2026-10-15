@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -30,9 +30,10 @@ class ProjectPatch(BaseModel):
     archived: bool | None = None
 
 
+# (nombre, varias por tarjeta, es el estado, etiquetas)
 DEFAULT_GROUPS = [
-    ("Estado", False, [("Por hacer", "gris", False), ("En curso", "azul", False), ("Hecho", "verde", True)]),
-    ("Prioridad", False, [("Alta", "rojo", False), ("Media", "ambar", False), ("Baja", "gris", False)]),
+    ("Estado", False, True, [("Por hacer", "gris", False), ("En curso", "azul", False), ("Hecho", "verde", True)]),
+    ("Prioridad", False, False, [("Alta", "rojo", False), ("Media", "ambar", False), ("Baja", "gris", False)]),
 ]
 
 
@@ -44,8 +45,8 @@ def create_project(body: ProjectIn, em: Emitter = Depends(emitter), db: Session 
     db.add(p)
     db.flush()
     groups, labels = [], []
-    for gi, (gname, multi, opts) in enumerate(DEFAULT_GROUPS):
-        g = LabelGroup(project_id=p.id, name=gname, multi=multi, position=gi)
+    for gi, (gname, multi, is_status, opts) in enumerate(DEFAULT_GROUPS):
+        g = LabelGroup(project_id=p.id, name=gname, multi=multi, is_status=is_status, position=gi)
         db.add(g)
         db.flush()
         groups.append(g)
@@ -111,7 +112,15 @@ class GroupIn(BaseModel):
 class GroupPatch(BaseModel):
     name: str | None = Field(None, min_length=1, max_length=60)
     multi: bool | None = None
+    is_status: bool | None = None
     position: float | None = None
+
+
+def _clear_done_labels(db: Session, em: Emitter, group_id: int, keep: int | None = None):
+    for other in db.scalars(select(Label).where(Label.group_id == group_id, Label.marks_done.is_(True))).all():
+        if other.id != keep:
+            other.marks_done = False
+            em.upsert("label", label_out(other))
 
 
 @router.post("/groups", status_code=201)
@@ -129,9 +138,25 @@ def create_group(body: GroupIn, em: Emitter = Depends(emitter), db: Session = De
 @router.patch("/groups/{group_id}")
 def patch_group(group_id: int, body: GroupPatch, em: Emitter = Depends(emitter), db: Session = Depends(get_db)):
     g = own_group(db, em.user.id, group_id)
-    for k, v in body.model_dump(exclude_unset=True).items():
-        if v is not None:
-            setattr(g, k, v)
+    if body.name is not None:
+        g.name = body.name
+    if body.position is not None:
+        g.position = body.position
+    if body.is_status is True and not g.is_status:
+        # Solo un grupo de estado por proyecto: el anterior deja de serlo
+        for other in db.scalars(select(LabelGroup).where(LabelGroup.project_id == g.project_id,
+                                                         LabelGroup.is_status.is_(True))).all():
+            other.is_status = False
+            _clear_done_labels(db, em, other.id)
+            em.upsert("group", group_out(other))
+        g.is_status, g.multi = True, False  # el estado es siempre una sola etiqueta
+    elif body.is_status is False and g.is_status:
+        g.is_status = False
+        _clear_done_labels(db, em, g.id)
+    if body.multi is not None:
+        if body.multi and g.is_status:
+            raise HTTPException(422, "El grupo de estado solo admite una etiqueta por tarjeta")
+        g.multi = body.multi
     db.commit()
     out = group_out(g)
     em.upsert("group", out)
@@ -165,9 +190,12 @@ class LabelPatch(BaseModel):
 
 @router.post("/labels", status_code=201)
 def create_label(body: LabelIn, em: Emitter = Depends(emitter), db: Session = Depends(get_db)):
-    own_group(db, em.user.id, body.group_id)
+    g = own_group(db, em.user.id, body.group_id)
     top = db.scalar(select(func.max(Label.position)).where(Label.group_id == body.group_id)) or 0
-    l = Label(group_id=body.group_id, name=body.name, color=body.color, marks_done=body.marks_done, position=top + 1)
+    marks_done = body.marks_done and g.is_status
+    if marks_done:
+        _clear_done_labels(db, em, g.id)
+    l = Label(group_id=body.group_id, name=body.name, color=body.color, marks_done=marks_done, position=top + 1)
     db.add(l)
     db.commit()
     out = label_out(l)
@@ -178,6 +206,10 @@ def create_label(body: LabelIn, em: Emitter = Depends(emitter), db: Session = De
 @router.patch("/labels/{label_id}")
 def patch_label(label_id: int, body: LabelPatch, em: Emitter = Depends(emitter), db: Session = Depends(get_db)):
     l = own_label(db, em.user.id, label_id)
+    if body.marks_done:
+        if not db.get(LabelGroup, l.group_id).is_status:
+            raise HTTPException(422, "Solo las etiquetas del grupo de estado pueden significar terminado")
+        _clear_done_labels(db, em, l.group_id, keep=l.id)
     for k, v in body.model_dump(exclude_unset=True).items():
         if v is not None:
             setattr(l, k, v)

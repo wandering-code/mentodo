@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router'
 import { Reorder, motion } from 'motion/react'
-import { Archive, ArchiveRestore, ArrowLeft, GripVertical, Plus, Trash2 } from 'lucide-react'
+import { Archive, ArchiveRestore, ArrowLeft, CircleCheck, GripVertical, Plus, Trash2 } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { groupLabels, projectGroups } from '../lib/cards'
 import { LABEL_COLORS, PROJECT_ICONS } from '../lib/palette'
@@ -19,7 +19,7 @@ export function SettingsSection({ title, description, children }) {
   )
 }
 
-function LabelRow({ label }) {
+function LabelRow({ label, isStatus }) {
   const { updateLabel, deleteLabel } = useStore.getState()
   const color = usePopover()
   return (
@@ -32,10 +32,21 @@ function LabelRow({ label }) {
         onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
         className="h-8 min-w-0 flex-1 rounded-md bg-transparent px-1.5 text-[14px] outline-none hover:bg-hover focus:bg-sunken"
       />
-      <label className="flex items-center gap-2 text-[12.5px] text-muted" title="Las tarjetas con esta etiqueta cuentan como terminadas">
-        <span className="hidden sm:inline">Hecho</span>
-        <Toggle checked={label.marks_done} onChange={(v) => updateLabel(label.id, { marks_done: v })} />
-      </label>
+      {isStatus && (
+        <button
+          onClick={() => updateLabel(label.id, { marks_done: !label.marks_done })}
+          title={label.marks_done ? 'Las tarjetas con esta etiqueta cuentan como terminadas' : 'Usar esta etiqueta para lo terminado'}
+          className={cx(
+            'inline-flex h-7 shrink-0 items-center gap-1.5 rounded-lg px-2 text-[12.5px] font-medium transition-[background-color,color,opacity] duration-150',
+            label.marks_done
+              ? 'bg-accent-soft text-accent'
+              : 'text-faint opacity-0 hover:bg-hover hover:text-muted group-hover:opacity-100 max-sm:opacity-100',
+          )}
+        >
+          <CircleCheck size={14} />
+          {label.marks_done ? 'Terminado' : <span className="hidden sm:inline">Marcar como terminado</span>}
+        </button>
+      )}
       <IconButton size="sm" label="Borrar etiqueta" onClick={() => confirm(`¿Borrar «${label.name}»?`) && deleteLabel(label.id)}>
         <Trash2 size={14} />
       </IconButton>
@@ -71,16 +82,31 @@ function GroupCard({ group }) {
           onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
           className="h-8 min-w-0 flex-1 rounded-md bg-transparent px-1.5 text-[15px] font-semibold outline-none hover:bg-hover focus:bg-sunken"
         />
-        <label className="flex items-center gap-2 text-[12.5px] text-muted">
-          Varias por tarjeta
-          <Toggle checked={group.multi} onChange={(v) => s.updateGroup(group.id, { multi: v })} />
-        </label>
         <IconButton size="sm" label="Borrar grupo" onClick={() => confirm(`¿Borrar el grupo «${group.name}» y todas sus etiquetas?`) && s.deleteGroup(group.id)}>
           <Trash2 size={15} />
         </IconButton>
       </div>
+      <div className="mt-2 flex flex-col gap-1 border-b border-line pb-3 pl-1.5">
+        <label className="flex items-center gap-3 py-1 text-[13.5px]">
+          <span className="min-w-0 flex-1">
+            <span className="block text-ink">Es el estado de la tarjeta</span>
+            <span className="block text-[12.5px] text-faint">
+              {group.is_status
+                ? 'Al marcar una tarjeta como hecha se mueve a la etiqueta de terminado, y al revés.'
+                : 'Solo un grupo por proyecto. Actívalo si estas etiquetas dicen en qué punto está cada tarjeta.'}
+            </span>
+          </span>
+          <Toggle checked={group.is_status} onChange={(v) => s.updateGroup(group.id, { is_status: v })} label="Es el estado de la tarjeta" />
+        </label>
+        {!group.is_status && (
+          <label className="flex items-center gap-3 py-1 text-[13.5px]">
+            <span className="flex-1 text-ink">Varias etiquetas por tarjeta</span>
+            <Toggle checked={group.multi} onChange={(v) => s.updateGroup(group.id, { multi: v })} label="Varias etiquetas por tarjeta" />
+          </label>
+        )}
+      </div>
       <Reorder.Group axis="y" values={ids} onReorder={setOrder} className="mt-2 flex flex-col" onPointerUp={commit}>
-        {ids.map((id) => s.labels[id] && <LabelRow key={id} label={s.labels[id]} />)}
+        {ids.map((id) => s.labels[id] && <LabelRow key={id} label={s.labels[id]} isStatus={group.is_status} />)}
       </Reorder.Group>
       <form onSubmit={add} className="mt-1 flex items-center gap-2 pl-6">
         <Plus size={15} className="text-faint" />
@@ -119,7 +145,7 @@ export function ProjectSettings() {
 
       <SettingsSection
         title="Etiquetas"
-        description="Organizadas en grupos (Estado, Prioridad, Área…). El tablero usa un grupo como columnas; en cualquier vista puedes ordenar y filtrar por ellas. Activa «Hecho» en la etiqueta que signifique terminado: marcar el check moverá la tarjeta ahí."
+        description="Organizadas en grupos (Estado, Prioridad, Área…). El tablero usa un grupo como columnas; en cualquier vista puedes ordenar y filtrar por ellas. Uno de los grupos puede hacer de estado de la tarjeta: en él eliges qué etiqueta significa terminado."
       >
         <div className="flex flex-col gap-3">
           {groups.map((g) => (
