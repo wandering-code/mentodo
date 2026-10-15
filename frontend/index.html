@@ -2,7 +2,12 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <!-- Sin zoom de ningún tipo (como Puchi): maximum-scale=1 evita el zoom de
+         iOS al enfocar un campo con letra de menos de 16px; el doble toque lo
+         quita touch-action y el pellizco, el bloqueo de gesturestart en main.jsx
+         (Safari ignora user-scalable=no). interactive-widget: el teclado
+         encoge el viewport en vez de tapar el contenido. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content" />
     <meta name="theme-color" content="#f8f6f0" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />

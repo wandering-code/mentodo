@@ -98,6 +98,13 @@ body,
   height: 100%;
 }
 
+/* Sin zoom por doble toque (y sin el retraso de 300ms que trae) */
+html {
+  touch-action: manipulation;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 body {
   background: var(--bg);
   color: var(--ink);
