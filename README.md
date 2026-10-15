@@ -36,6 +36,18 @@ Checklist general en `~/repos/dev-standards/CLAUDE.md` sección 6. Específico d
 - Los avisos push solo funcionan por HTTPS (no en la IP local). En iPhone, además, hay que
   añadir la app a la pantalla de inicio.
 
+### Actualizar producción
+
+```bash
+ssh minipc
+cd /home/wander/apps/mentodo && git pull
+docker-compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d   # migraciones solas al arrancar
+cd frontend && npm ci && npm run build                                          # nginx sirve dist/ directamente
+```
+
+Producción: https://mentodo.wanderingcode.dev (nginx `/etc/nginx/sites-enabled/mentodo`, ingress en
+`/etc/cloudflared/config.yml`). El `.env` de producción solo existe en el mini PC.
+
 ## Marca
 
 Originales del logo en `docs/brand/`. El monograma está redibujado en vector en
