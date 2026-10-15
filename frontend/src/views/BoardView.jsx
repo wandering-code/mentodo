@@ -4,7 +4,7 @@ import {
   closestCorners, DndContext, DragOverlay, KeyboardSensor, MeasuringStrategy, MouseSensor, pointerWithin, TouchSensor,
   useDroppable, useSensor, useSensors,
 } from '@dnd-kit/core'
-import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { AnimatePresence, motion } from 'motion/react'
 import { MoreHorizontal, Plus } from 'lucide-react'
@@ -244,6 +244,10 @@ export function BoardView({ project, view, cards, onOpen }) {
     })
   }
 
+  // Al soltar se usa exactamente lo que se está viendo: la copia en vivo de
+  // las columnas (live), no el orden de antes de arrastrar. Antes se
+  // mezclaban los dos y, tras pasar por otra columna y volver, la tarjeta
+  // acababa en otro sitio (o el movimiento se perdía al soltar sobre su hueco).
   const onDragEnd = ({ active, over }) => {
     const p = live || columns
     lastDrop.current = performance.now()
@@ -251,29 +255,35 @@ export function BoardView({ project, view, cards, onOpen }) {
     setLive(null)
     if (!over) return
     const card = s.cards[active.id]
+    if (!card) return
     const origin = Object.keys(columns).find((k) => columns[k].includes(active.id))
-    const to = findCol(over.id)
-    if (!card || !to) return
-    let list = p[to].filter((x) => x !== active.id)
-    let idx = over.id === `col:${to}` || String(over.id).startsWith('dock:') ? list.length : list.indexOf(over.id)
-    if (idx < 0) idx = list.length
-    // Dentro de la misma columna, soltar sobre una tarjeta inferior va detrás de ella
-    if (origin === to && over.id !== active.id) {
-      const oldIdx = columns[to].indexOf(active.id)
-      const overIdx = columns[to].indexOf(over.id)
-      if (oldIdx < overIdx) idx = list.indexOf(over.id) + 1
+    let col = Object.keys(p).find((k) => p[k].includes(active.id)) || origin
+    let list = [...(p[col] || [])]
+    const overId = String(over.id)
+    const overCol = findCol(over.id)
+    if (overId.startsWith('dock:') && overCol && overCol !== col) {
+      // Soltada en el muelle: al final de esa columna
+      col = overCol
+      list = [...(p[col] || []).filter((x) => x !== active.id), active.id]
+    } else if (overCol === col && !overId.startsWith('col:') && !overId.startsWith('dock:')) {
+      // Sobre otra tarjeta de la misma columna: ocupa su sitio
+      const from = list.indexOf(active.id)
+      const to = list.indexOf(over.id)
+      if (from >= 0 && to >= 0) list = arrayMove(list, from, to)
     }
-    if (origin === to && over.id === active.id) return
-    list.splice(idx, 0, active.id)
+    if (!list.includes(active.id)) return
+    const unchanged = origin === col && list.join() === (columns[col] || []).join()
+    if (unchanged) return
+    const idx = list.indexOf(active.id)
     const body = {}
     if (manual) {
       const prev = s.cards[list[idx - 1]]?.position
       const next = s.cards[list[idx + 1]]?.position
       body.position = between(prev, next)
     }
-    if (origin !== to) {
+    if (origin !== col) {
       let ids = card.label_ids.filter((id) => (group.multi ? String(id) !== origin : s.labels[id]?.group_id !== group.id))
-      if (to !== NONE) ids = [...ids, Number(to)]
+      if (col !== NONE) ids = [...ids, Number(col)]
       body.label_ids = ids
     }
     if (Object.keys(body).length) s.updateCard(card.id, body)
