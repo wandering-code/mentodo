@@ -18,6 +18,7 @@ const KIND_KEY = {
   field: 'fields',
   note: 'notes',
   template: 'templates',
+  link: 'links',
   card: 'cards',
   rule: 'rules',
 }
@@ -37,6 +38,7 @@ export const useStore = create((set, getState) => ({
   fields: {},
   notes: {},
   templates: {},
+  links: {},
   cards: {},
   rules: {},
   notifications: [],
@@ -58,6 +60,7 @@ export const useStore = create((set, getState) => ({
         fields: byId(d.fields || []),
         notes: byId(d.notes || []),
         templates: byId(d.templates || []),
+        links: byId(d.links || []),
         cards: byId(d.cards),
         rules: byId(d.rules),
         notifications: d.notifications,
@@ -294,6 +297,25 @@ export const useStore = create((set, getState) => ({
       fail(e)
     }
   },
+  // ── Relaciones ──
+  async createLink(body) {
+    try {
+      const l = await post('/links', body)
+      set((s) => ({ links: { ...s.links, [l.id]: l } }))
+      return l
+    } catch (e) {
+      fail(e)
+    }
+  },
+  async deleteLink(id) {
+    set((s) => ({ links: without(s.links, id) }))
+    try {
+      await del(`/links/${id}`)
+    } catch (e) {
+      fail(e)
+    }
+  },
+
   // ── Plantillas ──
   async createTemplate(projectId) {
     try {
@@ -432,7 +454,7 @@ export const useStore = create((set, getState) => ({
     try {
       await post('/auth/logout')
     } catch {}
-    set({ status: 'anon', user: null, projects: {}, cards: {}, groups: {}, labels: {}, views: {}, fields: {}, notes: {}, templates: {}, rules: {}, notifications: [] })
+    set({ status: 'anon', user: null, projects: {}, cards: {}, groups: {}, labels: {}, views: {}, fields: {}, notes: {}, templates: {}, links: {}, rules: {}, notifications: [] })
   },
 }))
 
@@ -501,6 +523,8 @@ function removeLocal(next, kind, id) {
   } else if (kind === 'card') {
     next.cards = without(next.cards, id)
     next.templates = without(next.templates, id)
+    // El servidor borra sus relaciones en cascada (sin avisar de cada una)
+    next.links = Object.fromEntries(Object.entries(next.links).filter(([, l]) => l.from_id !== id && l.to_id !== id))
   } else if (KIND_KEY[kind]) {
     next[KIND_KEY[kind]] = without(next[KIND_KEY[kind]], id)
   }

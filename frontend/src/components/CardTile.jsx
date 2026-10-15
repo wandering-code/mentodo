@@ -1,10 +1,11 @@
 import { forwardRef, memo } from 'react'
-import { AlarmClock, CalendarClock, Repeat, CalendarDays, Clock3, FileText, ListTodo } from 'lucide-react'
+import { AlarmClock, CalendarClock, ListTree, Lock, Repeat, CalendarDays, Clock3, FileText, ListTodo } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { dueInfo } from '../lib/cards'
 import { humanDate } from '../lib/dates'
 import { Checkbox, cx, LabelChip } from './ui'
 import { useCardMeta } from './Properties'
+import { badgesFromKey, linkBadgesKey } from '../lib/links'
 
 function hasContent(c) {
   return !!c.content?.content?.some((n) => n.content?.length || n.type !== 'paragraph')
@@ -46,6 +47,7 @@ export const CardTile = memo(
   forwardRef(function CardTile({ card, hideGroupId, onOpen, dragging, overlay, style, ...rest }, ref) {
     const labels = useStore((s) => s.labels)
     const meta = useCardMeta(card)
+    const badges = badgesFromKey(useStore((s) => linkBadgesKey(s, card.id)))
     const updateCard = useStore((s) => s.updateCard)
     const chips = card.label_ids
       .map((id) => labels[id])
@@ -71,7 +73,7 @@ export const CardTile = memo(
             {card.title || <span className="text-faint">Sin título</span>}
           </div>
         </div>
-        {(chips.length > 0 || card.due_at || card.recurrence || meta.dates.length > 0 || cl || card.in_todo || card.estimate_minutes || card.remind_at || hasContent(card)) && (
+        {(chips.length > 0 || card.due_at || card.recurrence || badges.blocked || badges.subtasks || meta.dates.length > 0 || cl || card.in_todo || card.estimate_minutes || card.remind_at || hasContent(card)) && (
           <div className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1.5 pl-[26px]">
             {chips.map((l) => (
               <LabelChip key={l.id} label={l} size="sm" />
@@ -93,6 +95,17 @@ export const CardTile = memo(
               <span className={cx('inline-flex items-center gap-1 text-[12px] tabular-nums', cl.done === cl.total ? 'text-accent' : 'text-muted')}>
                 <ListTodo size={12} />
                 {cl.done}/{cl.total}
+              </span>
+            )}
+            {badges.blocked && !card.done && (
+              <span className="inline-flex items-center gap-1 text-[12px] text-danger" title="Bloqueada por otra tarjeta sin terminar">
+                <Lock size={12} /> Bloqueada
+              </span>
+            )}
+            {badges.subtasks && (
+              <span className={cx('inline-flex items-center gap-1 text-[12px] tabular-nums', badges.subtasks.done === badges.subtasks.total ? 'text-accent' : 'text-muted')}>
+                <ListTree size={12} />
+                {badges.subtasks.done}/{badges.subtasks.total}
               </span>
             )}
             {card.recurrence && <Repeat size={12} className="text-muted" title="Se repite" />}

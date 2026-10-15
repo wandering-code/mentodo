@@ -150,6 +150,21 @@ class Note(Base):
     updated_at = Column(DateTime(timezone=True), default=now, onupdate=now)
 
 
+class CardLink(Base):
+    """Relación entre dos tarjetas:
+    - parent: `from` es la tarjeta madre y `to`, una subtarea
+    - blocks: `from` bloquea a `to` (hay que terminar `from` antes)
+    - relates: relacionadas, sin dirección"""
+    __tablename__ = "card_links"
+    __table_args__ = (UniqueConstraint("from_id", "to_id", "kind"),)
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    from_id = Column(Integer, ForeignKey("cards.id", ondelete="CASCADE"), nullable=False, index=True)
+    to_id = Column(Integer, ForeignKey("cards.id", ondelete="CASCADE"), nullable=False, index=True)
+    kind = Column(String(10), nullable=False)
+    created_at = Column(DateTime(timezone=True), default=now)
+
+
 class View(Base):
     """Vista guardada de un proyecto: tipo + agrupación + orden + filtros."""
     __tablename__ = "views"

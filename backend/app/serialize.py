@@ -1,4 +1,4 @@
-from .models import Card, Field, Label, Note, LabelGroup, Notification, NotificationRule, Project, User, View
+from .models import Card, CardLink, Field, Label, Note, LabelGroup, Notification, NotificationRule, Project, User, View
 
 
 def iso(dt):
@@ -78,3 +78,7 @@ def note_out(n: Note):
         "id": n.id, "project_id": n.project_id, "title": n.title, "icon": n.icon, "content": n.content,
         "pinned": n.pinned, "position": n.position, "created_at": iso(n.created_at), "updated_at": iso(n.updated_at),
     }
+
+
+def link_out(l: CardLink):
+    return {"id": l.id, "from_id": l.from_id, "to_id": l.to_id, "kind": l.kind}

@@ -8,6 +8,7 @@ import { toast } from 'sonner'
 import { useStore } from '../lib/store'
 import { ProjectPicker } from './Pickers'
 import { Properties } from './Properties'
+import { Relations } from './Relations'
 import { Checkbox, cx, Divider, IconButton, MenuItem, Popover, Scrim, useDragToClose, useIsMobile, usePopover } from './ui'
 import { ARRIVE, css, LEAVE, useLatest, usePresence } from '../lib/layers'
 
@@ -200,6 +201,7 @@ function CardBody({ card, onClose, mobile, wide, onToggleWide, dragHandlers }) {
           </div>
 
           <Properties card={card} project={project} onMove={move.toggle} />
+          {!isTemplate && <Relations card={card} />}
 
           <div className="my-5 h-px bg-line" />
           <EditorBoundary key={card.id}>

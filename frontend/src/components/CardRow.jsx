@@ -1,15 +1,17 @@
 import { motion } from 'motion/react'
-import { CalendarClock, Clock3, Repeat } from 'lucide-react'
+import { CalendarClock, Clock3, ListTree, Lock, Repeat } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { checklist, DueBadge } from './CardTile'
 import { Checkbox, cx, LabelChip } from './ui'
 import { useCardMeta } from './Properties'
 import { humanDate } from '../lib/dates'
+import { badgesFromKey, linkBadgesKey } from '../lib/links'
 
 /* Fila de tarjeta para listas (To Do, bandeja, vista lista) */
 export function CardRow({ card, onOpen, hideGroupId, showProject }) {
   const labels = useStore((s) => s.labels)
   const meta = useCardMeta(card)
+  const badges = badgesFromKey(useStore((s) => linkBadgesKey(s, card.id)))
   const project = useStore((s) => (card.project_id ? s.projects[card.project_id] : null))
   const updateCard = useStore((s) => s.updateCard)
   const chips = card.label_ids
@@ -32,20 +34,20 @@ export function CardRow({ card, onOpen, hideGroupId, showProject }) {
         <div className={cx('text-[15px] leading-snug transition-colors duration-300 sm:truncate sm:text-[14.5px]', card.done ? 'text-faint line-through decoration-[var(--faint)]' : 'text-ink')}>
           {card.title || <span className="text-faint">Sin título</span>}
         </div>
-        {(showProject || chips.length > 0 || card.due_at || meta.dates.length > 0 || cl || card.estimate_minutes) && (
+        {(showProject || chips.length > 0 || card.due_at || badges.blocked || badges.subtasks || meta.dates.length > 0 || cl || card.estimate_minutes) && (
           <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 sm:hidden">
-            <Meta card={card} chips={chips} cl={cl} meta={meta} project={showProject && project} />
+            <Meta card={card} chips={chips} cl={cl} meta={meta} badges={badges} project={showProject && project} />
           </div>
         )}
       </div>
       <div className="hidden shrink-0 items-center gap-2.5 sm:flex">
-        <Meta card={card} chips={chips} cl={cl} meta={meta} project={showProject && project} />
+        <Meta card={card} chips={chips} cl={cl} meta={meta} badges={badges} project={showProject && project} />
       </div>
     </motion.div>
   )
 }
 
-function Meta({ card, chips, cl, meta, project }) {
+function Meta({ card, chips, cl, meta, badges, project }) {
   return (
     <>
       {chips.map((l) => (
@@ -64,6 +66,13 @@ function Meta({ card, chips, cl, meta, project }) {
       )}
       {meta.show('due') && <DueBadge card={card} />}
       {card.recurrence && <Repeat size={12} className="text-muted" />}
+      {badges.blocked && !card.done && <Lock size={12} className="text-danger" />}
+      {badges.subtasks && (
+        <span className="inline-flex items-center gap-1 text-[12px] tabular-nums text-muted">
+          <ListTree size={12} />
+          {badges.subtasks.done}/{badges.subtasks.total}
+        </span>
+      )}
       {meta.dates.map(({ field, value }) => (
         <span key={field.id} className="inline-flex items-center gap-1 text-[12px] text-muted" title={field.name}>
           <CalendarClock size={12} />
