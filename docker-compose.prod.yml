@@ -1,0 +1,9 @@
+# Se carga EXPLÍCITO en el mini PC:
+#   docker-compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d
+services:
+  backend:
+    ports:
+      # Puerto backend 8005 de la tabla de CLAUDE.md (nginx público: 3012)
+      - "127.0.0.1:8005:8000"
+
+  # db: SIN `ports` a propósito — solo el backend habla con Postgres.

@@ -1,0 +1,7 @@
+# Fuerza LF en scripts y Dockerfiles: si se editan/commitean desde Windows,
+# Git podría guardarlos en CRLF sin avisar y romper el deploy en el mini PC
+# (Linux) de forma silenciosa. .bat sí necesita CRLF (son para Windows).
+* text=auto eol=lf
+*.sh text eol=lf
+Dockerfile text eol=lf
+*.bat text eol=crlf

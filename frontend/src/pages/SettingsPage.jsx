@@ -1,0 +1,169 @@
+import { useEffect, useState } from 'react'
+import { motion } from 'motion/react'
+import { Bell, BellOff, Check, LogOut, Monitor, Moon, Send, Sun } from 'lucide-react'
+import { toast } from 'sonner'
+import { useStore } from '../lib/store'
+import { post } from '../lib/api'
+import { ACCENTS } from '../lib/palette'
+import { currentSubscription, disablePush, enablePush, pushSupported } from '../lib/push'
+import { stopSync } from '../lib/sync'
+import { RulesEditor } from '../components/RulesEditor'
+import { Button, cx, Input, spring } from '../components/ui'
+import { SettingsSection } from './ProjectSettings'
+
+const THEMES = [
+  { id: 'light', name: 'Claro', icon: Sun },
+  { id: 'dark', name: 'Oscuro', icon: Moon },
+  { id: 'system', name: 'Sistema', icon: Monitor },
+]
+
+export function SettingsPage() {
+  const s = useStore()
+  const user = s.user
+  const [pushOn, setPushOn] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [pw, setPw] = useState({ current: '', new: '' })
+
+  useEffect(() => {
+    currentSubscription().then((sub) => setPushOn(!!sub)).catch(() => {})
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
+    if (tz && user && tz !== user.timezone) s.updateMe({ timezone: tz })
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const togglePush = async () => {
+    setBusy(true)
+    try {
+      if (pushOn) {
+        await disablePush()
+        setPushOn(false)
+      } else {
+        await enablePush(s.vapidKey)
+        setPushOn(true)
+        toast.success('Avisos activados en este dispositivo')
+      }
+    } catch (e) {
+      toast.error(e.message || 'No se pudieron activar los avisos')
+    }
+    setBusy(false)
+  }
+
+  const changePassword = async (e) => {
+    e.preventDefault()
+    try {
+      await post('/me/password', pw)
+      setPw({ current: '', new: '' })
+      toast.success('Contraseña cambiada')
+    } catch (err) {
+      toast.error(err.message)
+    }
+  }
+
+  const standalone = window.matchMedia('(display-mode: standalone)').matches
+  const ios = /iphone|ipad/i.test(navigator.userAgent)
+
+  return (
+    <div className="mx-auto max-w-3xl px-4 pb-24 pt-14 sm:px-8 lg:pt-12">
+      <h1 className="text-[30px] font-semibold tracking-[-0.03em]">Ajustes</h1>
+
+      <SettingsSection title="Apariencia" description="Se guarda en tu perfil: se aplica igual en todos tus dispositivos.">
+        <div className="inline-flex rounded-xl bg-sunken p-1">
+          {THEMES.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => s.updateMe({ theme: t.id })}
+              className={cx('relative flex h-9 items-center gap-2 rounded-lg px-4 text-[13.5px] font-medium transition-colors', user.theme === t.id ? 'text-ink' : 'text-muted hover:text-ink')}
+            >
+              {user.theme === t.id && <motion.span layoutId="theme-pill" transition={spring} className="absolute inset-0 rounded-lg bg-surface shadow-soft" />}
+              <t.icon size={15} className="relative" />
+              <span className="relative">{t.name}</span>
+            </button>
+          ))}
+        </div>
+        <div className="mt-6 text-[13.5px] font-medium text-muted">Tono principal</div>
+        <div className="mt-3 flex flex-wrap gap-3">
+          {ACCENTS.map((a) => (
+            <button key={a.id} onClick={() => s.updateMe({ accent: a.id })} className="group flex flex-col items-center gap-1.5">
+              <motion.span
+                whileHover={{ scale: 1.08 }}
+                whileTap={{ scale: 0.92 }}
+                transition={spring}
+                className={cx('grid size-11 place-items-center rounded-full transition-shadow', user.accent === a.id && 'ring-2 ring-[var(--ink)] ring-offset-[3px] ring-offset-[var(--bg)]')}
+                style={{ background: a.hex }}
+              >
+                {user.accent === a.id && <Check size={18} color="#fff" />}
+              </motion.span>
+              <span className={cx('text-[12px]', user.accent === a.id ? 'text-ink' : 'text-faint')}>{a.name}</span>
+            </button>
+          ))}
+        </div>
+      </SettingsSection>
+
+      <SettingsSection title="Avisos" description="Notificaciones en este dispositivo aunque Mentodo esté cerrado.">
+        {!pushSupported() ? (
+          <p className="text-[13.5px] text-muted">
+            {!window.isSecureContext
+              ? 'Los avisos push necesitan HTTPS: funcionan en mentodo.wanderingcode.dev, no en la IP local.'
+              : ios && !standalone
+                ? 'En iPhone/iPad, primero añade Mentodo a la pantalla de inicio (Compartir → Añadir a pantalla de inicio) y ábrelo desde ahí.'
+                : 'Este navegador no admite notificaciones push.'}
+          </p>
+        ) : !s.vapidKey ? (
+          <p className="text-[13.5px] text-muted">El servidor no tiene claves VAPID configuradas.</p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            <Button variant={pushOn ? 'outline' : 'primary'} onClick={togglePush} disabled={busy}>
+              {pushOn ? <BellOff size={15} /> : <Bell size={15} />}
+              {pushOn ? 'Desactivar en este dispositivo' : 'Activar en este dispositivo'}
+            </Button>
+            <Button variant="ghost" onClick={() => post('/push/test').then(() => toast('Aviso de prueba enviado'))}>
+              <Send size={15} /> Enviar prueba
+            </Button>
+          </div>
+        )}
+        <div className="mt-6 text-[13.5px] font-medium text-muted">Reglas generales (todos los proyectos)</div>
+        <div className="mt-3">
+          <RulesEditor projectId={null} />
+        </div>
+      </SettingsSection>
+
+      <SettingsSection title="Perfil">
+        <div className="grid max-w-md gap-3">
+          <label className="text-[13px] text-muted">
+            Nombre
+            <Input
+              className="mt-1"
+              defaultValue={user.display_name}
+              onBlur={(e) => e.target.value.trim() && e.target.value !== user.display_name && s.updateMe({ display_name: e.target.value.trim() })}
+            />
+          </label>
+          <div className="text-[13px] text-faint">
+            Usuario @{user.username} · Zona horaria {user.timezone}
+          </div>
+        </div>
+        <form onSubmit={changePassword} className="mt-6 grid max-w-md gap-2">
+          <div className="text-[13.5px] font-medium text-muted">Cambiar contraseña</div>
+          <Input type="password" placeholder="Contraseña actual" value={pw.current} onChange={(e) => setPw({ ...pw, current: e.target.value })} autoComplete="current-password" />
+          <Input type="password" placeholder="Nueva (mín. 8 caracteres)" value={pw.new} onChange={(e) => setPw({ ...pw, new: e.target.value })} autoComplete="new-password" />
+          <div>
+            <Button variant="outline" disabled={!pw.current || pw.new.length < 8}>
+              Guardar contraseña
+            </Button>
+          </div>
+        </form>
+      </SettingsSection>
+
+      <SettingsSection title="Sesión">
+        <Button
+          variant="danger"
+          onClick={() => {
+            stopSync()
+            s.logout()
+          }}
+        >
+          <LogOut size={15} /> Cerrar sesión
+        </Button>
+        <p className="mt-6 text-[12px] text-faint">Mentodo · versión {__VERSION__}</p>
+      </SettingsSection>
+    </div>
+  )
+}

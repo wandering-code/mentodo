@@ -1,0 +1,12 @@
+# Se carga SOLO en local, automáticamente, con `docker compose up` sin -f.
+# Nunca se sube al mini PC. Código montado + recarga en caliente.
+services:
+  backend:
+    volumes:
+      - ./backend:/app
+    command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+    ports:
+      - "8005:8000"
+  db:
+    ports:
+      - "5437:5432"

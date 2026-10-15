@@ -1,0 +1,32 @@
+# Entornos / dependencias (se reinstalan por máquina, nunca se versionan)
+venv/
+.venv/
+node_modules/
+
+# Secretos y config local — nunca al repo
+.env
+.env.local
+*.env
+!*.env.example
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Build
+dist/
+
+# macOS
+.DS_Store
+
+# Config local de Claude Code (no es parte de la app)
+.claude/
+
+# Datos reales de producción si se copian aquí para depurar
+backend/backups/
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# Capturas del MCP de Playwright
+.playwright-mcp/

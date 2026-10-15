@@ -1,0 +1,174 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/geist';
+
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+/* Tokens: todo color de la interfaz sale de aquí, y Tailwind los expone como
+   clases (bg-surface, text-muted, border-line, bg-accent...). */
+@theme {
+  --font-sans: 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-sunken: var(--sunken);
+  --color-hover: var(--hover);
+  --color-line: var(--line);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-soft: color-mix(in oklab, var(--accent) 14%, transparent);
+  --color-danger: var(--danger);
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+:root {
+  --bg: #f8f6f0;
+  --surface: #fdfcfa;
+  --sunken: #efece5;
+  --hover: color-mix(in oklab, #2b2a27 5%, transparent);
+  --line: #e4e0d7;
+  --ink: #23221f;
+  --muted: #6e6a62;
+  --faint: #a29d93;
+  --danger: #c4513f;
+  --shadow: 0 1px 2px rgb(40 35 25 / 0.05), 0 6px 20px -8px rgb(40 35 25 / 0.12);
+  --shadow-lg: 0 2px 6px rgb(40 35 25 / 0.06), 0 24px 60px -20px rgb(40 35 25 / 0.28);
+  color-scheme: light;
+}
+
+[data-theme='dark'] {
+  --bg: #141413;
+  --surface: #1b1b19;
+  --sunken: #111110;
+  --hover: color-mix(in oklab, #ffffff 6%, transparent);
+  --line: #2c2b28;
+  --ink: #ecebe6;
+  --muted: #9b978e;
+  --faint: #67645e;
+  --danger: #e2735f;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 8px 24px -10px rgb(0 0 0 / 0.5);
+  --shadow-lg: 0 2px 8px rgb(0 0 0 / 0.35), 0 28px 70px -20px rgb(0 0 0 / 0.7);
+  color-scheme: dark;
+}
+
+/* Tono principal, elegido por usuario en Ajustes */
+[data-accent='bosque'] { --accent: #1f3228; --accent-ink: #fcf9f4; }
+[data-accent='salvia'] { --accent: #5f8a68; --accent-ink: #fbfaf6; }
+[data-accent='oceano'] { --accent: #3b78b0; --accent-ink: #f8fbff; }
+[data-accent='lavanda'] { --accent: #7a68c9; --accent-ink: #fbfaff; }
+[data-accent='coral'] { --accent: #d9654f; --accent-ink: #fffaf8; }
+[data-accent='ambar'] { --accent: #c98a1c; --accent-ink: #fffbf3; }
+[data-accent='rosa'] { --accent: #c9567f; --accent-ink: #fff8fb; }
+[data-accent='menta'] { --accent: #2f9d86; --accent-ink: #f6fffc; }
+[data-accent='grafito'] { --accent: #3d3c39; --accent-ink: #fbfaf6; }
+[data-theme='dark'][data-accent='bosque'] { --accent: #aec99a; --accent-ink: #13201a; }
+[data-theme='dark'][data-accent='salvia'] { --accent: #86b18e; --accent-ink: #0f1a12; }
+[data-theme='dark'][data-accent='oceano'] { --accent: #6fa6dc; --accent-ink: #0b1622; }
+[data-theme='dark'][data-accent='lavanda'] { --accent: #a597ec; --accent-ink: #161127; }
+[data-theme='dark'][data-accent='coral'] { --accent: #ef8b75; --accent-ink: #250f0a; }
+[data-theme='dark'][data-accent='ambar'] { --accent: #e5b04e; --accent-ink: #231805; }
+[data-theme='dark'][data-accent='rosa'] { --accent: #e787ab; --accent-ink: #26101a; }
+[data-theme='dark'][data-accent='menta'] { --accent: #5cc7ae; --accent-ink: #06201a; }
+[data-theme='dark'][data-accent='grafito'] { --accent: #d8d6d0; --accent-ink: #1a1a18; }
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-feature-settings: 'ss01', 'cv11';
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+  transition: background-color 0.35s var(--ease-out-soft), color 0.35s var(--ease-out-soft);
+}
+
+::selection {
+  background: color-mix(in oklab, var(--accent) 30%, transparent);
+}
+
+:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--accent) 60%, transparent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+
+.shadow-soft { box-shadow: var(--shadow); }
+.shadow-float { box-shadow: var(--shadow-lg); }
+.pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+.pt-safe { padding-top: env(safe-area-inset-top); }
+
+/* Colores de etiqueta: fondo suave + texto legible en ambos modos */
+.lbl { --c: #8a857b; background: color-mix(in oklab, var(--c) 16%, transparent); color: color-mix(in oklab, var(--c) 78%, var(--ink)); }
+.lbl-dot { background: var(--c); }
+.lbl[data-c='gris'], .lbl-dot[data-c='gris'] { --c: #8a857b; }
+.lbl[data-c='marron'], .lbl-dot[data-c='marron'] { --c: #9a6b4b; }
+.lbl[data-c='naranja'], .lbl-dot[data-c='naranja'] { --c: #d9773a; }
+.lbl[data-c='ambar'], .lbl-dot[data-c='ambar'] { --c: #c99a1c; }
+.lbl[data-c='verde'], .lbl-dot[data-c='verde'] { --c: #4f9a5f; }
+.lbl[data-c='menta'], .lbl-dot[data-c='menta'] { --c: #2f9d86; }
+.lbl[data-c='azul'], .lbl-dot[data-c='azul'] { --c: #3b78b0; }
+.lbl[data-c='morado'], .lbl-dot[data-c='morado'] { --c: #7a68c9; }
+.lbl[data-c='rosa'], .lbl-dot[data-c='rosa'] { --c: #c9567f; }
+.lbl[data-c='rojo'], .lbl-dot[data-c='rojo'] { --c: #c4513f; }
+
+/* Editor de contenido de tarjeta (TipTap) */
+.prose-m { font-size: 15px; line-height: 1.65; }
+.prose-m:focus { outline: none; }
+.prose-m > * + * { margin-top: 0.5em; }
+.prose-m h1 { font-size: 1.5em; font-weight: 650; letter-spacing: -0.02em; margin-top: 1em; }
+.prose-m h2 { font-size: 1.25em; font-weight: 620; letter-spacing: -0.015em; margin-top: 0.9em; }
+.prose-m h3 { font-size: 1.08em; font-weight: 600; margin-top: 0.8em; }
+.prose-m ul { list-style: disc; padding-left: 1.4em; }
+.prose-m ol { list-style: decimal; padding-left: 1.4em; }
+.prose-m blockquote { border-left: 3px solid var(--line); padding-left: 0.9em; color: var(--muted); }
+.prose-m code { background: var(--sunken); border-radius: 5px; padding: 0.1em 0.35em; font-size: 0.9em; }
+.prose-m pre { background: var(--sunken); border-radius: 10px; padding: 0.8em 1em; overflow-x: auto; font-size: 0.88em; }
+.prose-m pre code { background: none; padding: 0; }
+.prose-m hr { border: 0; border-top: 1px solid var(--line); margin: 1.2em 0; }
+.prose-m a { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
+.prose-m ul[data-type='taskList'] { list-style: none; padding-left: 0.1em; }
+.prose-m ul[data-type='taskList'] li { display: flex; gap: 0.55em; align-items: flex-start; }
+.prose-m ul[data-type='taskList'] li > label { margin-top: 0.3em; }
+.prose-m ul[data-type='taskList'] li > div { flex: 1; }
+.prose-m ul[data-type='taskList'] li[data-checked='true'] > div { color: var(--faint); text-decoration: line-through; }
+.prose-m ul[data-type='taskList'] input[type='checkbox'] {
+  appearance: none; width: 16px; height: 16px; border-radius: 5px; border: 1.5px solid var(--faint);
+  display: grid; place-content: center; cursor: pointer; transition: background-color .15s, border-color .15s;
+}
+.prose-m ul[data-type='taskList'] input[type='checkbox']::after {
+  content: ''; width: 9px; height: 5px; border-left: 2px solid var(--accent-ink); border-bottom: 2px solid var(--accent-ink);
+  transform: rotate(-45deg) translate(1px, -1px) scale(0); transition: transform .18s cubic-bezier(.22,1,.36,1);
+}
+.prose-m ul[data-type='taskList'] input[type='checkbox']:checked { background: var(--accent); border-color: var(--accent); }
+.prose-m ul[data-type='taskList'] input[type='checkbox']:checked::after { transform: rotate(-45deg) translate(1px, -1px) scale(1); }
+.prose-m p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: var(--faint);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+input[type='date']::-webkit-calendar-picker-indicator,
+input[type='datetime-local']::-webkit-calendar-picker-indicator,
+input[type='time']::-webkit-calendar-picker-indicator {
+  opacity: 0.5;
+  cursor: pointer;
+}
+[data-theme='dark'] input::-webkit-calendar-picker-indicator { filter: invert(1); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+}

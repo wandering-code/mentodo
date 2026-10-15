@@ -1,0 +1,372 @@
+import { useEffect, useMemo, useState } from 'react'
+import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router'
+import { AnimatePresence, motion } from 'motion/react'
+import {
+  ArrowDown, ArrowUp, Calendar, Columns3, Eye, EyeOff, Filter, Layers, List, Plus, Search, Settings2, SortAsc, Table2, Trash2, X,
+} from 'lucide-react'
+import { useStore } from '../lib/store'
+import { applyFilter, groupLabels, projectGroups, projectViews, SORT_FIELDS, visibleCards } from '../lib/cards'
+import { BoardView } from '../views/BoardView'
+import { TableView } from '../views/TableView'
+import { ListView } from '../views/ListView'
+import { CalendarView } from '../views/CalendarView'
+import { Button, cx, Divider, IconButton, LabelChip, MenuItem, MenuLabel, Popover, spring, Toggle, usePopover } from '../components/ui'
+
+export const VIEW_KINDS = [
+  { id: 'board', name: 'Tablero', icon: Columns3 },
+  { id: 'table', name: 'Tabla', icon: Table2 },
+  { id: 'list', name: 'Lista', icon: List },
+  { id: 'calendar', name: 'Calendario', icon: Calendar },
+]
+const kindIcon = (k) => VIEW_KINDS.find((v) => v.id === k)?.icon || List
+
+export function ProjectPage() {
+  const { projectId } = useParams()
+  const id = Number(projectId)
+  const s = useStore()
+  const project = s.projects[id]
+  const views = useMemo(() => projectViews(s, id), [s.views, id]) // eslint-disable-line react-hooks/exhaustive-deps
+  const [params, setParams] = useSearchParams()
+  const nav = useNavigate()
+  const storedView = (() => {
+    try {
+      return Number(localStorage.getItem(`mentodo:view:${id}`))
+    } catch {
+      return null
+    }
+  })()
+  const viewId = Number(params.get('v')) || storedView
+  const view = views.find((v) => v.id === viewId) || views[0]
+  const [search, setSearch] = useState('')
+  const [searching, setSearching] = useState(false)
+
+  useEffect(() => {
+    if (view)
+      try {
+        localStorage.setItem(`mentodo:view:${id}`, String(view.id))
+      } catch {}
+  }, [view, id])
+
+  useEffect(() => {
+    setSearch('')
+    setSearching(false)
+  }, [id])
+
+  const cards = useMemo(() => {
+    if (!view) return []
+    const filter = { ...(view.config.filter || {}), hide_done: view.config.hide_done, text: search }
+    return applyFilter(visibleCards(s, id), filter, s)
+  }, [s.cards, s.hidden, s.labels, view, id, search]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (!project) return s.status === 'ready' ? <Navigate to="/" replace /> : null
+
+  const selectView = (v) => {
+    const p = new URLSearchParams(params)
+    p.set('v', v.id)
+    setParams(p, { replace: true })
+  }
+  const openCard = (c) => {
+    const p = new URLSearchParams(params)
+    p.set('card', c.id)
+    setParams(p)
+  }
+
+  const total = visibleCards(s, id)
+  const done = total.filter((c) => c.done).length
+
+  return (
+    <div className="min-h-full">
+      <ProjectHeader project={project} done={done} total={total.length} onSettings={() => nav(`/p/${id}/ajustes`)} />
+
+      <div className="sticky top-0 z-10 bg-[color-mix(in_oklab,var(--bg)_90%,transparent)] backdrop-blur-md">
+        <div className="flex items-center gap-1 border-b border-line px-4 sm:px-8">
+          <div className="-mb-px flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto [scrollbar-width:none]">
+            {views.map((v) => (
+              <ViewTab key={v.id} view={v} active={v.id === view?.id} onSelect={() => selectView(v)} canDelete={views.length > 1} />
+            ))}
+            <NewViewButton project={project} onCreated={selectView} />
+          </div>
+          <AnimatePresence initial={false}>
+            {searching && (
+              <motion.input
+                initial={{ width: 0, opacity: 0 }}
+                animate={{ width: 170, opacity: 1 }}
+                exit={{ width: 0, opacity: 0 }}
+                transition={spring}
+                autoFocus
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onBlur={() => !search && setSearching(false)}
+                onKeyDown={(e) => e.key === 'Escape' && (setSearch(''), setSearching(false))}
+                placeholder="Filtrar por título…"
+                className="h-8 rounded-lg bg-sunken px-2.5 text-[13.5px] outline-none placeholder:text-faint"
+              />
+            )}
+          </AnimatePresence>
+          {!searching && (
+            <IconButton label="Buscar en el proyecto" onClick={() => setSearching(true)}>
+              <Search size={16} />
+            </IconButton>
+          )}
+        </div>
+        {view && <Toolbar project={project} view={view} />}
+      </div>
+
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.div
+          key={view?.id}
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, transition: { duration: 0.1 } }}
+          transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+          className="pt-3"
+        >
+          {view?.kind === 'board' && <BoardView project={project} view={view} cards={cards} onOpen={openCard} />}
+          {view?.kind === 'table' && <TableView project={project} view={view} cards={cards} onOpen={openCard} />}
+          {view?.kind === 'list' && <ListView project={project} view={view} cards={cards} onOpen={openCard} />}
+          {view?.kind === 'calendar' && <CalendarView project={project} view={view} cards={cards} onOpen={openCard} />}
+        </motion.div>
+      </AnimatePresence>
+    </div>
+  )
+}
+
+function ProjectHeader({ project, done, total, onSettings }) {
+  const updateProject = useStore((s) => s.updateProject)
+  const pct = total ? Math.round((done / total) * 100) : 0
+  return (
+    <div className="px-4 pb-4 pt-14 sm:px-8 lg:pt-10">
+      <div className="flex items-start gap-3">
+        <motion.div layoutId={`picon-${project.id}`} className="text-[34px] leading-none">
+          {project.icon}
+        </motion.div>
+        <div className="min-w-0 flex-1">
+          <input
+            key={project.id + project.name}
+            defaultValue={project.name}
+            onBlur={(e) => e.target.value.trim() && e.target.value !== project.name && updateProject(project.id, { name: e.target.value.trim() })}
+            onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+            className="w-full bg-transparent text-[28px] font-semibold leading-tight tracking-[-0.025em] outline-none"
+          />
+          <input
+            key={project.id + 'd' + project.description}
+            defaultValue={project.description}
+            placeholder="Añade una descripción o el porqué del proyecto…"
+            onBlur={(e) => e.target.value !== project.description && updateProject(project.id, { description: e.target.value })}
+            onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+            className="mt-1 w-full bg-transparent text-[14.5px] text-muted outline-none placeholder:text-faint"
+          />
+        </div>
+        <IconButton label="Ajustes del proyecto" onClick={onSettings}>
+          <Settings2 size={17} />
+        </IconButton>
+      </div>
+      {total > 0 && (
+        <div className="mt-4 flex items-center gap-3">
+          <div className="h-1.5 max-w-60 flex-1 overflow-hidden rounded-full bg-sunken">
+            <motion.div className="h-full rounded-full bg-accent" initial={false} animate={{ width: `${pct}%` }} transition={{ type: 'spring', stiffness: 120, damping: 22 }} />
+          </div>
+          <span className="text-[12.5px] tabular-nums text-faint">
+            {done}/{total} terminadas
+          </span>
+          {project.archived && <span className="rounded-md bg-sunken px-2 py-0.5 text-[12px] text-muted">Aparcado</span>}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ViewTab({ view, active, onSelect, canDelete }) {
+  const Icon = kindIcon(view.kind)
+  const menu = usePopover()
+  const { updateView, deleteView } = useStore.getState()
+  return (
+    <div className="relative">
+      <button
+        onClick={(e) => (active ? menu.toggle(e) : onSelect())}
+        className={cx('relative flex h-10 items-center gap-1.5 whitespace-nowrap px-2.5 text-[13.5px] transition-colors', active ? 'text-ink' : 'text-muted hover:text-ink')}
+      >
+        <Icon size={15} />
+        {view.name}
+        {active && <motion.span layoutId="view-underline" transition={spring} className="absolute inset-x-1.5 -bottom-px h-[2px] rounded-full bg-ink" />}
+      </button>
+      <Popover open={menu.open} anchor={menu.anchor} onClose={menu.close} width={230}>
+        <div className="px-1 pb-1">
+          <input
+            defaultValue={view.name}
+            onBlur={(e) => e.target.value.trim() && e.target.value !== view.name && updateView(view.id, { name: e.target.value.trim() })}
+            onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+            className="h-9 w-full rounded-lg bg-sunken px-2.5 text-[14px] outline-none"
+          />
+        </div>
+        <MenuLabel>Tipo de vista</MenuLabel>
+        {VIEW_KINDS.map((k) => (
+          <MenuItem key={k.id} icon={k.icon} active={view.kind === k.id} onClick={() => updateView(view.id, { kind: k.id })}>
+            {k.name}
+          </MenuItem>
+        ))}
+        {canDelete && (
+          <>
+            <Divider />
+            <MenuItem icon={Trash2} danger onClick={() => (menu.close(), deleteView(view.id))}>
+              Eliminar vista
+            </MenuItem>
+          </>
+        )}
+      </Popover>
+    </div>
+  )
+}
+
+function NewViewButton({ project, onCreated }) {
+  const pop = usePopover()
+  const s = useStore()
+  const create = async (kind) => {
+    pop.close()
+    const groups = projectGroups(s, project.id)
+    const k = VIEW_KINDS.find((x) => x.id === kind)
+    const v = await s.createView({
+      project_id: project.id,
+      name: k.name,
+      kind,
+      config: { group_by: kind === 'board' ? groups[0]?.id : null, sort: [], filter: {}, hide_done: false },
+    })
+    if (v) onCreated(v)
+  }
+  return (
+    <>
+      <IconButton label="Nueva vista" size="sm" onClick={pop.toggle} className="ml-1 shrink-0">
+        <Plus size={15} />
+      </IconButton>
+      <Popover open={pop.open} anchor={pop.anchor} onClose={pop.close} width={200}>
+        <MenuLabel>Nueva vista</MenuLabel>
+        {VIEW_KINDS.map((k) => (
+          <MenuItem key={k.id} icon={k.icon} onClick={() => create(k.id)}>
+            {k.name}
+          </MenuItem>
+        ))}
+      </Popover>
+    </>
+  )
+}
+
+function Toolbar({ project, view }) {
+  const s = useStore()
+  const groups = useMemo(() => projectGroups(s, project.id), [s.groups, project.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  const group = usePopover()
+  const sort = usePopover()
+  const filter = usePopover()
+  const cfg = view.config
+  const setCfg = (patch) => s.updateView(view.id, { config: { ...cfg, ...patch } })
+  const sorts = cfg.sort || []
+  const filterLabels = cfg.filter?.labels || []
+  const sortName = (f) => (f.startsWith('group:') ? s.groups[Number(f.slice(6))]?.name : SORT_FIELDS.find((x) => x.id === f)?.name) || f
+
+  const pill = (activeState) =>
+    cx('inline-flex h-7 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-2 text-[13px] transition-colors', activeState ? 'bg-accent-soft text-accent' : 'text-muted hover:bg-hover hover:text-ink')
+
+  return (
+    <div className="flex items-center gap-1 overflow-x-auto px-4 py-1.5 [scrollbar-width:none] sm:px-8">
+      {(view.kind === 'board' || view.kind === 'list') && (
+        <button onClick={group.toggle} className={pill(false)}>
+          <Layers size={14} />
+          {s.groups[cfg.group_by] ? `Agrupar: ${s.groups[cfg.group_by].name}` : 'Agrupar'}
+        </button>
+      )}
+      {view.kind !== 'calendar' && (
+        <button onClick={sort.toggle} className={pill(sorts.length)}>
+          <SortAsc size={14} />
+          {sorts.length ? `Orden: ${sorts.map((x) => sortName(x.field)).join(', ')}` : 'Ordenar'}
+        </button>
+      )}
+      <button onClick={filter.toggle} className={pill(filterLabels.length)}>
+        <Filter size={14} />
+        Filtrar{filterLabels.length ? ` · ${filterLabels.length}` : ''}
+      </button>
+      <button onClick={() => setCfg({ hide_done: !cfg.hide_done })} className={pill(cfg.hide_done)}>
+        {cfg.hide_done ? <EyeOff size={14} /> : <Eye size={14} />}
+        {cfg.hide_done ? 'Ocultando terminadas' : 'Terminadas visibles'}
+      </button>
+
+      <Popover open={group.open} anchor={group.anchor} onClose={group.close} width={220}>
+        <MenuLabel>Agrupar por</MenuLabel>
+        {view.kind === 'list' && (
+          <MenuItem active={!cfg.group_by} onClick={() => (setCfg({ group_by: null }), group.close())}>
+            Sin agrupar
+          </MenuItem>
+        )}
+        {groups.map((g) => (
+          <MenuItem key={g.id} active={cfg.group_by === g.id} onClick={() => (setCfg({ group_by: g.id }), group.close())}>
+            {g.name}
+          </MenuItem>
+        ))}
+      </Popover>
+
+      <Popover open={sort.open} anchor={sort.anchor} onClose={sort.close} width={300}>
+        <MenuLabel>Ordenar por (en orden de prioridad)</MenuLabel>
+        {sorts.map((x, i) => (
+          <div key={i} className="flex items-center gap-1 px-1 py-0.5">
+            <span className="w-4 text-center text-[12px] text-faint">{i + 1}</span>
+            <span className="flex-1 truncate px-1 text-[14px]">{sortName(x.field)}</span>
+            <Button size="sm" onClick={() => setCfg({ sort: sorts.map((y, j) => (j === i ? { ...y, dir: y.dir === 'asc' ? 'desc' : 'asc' } : y)) })}>
+              {x.dir === 'asc' ? <ArrowUp size={13} /> : <ArrowDown size={13} />}
+              {x.field.startsWith('group:') ? (x.dir === 'asc' ? 'Orden etiquetas' : 'Inverso') : x.dir === 'asc' ? 'Asc' : 'Desc'}
+            </Button>
+            <IconButton size="sm" label="Quitar" onClick={() => setCfg({ sort: sorts.filter((_, j) => j !== i) })}>
+              <X size={14} />
+            </IconButton>
+          </div>
+        ))}
+        {sorts.length > 0 && <Divider />}
+        <MenuLabel>Añadir criterio</MenuLabel>
+        {groups
+          .filter((g) => !sorts.some((x) => x.field === `group:${g.id}`))
+          .map((g) => (
+            <MenuItem key={g.id} icon={Layers} onClick={() => setCfg({ sort: [...sorts, { field: `group:${g.id}`, dir: 'asc' }] })}>
+              {g.name}
+            </MenuItem>
+          ))}
+        {SORT_FIELDS.filter((f) => f.id !== 'position' && !sorts.some((x) => x.field === f.id)).map((f) => (
+          <MenuItem key={f.id} onClick={() => setCfg({ sort: [...sorts, { field: f.id, dir: 'asc' }] })}>
+            {f.name}
+          </MenuItem>
+        ))}
+        {sorts.length > 0 && (
+          <>
+            <Divider />
+            <MenuItem onClick={() => setCfg({ sort: [] })}>Volver a orden manual</MenuItem>
+          </>
+        )}
+      </Popover>
+
+      <Popover open={filter.open} anchor={filter.anchor} onClose={filter.close} width={280}>
+        {groups.map((g) => (
+          <div key={g.id} className="pb-1">
+            <MenuLabel>{g.name}</MenuLabel>
+            <div className="flex flex-wrap gap-1 px-2 pb-1">
+              {groupLabels(s, g.id).map((l) => {
+                const on = filterLabels.includes(l.id)
+                return (
+                  <button
+                    key={l.id}
+                    onClick={() => setCfg({ filter: { ...cfg.filter, labels: on ? filterLabels.filter((x) => x !== l.id) : [...filterLabels, l.id] } })}
+                    className={cx('rounded-md transition-[opacity,box-shadow]', on ? 'ring-2 ring-[var(--accent)]' : 'opacity-70 hover:opacity-100')}
+                  >
+                    <LabelChip label={l} />
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        ))}
+        <Divider />
+        <div className="flex items-center gap-2 px-2.5 py-1.5 text-[14px]">
+          <span className="flex-1">Ocultar terminadas</span>
+          <Toggle checked={!!cfg.hide_done} onChange={(v) => setCfg({ hide_done: v })} />
+        </div>
+        {filterLabels.length > 0 && <MenuItem onClick={() => setCfg({ filter: { ...cfg.filter, labels: [] } })}>Quitar filtros</MenuItem>}
+      </Popover>
+    </div>
+  )
+}
+
