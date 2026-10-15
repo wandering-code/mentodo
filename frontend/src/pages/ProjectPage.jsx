@@ -87,8 +87,9 @@ export function ProjectPage() {
           {/* La fila baja 1px sobre la línea divisoria (-mb-px) para que el
               subrayado de la pestaña activa la tape; el subrayado va DENTRO
               de la fila (bottom-0) y el scroll vertical queda prohibido: si
-              no, ese píxel daba un mini scroll vertical */}
-          <div className="-mb-px flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto overflow-y-hidden overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              no, ese píxel daba un mini scroll vertical. touch-pan-x: con el
+              dedo, la fila solo se desliza de lado (no arrastra la página) */}
+          <div className="-mb-px flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto touch-pan-x overflow-y-hidden overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {views.map((v) => (
               <ViewTab key={v.id} view={v} active={v.id === view?.id} onSelect={() => selectView(v)} canDelete={views.length > 1} />
             ))}
@@ -314,7 +315,7 @@ function Toolbar({ project, view }) {
     cx('inline-flex h-7 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-2 text-[13px] transition-colors', activeState ? 'bg-accent-soft text-accent' : 'text-muted hover:bg-hover hover:text-ink')
 
   return (
-    <div className="flex items-center gap-1 overflow-x-auto px-4 py-1.5 [scrollbar-width:none] sm:px-8">
+    <div className="flex items-center gap-1 overflow-x-auto touch-pan-x overflow-y-hidden overscroll-x-contain px-4 py-1.5 [scrollbar-width:none] sm:px-8">
       {(view.kind === 'board' || view.kind === 'list') && (
         <button onClick={group.toggle} className={pill(false)}>
           <Layers size={14} />

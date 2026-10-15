@@ -60,7 +60,7 @@ const SlashList = forwardRef(function SlashList({ items, command, strip }, ref) 
     // Táctil: una sola fila, deslizable de lado. Tan baja que siempre cabe
     // justo encima de la línea, con el teclado abierto o no.
     return (
-      <div className="entra flex gap-1.5 overflow-x-auto overscroll-contain rounded-2xl border border-line bg-surface p-1.5 shadow-float [scrollbar-width:none]" style={{ "--entra-desde": "translateY(6px)", "--entra-dura": "200ms" }}>
+      <div className="entra flex gap-1.5 overflow-x-auto touch-pan-x overflow-y-hidden overscroll-x-contain rounded-2xl border border-line bg-surface p-1.5 shadow-float [scrollbar-width:none]" style={{ "--entra-desde": "translateY(6px)", "--entra-dura": "200ms" }}>
         {items.map((it, i) => (
           <button
             key={it.id}

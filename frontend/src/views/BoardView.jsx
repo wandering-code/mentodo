@@ -395,7 +395,7 @@ function Dock({ columns, group, labels }) {
       style={{ '--entra-desde': 'translateY(100%)', '--entra-dura': '260ms' }}
     >
       <div className="mb-2 text-center text-[11.5px] font-medium uppercase tracking-wide text-faint">Suelta para mover a…</div>
-      <div className="-mx-3 flex gap-2 overflow-x-auto px-3 [scrollbar-width:none]">
+      <div className="-mx-3 flex gap-2 overflow-x-auto touch-pan-x overflow-y-hidden overscroll-x-contain px-3 [scrollbar-width:none]">
         {columns.filter((c) => c !== NONE).map((col) => (
           <DockTarget key={col} col={col} label={col === NONE ? null : labels[col]} group={group} />
         ))}

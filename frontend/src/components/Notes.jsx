@@ -99,7 +99,7 @@ export function NotesBoard({ projectId = null }) {
         </Button>
       </div>
       {!projectId && projectsWithNotes.length > 0 && (
-        <div className="-mx-1 mt-2 flex gap-1 overflow-x-auto px-1 pb-1 [scrollbar-width:none]">
+        <div className="-mx-1 mt-2 flex gap-1 overflow-x-auto touch-pan-x overflow-y-hidden overscroll-x-contain px-1 pb-1 [scrollbar-width:none]">
           {[
             { id: 'all', name: 'Todos' },
             { id: 'general', name: 'Generales' },
