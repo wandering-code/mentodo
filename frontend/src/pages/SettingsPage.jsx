@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'motion/react'
-import { Bell, BellOff, Check, LogOut, Monitor, Moon, Send, Sun } from 'lucide-react'
+import { Bell, BellOff, Check, Lock, LockOpen, LogOut, Monitor, Moon, Send, Sun } from 'lucide-react'
 import { toast } from 'sonner'
 import { useStore } from '../lib/store'
 import { post } from '../lib/api'
@@ -8,6 +8,8 @@ import { ACCENTS } from '../lib/palette'
 import { currentSubscription, disablePush, enablePush, pushSupported } from '../lib/push'
 import { stopSync } from '../lib/sync'
 import { RulesEditor } from '../components/RulesEditor'
+import { VaultDialog } from '../components/VaultDialog'
+import { lockVault, useVault, vaultSupported } from '../lib/vault'
 import { Button, cx, Input, spring } from '../components/ui'
 import { SettingsSection } from './ProjectSettings'
 
@@ -16,6 +18,40 @@ const THEMES = [
   { id: 'dark', name: 'Oscuro', icon: Moon },
   { id: 'system', name: 'Sistema', icon: Monitor },
 ]
+
+function VaultSection() {
+  const hasVault = useStore((s) => !!s.user?.vault_salt)
+  const key = useVault((v) => v.key)
+  const [dialog, setDialog] = useState(false)
+  return (
+    <SettingsSection
+      title="Bóveda de secretos"
+      description="Contraseñas y cuentas cifradas en tus dispositivos con una frase maestra que solo tú sabes. Se guardan como bloques «Secreto» dentro de cualquier apunte (escribe /secreto)."
+    >
+      {!vaultSupported() ? (
+        <p className="text-[13.5px] text-muted">Necesita HTTPS: ábrelo desde mentodo.wanderingcode.dev.</p>
+      ) : (
+        <div className="flex flex-wrap items-center gap-3">
+          <span className={cx('inline-flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-[13.5px]', key ? 'bg-accent-soft text-accent' : 'bg-sunken text-muted')}>
+            {key ? <LockOpen size={15} /> : <Lock size={15} />}
+            {!hasVault ? 'Sin crear' : key ? 'Desbloqueada en este dispositivo' : 'Bloqueada'}
+          </span>
+          {!key && (
+            <Button variant="primary" onClick={() => setDialog(true)}>
+              {hasVault ? 'Desbloquear' : 'Crear bóveda'}
+            </Button>
+          )}
+          {key && (
+            <Button variant="outline" onClick={() => lockVault()}>
+              <Lock size={15} /> Bloquear
+            </Button>
+          )}
+        </div>
+      )}
+      <VaultDialog open={dialog} onClose={() => setDialog(false)} />
+    </SettingsSection>
+  )
+}
 
 export function SettingsPage() {
   const s = useStore()
@@ -122,6 +158,8 @@ export function SettingsPage() {
           <RulesEditor projectId={null} />
         </div>
       </SettingsSection>
+
+      <VaultSection />
 
       <SettingsSection title="Perfil">
         <div className="grid max-w-md gap-3">

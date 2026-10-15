@@ -161,7 +161,7 @@ function useTitle() {
       </span>
     ) : ''
   }
-  return { '/': 'To Do', '/inbox': 'Bandeja', '/ajustes': 'Ajustes', '/admin': 'Administración' }[loc.pathname] || ''
+  return { '/': 'To Do', '/inbox': 'Bandeja', '/apuntes': 'Apuntes', '/ajustes': 'Ajustes', '/admin': 'Administración' }[loc.pathname] || ''
 }
 
 function TopBar({ onMenu, onNotifs }) {

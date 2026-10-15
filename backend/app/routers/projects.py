@@ -241,13 +241,13 @@ def delete_label(label_id: int, em: Emitter = Depends(emitter), db: Session = De
 class ViewIn(BaseModel):
     project_id: int
     name: str = Field(min_length=1, max_length=60)
-    kind: str = Field("board", pattern="^(board|table|list|calendar)$")
+    kind: str = Field("board", pattern="^(board|table|list|calendar|report)$")
     config: dict = {}
 
 
 class ViewPatch(BaseModel):
     name: str | None = Field(None, min_length=1, max_length=60)
-    kind: str | None = Field(None, pattern="^(board|table|list|calendar)$")
+    kind: str | None = Field(None, pattern="^(board|table|list|calendar|report)$")
     config: dict | None = None
     position: float | None = None
 

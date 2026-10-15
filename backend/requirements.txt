@@ -10,3 +10,4 @@ bcrypt==5.0.0
 pywebpush==2.5.0
 py-vapid==1.9.6
 python-multipart==0.0.32
+holidays==0.106

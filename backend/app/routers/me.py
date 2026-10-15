@@ -20,6 +20,8 @@ class MePatch(BaseModel):
     timezone: str | None = Field(None, max_length=64)
     todo_projects: list[int] | None = None
     clear_todo_projects: bool = False
+    vault_salt: str | None = Field(None, max_length=64)
+    vault_check: str | None = Field(None, max_length=200)
 
 
 class PasswordIn(BaseModel):
@@ -30,7 +32,10 @@ class PasswordIn(BaseModel):
 @router.patch("")
 def patch_me(body: MePatch, em: Emitter = Depends(emitter), db: Session = Depends(get_db)):
     user = db.get(User, em.user.id)
-    for field in ("display_name", "accent", "theme", "timezone", "todo_projects"):
+    if body.vault_salt is not None and user.vault_salt and body.vault_salt != user.vault_salt:
+        # Cambiar la frase dejaría ilegibles los secretos ya guardados
+        raise HTTPException(409, "La bóveda ya está creada")
+    for field in ("display_name", "accent", "theme", "timezone", "todo_projects", "vault_salt", "vault_check"):
         val = getattr(body, field)
         if val is not None:
             setattr(user, field, val)

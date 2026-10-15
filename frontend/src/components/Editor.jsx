@@ -11,9 +11,10 @@ import { Placeholder } from '@tiptap/extensions'
 import Suggestion from '@tiptap/suggestion'
 import {
   Bold, ChevronDown, Code, Heading1, Heading2, Heading3, Italic, Link2, List, ListChecks, ListOrdered, Minus, Quote, SquareCode,
-  Strikethrough, Type, Underline,
+  Strikethrough, Type, Underline, KeyRound,
 } from 'lucide-react'
 import { cx } from './ui'
+import { CodeBlockWithCopy, SecretNode } from './Blocks'
 import { fixedFrame } from '../lib/layers'
 
 /* Colores del texto y del resaltado: se guardan como variables CSS (no como
@@ -32,6 +33,7 @@ const BLOCKS = [
   { id: 'quote', name: 'Cita', icon: Quote, keys: 'cita', run: (c) => c.toggleBlockquote() },
   { id: 'code', name: 'Código', icon: SquareCode, keys: 'codigo', run: (c) => c.toggleCodeBlock() },
   { id: 'hr', name: 'Separador', icon: Minus, keys: 'separador linea', run: (c) => c.setHorizontalRule() },
+  { id: 'secret', name: 'Secreto', icon: KeyRound, keys: 'secreto contraseña password clave cuenta usuario', run: (c) => c.insertContent({ type: 'secret' }) },
 ]
 
 const norm = (t) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
@@ -272,7 +274,7 @@ function FormatBar({ editor }) {
 
       {panel === 'block' && (
         <div className="grid grid-cols-2 gap-0.5 border-t border-line p-1 sm:grid-cols-3">
-          {BLOCKS.filter((b) => b.id !== 'hr').map((b) => (
+          {BLOCKS.filter((b) => b.id !== 'hr' && b.id !== 'secret').map((b) => (
             <button
               key={b.id}
               onClick={() => {
@@ -364,7 +366,7 @@ function isBlock(e, id) {
 /* Editor de contenido estilo bloques: markdown al escribir (#, -, [ ], >, ```),
    barra de formato al seleccionar y menú "/" para insertar bloques. Guarda con
    retardo para no mandar una petición por tecla. */
-export function Editor({ cardId, content, onSave }) {
+export function Editor({ cardId, content, onSave, placeholder }) {
   const timer = useRef(null)
   const latest = useRef(null)
   const saveRef = useRef(onSave)
@@ -373,13 +375,15 @@ export function Editor({ cardId, content, onSave }) {
   const editor = useEditor(
     {
       extensions: [
-        StarterKit.configure({ link: { openOnClick: true, autolink: true } }),
+        StarterKit.configure({ link: { openOnClick: true, autolink: true }, codeBlock: false }),
+        CodeBlockWithCopy,
+        SecretNode,
         TaskList,
         TaskItem.configure({ nested: true }),
         TextStyle,
         Color,
         Highlight.configure({ multicolor: true }),
-        Placeholder.configure({ placeholder: 'Escribe notas, o pulsa «/» para títulos, listas, casillas…' }),
+        Placeholder.configure({ placeholder: placeholder || 'Escribe notas, o pulsa «/» para títulos, listas, casillas…' }),
         SlashCommand,
       ],
       content: content || '',
@@ -417,7 +421,7 @@ export function Editor({ cardId, content, onSave }) {
         <BubbleMenu
           editor={editor}
           options={{ placement: 'top-start', offset: 8 }}
-          shouldShow={({ editor: e, from, to }) => from !== to && !e.isActive('codeBlock')}
+          shouldShow={({ editor: e, from, to }) => from !== to && !e.isActive('codeBlock') && !e.isActive('secret')}
           className="z-[80]"
         >
           <FormatBar editor={editor} />

@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router'
 import { AnimatePresence, motion } from 'motion/react'
 import {
-  ArrowDown, ArrowUp, Calendar, Columns3, Eye, EyeOff, Filter, Layers, List, Plus, Search, Settings2, SortAsc, Table2, Trash2, X,
+  ArrowDown, ArrowUp, Calendar, ChartNoAxesColumn, Columns3, NotebookText, Eye, EyeOff, Filter, Layers, List, Plus, Search, Settings2, SortAsc, Table2, Trash2, X,
 } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { useCardNav } from '../lib/nav'
@@ -12,6 +12,8 @@ import { BoardView } from '../views/BoardView'
 import { TableView } from '../views/TableView'
 import { ListView } from '../views/ListView'
 import { CalendarView } from '../views/CalendarView'
+import { ReportView } from '../views/ReportView'
+import { NotesBoard } from '../components/Notes'
 import { Button, cx, Divider, IconButton, LabelChip, MenuItem, MenuLabel, Popover, spring, Toggle, usePopover } from '../components/ui'
 
 export const VIEW_KINDS = [
@@ -19,6 +21,7 @@ export const VIEW_KINDS = [
   { id: 'table', name: 'Tabla', icon: Table2 },
   { id: 'list', name: 'Lista', icon: List },
   { id: 'calendar', name: 'Calendario', icon: Calendar },
+  { id: 'report', name: 'Informe de jornadas', icon: ChartNoAxesColumn },
 ]
 const kindIcon = (k) => VIEW_KINDS.find((v) => v.id === k)?.icon || List
 
@@ -32,22 +35,24 @@ export function ProjectPage() {
   const nav = useNavigate()
   const storedView = (() => {
     try {
-      return Number(localStorage.getItem(`mentodo:view:${id}`))
+      return localStorage.getItem(`mentodo:view:${id}`)
     } catch {
       return null
     }
   })()
-  const viewId = Number(params.get('v')) || storedView
-  const view = views.find((v) => v.id === viewId) || views[0]
+  const rawView = params.get('v') || storedView
+  // «Apuntes» es una pestaña fija del proyecto, no una vista guardada
+  const notesTab = rawView === 'notes'
+  const view = notesTab ? null : views.find((v) => v.id === Number(rawView)) || views[0]
   const [search, setSearch] = useState('')
   const [searching, setSearching] = useState(false)
+  const notesCount = useMemo(() => Object.values(s.notes).filter((n) => n.project_id === id).length, [s.notes, id])
 
   useEffect(() => {
-    if (view)
-      try {
-        localStorage.setItem(`mentodo:view:${id}`, String(view.id))
-      } catch {}
-  }, [view, id])
+    try {
+      localStorage.setItem(`mentodo:view:${id}`, notesTab ? 'notes' : String(view?.id ?? ''))
+    } catch {}
+  }, [view, id, notesTab])
 
   useEffect(() => {
     setSearch('')
@@ -64,6 +69,7 @@ export function ProjectPage() {
 
   const selectView = (v) => {
     const p = new URLSearchParams(params)
+    p.delete('nota')
     p.set('v', v.id)
     setParams(p, { replace: true })
   }
@@ -82,6 +88,7 @@ export function ProjectPage() {
             {views.map((v) => (
               <ViewTab key={v.id} view={v} active={v.id === view?.id} onSelect={() => selectView(v)} canDelete={views.length > 1} />
             ))}
+            <NotesTab active={notesTab} count={notesCount} onSelect={() => selectView({ id: 'notes' })} />
             <NewViewButton project={project} onCreated={selectView} />
           </div>
           {searching && (
@@ -102,14 +109,20 @@ export function ProjectPage() {
             </IconButton>
           )}
         </div>
-        {view && <Toolbar project={project} view={view} />}
+        {view && view.kind !== 'report' && <Toolbar project={project} view={view} />}
       </div>
 
-      <div key={view?.id} className="entra pt-3" style={{ '--entra-desde': 'translateY(6px)', '--entra-dura': '240ms' }}>
+      <div key={notesTab ? 'notes' : view?.id} className="entra pt-3" style={{ '--entra-desde': 'translateY(6px)', '--entra-dura': '240ms' }}>
+          {notesTab && (
+            <div className="px-4 pb-16 pt-2 sm:px-8">
+              <NotesBoard projectId={project.id} />
+            </div>
+          )}
           {view?.kind === 'board' && <BoardView project={project} view={view} cards={cards} onOpen={openCard} />}
           {view?.kind === 'table' && <TableView project={project} view={view} cards={cards} onOpen={openCard} />}
           {view?.kind === 'list' && <ListView project={project} view={view} cards={cards} onOpen={openCard} />}
           {view?.kind === 'calendar' && <CalendarView project={project} view={view} cards={cards} onOpen={openCard} />}
+          {view?.kind === 'report' && <ReportView project={project} view={view} onOpen={openCard} />}
       </div>
     </div>
   )
@@ -225,6 +238,20 @@ function ViewTab({ view, active, onSelect, canDelete }) {
         )}
       </Popover>
     </div>
+  )
+}
+
+function NotesTab({ active, count, onSelect }) {
+  return (
+    <button
+      onClick={onSelect}
+      className={cx('relative flex h-10 items-center gap-1.5 whitespace-nowrap px-2.5 text-[13.5px] transition-colors', active ? 'text-ink' : 'text-muted hover:text-ink')}
+    >
+      <NotebookText size={15} />
+      Apuntes
+      {count > 0 && <span className="text-[12px] tabular-nums text-faint">{count}</span>}
+      {active && <motion.span layoutId="view-underline" transition={spring} className="absolute inset-x-1.5 -bottom-px h-[2px] rounded-full bg-ink" />}
+    </button>
   )
 }
 

@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router'
 import { motion } from 'motion/react'
 import { SortableList, SortableRow } from './Sortable'
-import { Archive, Bell, ChevronRight, CircleCheckBig, Inbox, Plus, Search, Settings, Shield } from 'lucide-react'
+import { Archive, Bell, ChevronRight, CircleCheckBig, Inbox, NotebookText, Plus, Search, Settings, Shield } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { Collapse, cx, IconButton, Kbd, spring } from './ui'
 import { Logo, Wordmark } from './Logo'
@@ -96,6 +96,9 @@ export function Sidebar({ onSearch, onNewProject, onNotifications, onNavigate, t
         </NavItem>
         <NavItem touch={touch} to="/inbox" icon={Inbox} count={inbox} onClick={onNavigate}>
           Bandeja
+        </NavItem>
+        <NavItem touch={touch} to="/apuntes" icon={NotebookText} onClick={onNavigate}>
+          Apuntes
         </NavItem>
       </div>
 

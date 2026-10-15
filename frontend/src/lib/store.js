@@ -16,6 +16,7 @@ const KIND_KEY = {
   label: 'labels',
   view: 'views',
   field: 'fields',
+  note: 'notes',
   card: 'cards',
   rule: 'rules',
 }
@@ -33,6 +34,7 @@ export const useStore = create((set, getState) => ({
   labels: {},
   views: {},
   fields: {},
+  notes: {},
   cards: {},
   rules: {},
   notifications: [],
@@ -52,6 +54,7 @@ export const useStore = create((set, getState) => ({
         labels: byId(d.labels),
         views: byId(d.views),
         fields: byId(d.fields || []),
+        notes: byId(d.notes || []),
         cards: byId(d.cards),
         rules: byId(d.rules),
         notifications: d.notifications,
@@ -238,6 +241,26 @@ export const useStore = create((set, getState) => ({
     }
   },
 
+  // ── Apuntes ──
+  async createNote(body) {
+    try {
+      const n = await post('/notes', body)
+      set((s) => ({ notes: { ...s.notes, [n.id]: n } }))
+      return n
+    } catch (e) {
+      fail(e)
+    }
+  },
+  updateNote: (id, body) => optimisticPatch(set, getState, 'notes', `/notes/${id}`, id, body),
+  async deleteNote(id) {
+    set((s) => ({ notes: without(s.notes, id) }))
+    try {
+      await del(`/notes/${id}`)
+    } catch (e) {
+      fail(e)
+    }
+  },
+
   // ── Vistas ──
   async createView(body) {
     try {
@@ -360,7 +383,7 @@ export const useStore = create((set, getState) => ({
     try {
       await post('/auth/logout')
     } catch {}
-    set({ status: 'anon', user: null, projects: {}, cards: {}, groups: {}, labels: {}, views: {}, fields: {}, rules: {}, notifications: [] })
+    set({ status: 'anon', user: null, projects: {}, cards: {}, groups: {}, labels: {}, views: {}, fields: {}, notes: {}, rules: {}, notifications: [] })
   },
 }))
 
@@ -410,6 +433,7 @@ function removeLocal(next, kind, id) {
     next.labels = Object.fromEntries(Object.entries(next.labels).filter(([, l]) => !gids.includes(l.group_id)))
     next.views = Object.fromEntries(Object.entries(next.views).filter(([, v]) => v.project_id !== id))
     next.fields = Object.fromEntries(Object.entries(next.fields).filter(([, f]) => f.project_id !== id))
+    next.notes = Object.fromEntries(Object.entries(next.notes).filter(([, n]) => n.project_id !== id))
     next.cards = Object.fromEntries(Object.entries(next.cards).filter(([, c]) => c.project_id !== id))
     next.rules = Object.fromEntries(Object.entries(next.rules).filter(([, r]) => r.project_id !== id))
   } else if (kind === 'group') {

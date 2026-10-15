@@ -168,14 +168,14 @@ export function DatePicker({ value, allDay = true, onChange, onClear }) {
   )
 }
 
-export function ProjectPicker({ value, onChange }) {
+export function ProjectPicker({ value, onChange, generalLabel = '📥 Bandeja' }) {
   const projects = useStore((s) => s.projects)
   const list = Object.values(projects).filter((p) => !p.archived).sort((a, b) => a.position - b.position)
   return (
     <div>
       <MenuLabel>Mover a</MenuLabel>
       <MenuItem active={value === null} onClick={() => onChange(null)}>
-        📥 Bandeja
+        {generalLabel}
       </MenuItem>
       {list.map((p) => (
         <MenuItem key={p.id} active={value === p.id} onClick={() => onChange(p.id)}>

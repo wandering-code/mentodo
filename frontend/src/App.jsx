@@ -13,6 +13,8 @@ import { ProjectPage } from './pages/ProjectPage'
 import { ProjectSettings } from './pages/ProjectSettings'
 import { SettingsPage } from './pages/SettingsPage'
 import { AdminPage } from './pages/AdminPage'
+import { NotesPage } from './pages/NotesPage'
+import { restoreVault } from './lib/vault'
 
 export default function App() {
   const status = useStore((s) => s.status)
@@ -23,8 +25,10 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    if (status === 'ready') startSync()
-    else stopSync()
+    if (status === 'ready') {
+      startSync()
+      restoreVault()
+    } else stopSync()
   }, [status])
 
   return (
@@ -43,6 +47,7 @@ export default function App() {
             <Route element={<Shell />}>
               <Route index element={<TodoPage />} />
               <Route path="inbox" element={<InboxPage />} />
+              <Route path="apuntes" element={<NotesPage />} />
               <Route path="p/:projectId" element={<ProjectPage />} />
               <Route path="p/:projectId/ajustes" element={<ProjectSettings />} />
               <Route path="ajustes" element={<SettingsPage />} />

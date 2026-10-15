@@ -1,4 +1,4 @@
-from .models import Card, Field, Label, LabelGroup, Notification, NotificationRule, Project, User, View
+from .models import Card, Field, Label, Note, LabelGroup, Notification, NotificationRule, Project, User, View
 
 
 def iso(dt):
@@ -10,6 +10,7 @@ def user_out(u: User):
         "id": u.id, "username": u.username, "display_name": u.display_name, "status": u.status,
         "is_admin": u.is_admin, "accent": u.accent, "theme": u.theme, "timezone": u.timezone,
         "todo_projects": u.todo_projects, "created_at": iso(u.created_at),
+        "vault_salt": u.vault_salt, "vault_check": u.vault_check,
     }
 
 
@@ -68,3 +69,10 @@ def notification_out(n: Notification):
 
 def field_out(f: Field):
     return {"id": f.id, "project_id": f.project_id, "name": f.name, "kind": f.kind, "position": f.position}
+
+
+def note_out(n: Note):
+    return {
+        "id": n.id, "project_id": n.project_id, "title": n.title, "icon": n.icon, "content": n.content,
+        "pinned": n.pinned, "position": n.position, "created_at": iso(n.created_at), "updated_at": iso(n.updated_at),
+    }

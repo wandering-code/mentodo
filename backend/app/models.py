@@ -27,6 +27,10 @@ class User(Base):
     timezone = Column(String(64), nullable=False, default="Europe/Madrid")
     # Proyectos visibles en la vista To Do general (null = todos)
     todo_projects = Column(JSON, nullable=True)
+    # Bóveda de secretos: cifrado en el navegador con una frase maestra. El
+    # servidor solo guarda la sal y una comprobación cifrada, nunca la frase.
+    vault_salt = Column(String(64), nullable=True)
+    vault_check = Column(String(200), nullable=True)
     created_at = Column(DateTime(timezone=True), default=now)
 
 
@@ -120,6 +124,22 @@ class Field(Base):
     name = Column(String(60), nullable=False)
     kind = Column(String(12), nullable=False)  # date | text | number | checkbox | url
     position = Column(Float, nullable=False, default=0)
+
+
+class Note(Base):
+    """Apunte: página de texto libre (instrucciones, referencias…), general o
+    de un proyecto. No es una tarea: sin estados ni fechas."""
+    __tablename__ = "notes"
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=True, index=True)
+    title = Column(String(300), nullable=False, default="")
+    icon = Column(String(16), nullable=False, default="📝")
+    content = Column(JSON, nullable=True)
+    pinned = Column(Boolean, nullable=False, default=False)
+    position = Column(Float, nullable=False, default=0)
+    created_at = Column(DateTime(timezone=True), default=now)
+    updated_at = Column(DateTime(timezone=True), default=now, onupdate=now)
 
 
 class View(Base):
