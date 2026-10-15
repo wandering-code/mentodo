@@ -10,7 +10,7 @@ import { CommandPalette } from './CommandPalette'
 import { NewProjectModal } from './NewProject'
 import { NotificationsPanel } from './Notifications'
 import { CardPanel } from './CardPanel'
-import { cx, IconButton, Scrim } from './ui'
+import { cx, IconButton, Scrim, shortcut } from './ui'
 
 function useWide(bp) {
   const [w, setW] = useState(() => window.innerWidth >= bp)
@@ -135,7 +135,7 @@ export function Shell() {
         ) : (
           <div className="absolute left-3 top-3 z-20">
             <IconButton
-              label={showSidebar ? 'Ocultar barra lateral (⌘\\)' : 'Mostrar barra lateral (⌘\\)'}
+              label={`${showSidebar ? 'Ocultar' : 'Mostrar'} barra lateral (${shortcut('\\')})`}
               onClick={toggleSidebar}
               className={cx(showSidebar && 'opacity-0 transition-opacity hover:opacity-100 focus:opacity-100')}
             >

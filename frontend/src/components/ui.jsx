@@ -7,6 +7,11 @@ import { ARRIVE, css, LEAVE, QUICK, useBackToClose, usePresence } from '../lib/l
 export const spring = { type: 'spring', stiffness: 520, damping: 38, mass: 0.7 }
 export const softSpring = { type: 'spring', stiffness: 300, damping: 32 }
 
+/* Tecla de los atajos según el sistema: ⌘ en Mac/iPad, Ctrl en Windows y Linux */
+export const IS_MAC = /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent)
+export const MOD = IS_MAC ? '⌘' : 'Ctrl+'
+export const shortcut = (key) => (IS_MAC ? `⌘${key}` : `Ctrl+${key}`)
+
 export function cx(...a) {
   return a.filter(Boolean).join(' ')
 }

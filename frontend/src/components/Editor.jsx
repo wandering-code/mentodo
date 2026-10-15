@@ -13,7 +13,7 @@ import {
   Bold, ChevronDown, Code, Heading1, Heading2, Heading3, Italic, Link2, List, ListChecks, ListOrdered, Minus, Quote, SquareCode,
   Strikethrough, Type, Underline, KeyRound,
 } from 'lucide-react'
-import { cx } from './ui'
+import { cx, shortcut } from './ui'
 import { CodeBlockWithCopy, SecretNode } from './Blocks'
 import { fixedFrame } from '../lib/layers'
 
@@ -236,13 +236,13 @@ function FormatBar({ editor }) {
           {st.block} <ChevronDown size={13} className="text-faint" />
         </button>
         <span className="mx-0.5 h-5 w-px bg-line" />
-        <Btn label="Negrita (⌘B)" active={st.bold} onClick={() => chain().toggleBold().run()}>
+        <Btn label={`Negrita (${shortcut('B')})`} active={st.bold} onClick={() => chain().toggleBold().run()}>
           <Bold size={15} />
         </Btn>
-        <Btn label="Cursiva (⌘I)" active={st.italic} onClick={() => chain().toggleItalic().run()}>
+        <Btn label={`Cursiva (${shortcut('I')})`} active={st.italic} onClick={() => chain().toggleItalic().run()}>
           <Italic size={15} />
         </Btn>
-        <Btn label="Subrayado (⌘U)" active={st.underline} onClick={() => chain().toggleUnderline().run()}>
+        <Btn label={`Subrayado (${shortcut('U')})`} active={st.underline} onClick={() => chain().toggleUnderline().run()}>
           <Underline size={15} />
         </Btn>
         <Btn label="Tachado" active={st.strike} onClick={() => chain().toggleStrike().run()}>

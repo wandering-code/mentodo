@@ -5,7 +5,7 @@ import { useStore } from '../lib/store'
 import { useCardNav } from '../lib/nav'
 import { CardRow } from '../components/CardRow'
 import { ProjectPicker } from '../components/Pickers'
-import { Empty, IconButton, Popover, usePopover } from '../components/ui'
+import { Empty, IconButton, Popover, shortcut, usePopover } from '../components/ui'
 
 /* Bandeja: todo lo capturado sin decidir aún dónde va. La idea es vaciarla
    de vez en cuando moviendo cada cosa a su proyecto (o borrándola). */
@@ -43,7 +43,7 @@ export function InboxPage() {
         </AnimatePresence>
         {cards.length === 0 && (
           <Empty icon={Inbox} title="Bandeja vacía">
-            Mente despejada. Usa ⌘K o el botón + para capturar algo al vuelo.
+            Mente despejada. Usa {shortcut('K')} o el botón + para capturar algo al vuelo.
           </Empty>
         )}
       </div>

@@ -4,7 +4,7 @@ import { motion } from 'motion/react'
 import { SortableList, SortableRow } from './Sortable'
 import { Archive, Bell, ChevronRight, CircleCheckBig, Inbox, NotebookText, Plus, Search, Settings, Shield } from 'lucide-react'
 import { useStore } from '../lib/store'
-import { Collapse, cx, IconButton, Kbd, spring } from './ui'
+import { Collapse, cx, IconButton, IS_MAC, Kbd, spring } from './ui'
 import { Logo, Wordmark } from './Logo'
 
 export function useNav() {
@@ -89,7 +89,7 @@ export function Sidebar({ onSearch, onNewProject, onNotifications, onNavigate, t
         >
           <Search size={touch ? 17 : 15} />
           <span className="flex-1 text-left">Buscar o capturar…</span>
-          {!touch && <Kbd>⌘K</Kbd>}
+          {!touch && <Kbd>{IS_MAC ? '⌘K' : 'Ctrl K'}</Kbd>}
         </button>
         <NavItem touch={touch} to="/" end icon={CircleCheckBig} count={todo} onClick={onNavigate}>
           To Do
