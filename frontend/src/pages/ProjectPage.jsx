@@ -252,11 +252,17 @@ function ViewTab({ view, active, onSelect, canDelete, move }) {
     <div className="relative">
       <button
         onClick={(e) => (active ? menu.toggle(e) : onSelect())}
-        className={cx('relative flex h-10 items-center gap-1.5 whitespace-nowrap px-2.5 text-[13.5px] transition-colors', active ? 'text-ink' : 'text-muted hover:text-ink')}
+        className={cx('relative isolate flex h-10 items-center gap-1.5 whitespace-nowrap px-2.5 text-[13.5px] transition-colors', active ? 'font-medium text-ink' : 'text-muted hover:text-ink')}
       >
         <Icon size={15} />
         {view.name}
-        {active && <motion.span layoutId="view-underline" transition={spring} className="absolute inset-x-1.5 bottom-0 h-[2px] rounded-full bg-ink" />}
+        {active && (
+          <>
+            {/* Fondo suave detrás de la pestaña activa (se desliza con el subrayado) */}
+            <motion.span layoutId="view-bg" transition={spring} className="absolute inset-x-0.5 bottom-1 top-1 -z-10 rounded-lg bg-[color-mix(in_oklab,var(--ink)_6%,transparent)]" />
+            <motion.span layoutId="view-underline" transition={spring} className="absolute inset-x-1.5 bottom-0 h-[2px] rounded-full bg-ink" />
+          </>
+        )}
       </button>
       <Popover open={menu.open} anchor={menu.anchor} onClose={menu.close} width={230}>
         <div className="px-1 pb-1">
@@ -293,12 +299,18 @@ function NotesTab({ active, count, onSelect, move }) {
     <>
       <button
         onClick={(e) => (active ? menu.toggle(e) : onSelect())}
-        className={cx('relative flex h-10 items-center gap-1.5 whitespace-nowrap px-2.5 text-[13.5px] transition-colors', active ? 'text-ink' : 'text-muted hover:text-ink')}
+        className={cx('relative isolate flex h-10 items-center gap-1.5 whitespace-nowrap px-2.5 text-[13.5px] transition-colors', active ? 'font-medium text-ink' : 'text-muted hover:text-ink')}
       >
         <NotebookText size={15} />
         Apuntes
         {count > 0 && <span className="text-[12px] tabular-nums text-faint">{count}</span>}
-        {active && <motion.span layoutId="view-underline" transition={spring} className="absolute inset-x-1.5 bottom-0 h-[2px] rounded-full bg-ink" />}
+        {active && (
+          <>
+            {/* Fondo suave detrás de la pestaña activa (se desliza con el subrayado) */}
+            <motion.span layoutId="view-bg" transition={spring} className="absolute inset-x-0.5 bottom-1 top-1 -z-10 rounded-lg bg-[color-mix(in_oklab,var(--ink)_6%,transparent)]" />
+            <motion.span layoutId="view-underline" transition={spring} className="absolute inset-x-1.5 bottom-0 h-[2px] rounded-full bg-ink" />
+          </>
+        )}
       </button>
       <Popover open={menu.open} anchor={menu.anchor} onClose={menu.close} width={230}>
         <MoveItems move={move} close={menu.close} />
