@@ -390,7 +390,10 @@ function Toolbar({ project, view }) {
   const pill = (activeState) =>
     cx(
       'inline-flex h-7 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 text-[12.5px] transition-colors',
-      activeState ? 'bg-accent-soft font-medium text-accent' : 'text-muted hover:bg-surface hover:text-ink',
+      activeState
+        ? 'bg-accent-soft font-medium text-accent dark:bg-[color-mix(in_oklab,var(--ink)_16%,transparent)]'
+        : 'text-muted hover:bg-surface hover:text-ink dark:bg-[color-mix(in_oklab,var(--ink)_6%,transparent)] dark:hover:bg-[color-mix(in_oklab,var(--ink)_10%,transparent)]',
+      // En oscuro cada chip lleva su fondo y el que está en uso, uno más claro
     )
 
   return (
