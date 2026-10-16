@@ -282,12 +282,17 @@ function DesktopPopover({ anchor, open, onClose, children, width, align, classNa
       const a = lastAnchor.current
       if (!a) return
       const r = a.getBoundingClientRect()
-      const h = ref.current?.offsetHeight || 300
+      // Altura que pediría el contenido entero; si no cabe ni debajo ni
+      // encima, va donde haya más sitio, recortado a ese hueco y con scroll
+      const natural = Math.min(ref.current?.scrollHeight || 300, 460)
       let left = align === 'end' ? r.right - width : r.left
       left = Math.max(8, Math.min(left, window.innerWidth - width - 8))
-      let top = r.bottom + 6
-      if (top + h > window.innerHeight - 8 && r.top - h - 6 > 8) top = r.top - h - 6
-      setPos({ left, top, up: top < r.top })
+      const below = window.innerHeight - r.bottom - 14
+      const above = r.top - 14
+      const up = natural > below && above > below
+      const maxH = Math.min(natural, up ? above : below)
+      const top = up ? r.top - 6 - maxH : r.bottom + 6
+      setPos({ left, top, up, maxH })
     }
     place()
     window.addEventListener('resize', place)
@@ -319,12 +324,13 @@ function DesktopPopover({ anchor, open, onClose, children, width, align, classNa
         left: pos?.left ?? -9999,
         top: pos?.top ?? -9999,
         width,
+        maxHeight: pos?.maxH,
         transformOrigin: `${align === 'end' ? 'right' : 'left'} ${pos?.up ? 'bottom' : 'top'}`,
         opacity: shown && pos ? 1 : 0,
         transform: shown && pos ? 'none' : `translateY(${pos?.up ? 4 : -4}px) scale(0.97)`,
         transition: css(shown ? QUICK : { duration: 0.14, ease: LEAVE.ease }),
       }}
-      className={cx('fixed z-[70] max-h-[min(460px,70vh)] overflow-y-auto rounded-xl border border-line bg-surface p-1.5 shadow-float', className)}
+      className={cx('fixed z-[70] max-h-[460px] overflow-y-auto overscroll-contain rounded-xl border border-line bg-surface p-1.5 shadow-float', className)}
     >
       {children}
     </div>,
