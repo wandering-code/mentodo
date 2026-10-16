@@ -7,6 +7,7 @@ import { hiddenInCard, hiddenInProject, projectProps } from '../lib/props'
 import { PropValue } from '../components/Properties'
 import { TemplateButton } from '../components/Templates'
 import { Checkbox, cx } from '../components/ui'
+import { cardMenu } from '../components/CardMenu'
 
 function HeaderCell({ field, children, view, className }) {
   const updateView = useStore((s) => s.updateView)
@@ -108,6 +109,7 @@ export function TableView({ project, view, cards, onOpen }) {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.2, delay: Math.min(i, 20) * 0.012 }}
+              onContextMenu={cardMenu(c)}
               className="group transition-colors hover:bg-[color-mix(in_oklab,var(--hover)_60%,transparent)]"
             >
               <TitleCell card={c} onOpen={onOpen} />

@@ -10,6 +10,7 @@ import { dateInfo, deadlineKey, deadlineOf, readDate, useDeadlineKey } from '../
 import { Button, cx, IconButton, useIsMobile } from '../components/ui'
 import { CardRow } from '../components/CardRow'
 import { upcoming } from '../lib/recurrence'
+import { cardMenu } from '../components/CardMenu'
 
 const key = (d) => fmt(d, 'yyyy-MM-dd')
 
@@ -34,6 +35,7 @@ function Chip({ card, onOpen, overlay, dateKey }) {
       {...(overlay ? {} : attributes)}
       {...(overlay ? {} : listeners)}
       onClick={(e) => (e.stopPropagation(), onOpen?.(card))}
+      onContextMenu={overlay ? undefined : cardMenu(card)}
       className={cx(
         'touch-drag flex w-full items-center gap-1.5 truncate rounded-md px-1.5 py-[3px] text-left text-[12px] leading-tight transition-colors [touch-action:manipulation]',
         card.done ? 'text-faint line-through' : late ? 'lbl text-danger' : 'bg-accent-soft text-ink hover:brightness-95',

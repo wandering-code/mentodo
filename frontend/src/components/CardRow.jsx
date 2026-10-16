@@ -6,6 +6,7 @@ import { Checkbox, cx, LabelChip } from './ui'
 import { useCardMeta } from './Properties'
 import { humanDate } from '../lib/dates'
 import { badgesFromKey, linkBadgesKey } from '../lib/links'
+import { cardMenu } from './CardMenu'
 
 /* Fila de tarjeta para listas (To Do, bandeja, vista lista) */
 export function CardRow({ card, onOpen, hideGroupId, showProject }) {
@@ -27,6 +28,7 @@ export function CardRow({ card, onOpen, hideGroupId, showProject }) {
       exit={{ opacity: 0, transform: 'translateX(14px)', transition: { duration: 0.16 } }}
       transition={{ duration: 0.24, ease: [0.32, 0.72, 0, 1] }}
       onClick={() => onOpen(card)}
+      onContextMenu={cardMenu(card)}
       className="group flex min-h-12 cursor-pointer items-start gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-hover active:bg-hover sm:min-h-11 sm:py-2"
     >
       <Checkbox checked={card.done} onChange={(done) => updateCard(card.id, { done })} size={19} className="mt-px" />

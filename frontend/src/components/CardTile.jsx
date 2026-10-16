@@ -6,6 +6,7 @@ import { humanDate } from '../lib/dates'
 import { Checkbox, cx, LabelChip } from './ui'
 import { useCardMeta } from './Properties'
 import { badgesFromKey, linkBadgesKey } from '../lib/links'
+import { cardMenu } from './CardMenu'
 
 function hasContent(c) {
   return !!c.content?.content?.some((n) => n.content?.length || n.type !== 'paragraph')
@@ -64,6 +65,7 @@ export const CardTile = memo(
         style={style}
         {...rest}
         onClick={() => onOpen?.(card)}
+        onContextMenu={overlay ? undefined : cardMenu(card)}
         className={cx(
           'touch-drag group relative cursor-pointer rounded-xl border bg-surface px-3 py-2.5 text-left transition-[box-shadow,border-color,opacity,transform] duration-150 [touch-action:manipulation]',
           'border-line hover:border-[color-mix(in_oklab,var(--ink)_14%,var(--line))]',

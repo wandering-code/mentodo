@@ -11,6 +11,7 @@ import { NewProjectModal } from './NewProject'
 import { NotificationsPanel } from './Notifications'
 import { CardPanel } from './CardPanel'
 import { cx, IconButton, Scrim, shortcut } from './ui'
+import { CardContextMenu } from './CardMenu'
 
 function useWide(bp) {
   const [w, setW] = useState(() => window.innerWidth >= bp)
@@ -171,6 +172,7 @@ export function Shell() {
       </main>
 
       <CardPanel cardId={cardId} onClose={closeCard} />
+      <CardContextMenu />
       <CommandPalette open={palette} onClose={() => setPalette(false)} onNewProject={() => setNewProject(true)} />
       <NewProjectModal open={newProject} onClose={() => setNewProject(false)} />
       <NotificationsPanel open={notifs} onClose={() => setNotifs(false)} />
