@@ -7,6 +7,7 @@ import {
 import { useStore } from '../lib/store'
 import { useCardNav } from '../lib/nav'
 import { fieldIcon, projectProps } from '../lib/props'
+import { deadlineKey } from '../lib/deadline'
 import { applyFilter, groupLabels, projectGroups, projectViews, SORT_FIELDS, visibleCards } from '../lib/cards'
 import { BoardView } from '../views/BoardView'
 import { TableView } from '../views/TableView'
@@ -392,7 +393,7 @@ function Toolbar({ project, view }) {
       {view.kind === 'calendar' && (
         <button onClick={dateSel.toggle} className={pill(false)}>
           <Calendar size={14} />
-          <span><span className="max-sm:hidden">Fecha: </span>{dateProps.find((p) => p.key === (cfg.date_key || 'due'))?.name || 'Fecha'}</span>
+          <span><span className="max-sm:hidden">Fecha: </span>{dateProps.find((p) => p.key === (cfg.date_key || deadlineKey(s, project.id)))?.name || 'Fecha'}</span>
         </button>
       )}
       <button onClick={filter.toggle} className={pill(filterLabels.length)}>
@@ -408,7 +409,7 @@ function Toolbar({ project, view }) {
       <Popover open={dateSel.open} anchor={dateSel.anchor} onClose={dateSel.close} width={240}>
         <MenuLabel>Mostrar en el calendario</MenuLabel>
         {dateProps.map((p) => (
-          <MenuItem key={p.key} icon={p.icon} active={(cfg.date_key || 'due') === p.key} onClick={() => (setCfg({ date_key: p.key }), dateSel.close())}>
+          <MenuItem key={p.key} icon={p.icon} active={(cfg.date_key || deadlineKey(s, project.id)) === p.key} onClick={() => (setCfg({ date_key: p.key }), dateSel.close())}>
             {p.name}
           </MenuItem>
         ))}

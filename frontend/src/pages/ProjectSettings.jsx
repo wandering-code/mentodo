@@ -3,7 +3,7 @@ import { Navigate, useNavigate, useParams } from 'react-router'
 import { motion } from 'motion/react'
 import { SortableList, SortableRow } from '../components/Sortable'
 import { TemplatesManager } from '../components/Templates'
-import { Archive, ArchiveRestore, ArrowLeft, CircleCheck, Eye, EyeOff, GripVertical, Plus, Trash2 } from 'lucide-react'
+import { Archive, ArchiveRestore, ArrowLeft, CircleCheck, Eye, EyeOff, GripVertical, Flag, Plus, Trash2 } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { groupLabels, projectGroups } from '../lib/cards'
 import { defaultName, FIELD_KINDS, fieldIcon, hiddenInProject, projectProps } from '../lib/props'
@@ -143,6 +143,9 @@ function PropertyRow({ p, project }) {
       hidden_props: visible ? [...(project.hidden_props || []), p.key] : (project.hidden_props || []).filter((k) => k !== p.key),
     })
   const custom = !p.group && !p.field && project.prop_names?.[p.key]
+  // Fechas: una de ellas cuenta como entrega (como «Terminado» en el estado)
+  const isDate = p.key === 'due' || p.field?.kind === 'date'
+  const isDeadline = isDate && (project.deadline_key || 'due') === p.key
   return (
     <SortableRow id={p.key} className="group flex items-center gap-2 rounded-lg bg-surface py-1 pr-1 data-[dragging]:shadow-float">
       {({ handleProps }) => (
@@ -172,6 +175,21 @@ function PropertyRow({ p, project }) {
           className="hidden shrink-0 rounded-md px-1.5 text-[12px] text-faint hover:text-muted sm:inline"
         >
           ↺ {defaultName(p.key)}
+        </button>
+      )}
+      {isDate && (
+        <button
+          onClick={() => !isDeadline && s.updateProject(project.id, { deadline_key: p.key })}
+          title={isDeadline ? 'Con esta fecha se calcula lo atrasado, lo de hoy, los avisos y las repeticiones' : 'Usar esta fecha como entrega'}
+          className={cx(
+            'inline-flex h-7 shrink-0 items-center gap-1.5 rounded-lg px-2 text-[12.5px] font-medium transition-[background-color,color,opacity] duration-150',
+            isDeadline
+              ? 'cursor-default bg-accent-soft text-accent'
+              : 'text-faint opacity-0 hover:bg-hover hover:text-muted group-hover:opacity-100 max-sm:opacity-100',
+          )}
+        >
+          <Flag size={13} />
+          {isDeadline ? 'Entrega' : <span className="hidden sm:inline">Marcar como entrega</span>}
         </button>
       )}
       <span className="hidden w-16 shrink-0 text-right text-[12px] text-faint sm:inline">

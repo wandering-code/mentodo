@@ -1,7 +1,7 @@
 import { forwardRef, memo } from 'react'
 import { AlarmClock, CalendarClock, ListTree, Lock, Paperclip, Repeat, CalendarDays, Clock3, FileText, ListTodo } from 'lucide-react'
 import { useStore } from '../lib/store'
-import { dueInfo } from '../lib/cards'
+import { dateInfo, readDate, useDeadlineKey } from '../lib/deadline'
 import { humanDate } from '../lib/dates'
 import { Checkbox, cx, LabelChip } from './ui'
 import { useCardMeta } from './Properties'
@@ -25,8 +25,11 @@ export function checklist(c) {
   return total ? { total, done } : null
 }
 
+/* La fecha de entrega (la que marque el proyecto), con colores de urgencia */
 export function DueBadge({ card, className }) {
-  const info = dueInfo(card)
+  const key = useDeadlineKey(card.project_id)
+  const d = readDate(card, key)
+  const info = dateInfo(d, card.done)
   if (!info) return null
   return (
     <span
@@ -37,7 +40,7 @@ export function DueBadge({ card, className }) {
       )}
     >
       <CalendarDays size={12} />
-      {humanDate(card.due_at, card.due_all_day)}
+      {humanDate(d.at, d.allDay)}
     </span>
   )
 }
@@ -74,12 +77,12 @@ export const CardTile = memo(
             {card.title || <span className="text-faint">Sin título</span>}
           </div>
         </div>
-        {(chips.length > 0 || card.due_at || files > 0 || card.recurrence || badges.blocked || badges.subtasks || meta.dates.length > 0 || cl || card.in_todo || card.estimate_minutes || card.remind_at || hasContent(card)) && (
+        {(chips.length > 0 || card.due_at || Object.keys(card.values || {}).length > 0 || files > 0 || card.recurrence || badges.blocked || badges.subtasks || meta.dates.length > 0 || cl || card.in_todo || card.estimate_minutes || card.remind_at || hasContent(card)) && (
           <div className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1.5 pl-[26px]">
             {chips.map((l) => (
               <LabelChip key={l.id} label={l} size="sm" />
             ))}
-            {meta.show('due') && <DueBadge card={card} />}
+            {meta.show(meta.deadline) && <DueBadge card={card} />}
             {meta.dates.map(({ field, value }) => (
               <span key={field.id} className="inline-flex items-center gap-1 text-[12px] text-muted" title={field.name}>
                 <CalendarClock size={12} />

@@ -6,6 +6,7 @@ import { useStore } from '../lib/store'
 import { useCardNav } from '../lib/nav'
 import { fmt } from '../lib/dates'
 import { linkBadges } from '../lib/links'
+import { deadlineOf } from '../lib/deadline'
 import { CardRow } from '../components/CardRow'
 import { Collapse, cx } from '../components/ui'
 
@@ -64,20 +65,21 @@ export function TodayPage() {
         if (c.completed_at && isToday(new Date(c.completed_at))) doneToday.push(c)
         continue
       }
-      const due = c.due_at ? new Date(c.due_at) : null
+      const dl = deadlineOf(s, c)
+      const due = dl ? new Date(dl.at) : null
       const overdue = due && isBefore(due, today0)
       const dueToday = due && !overdue && !isBefore(today1, due)
       const remindToday = c.remind_at && isToday(new Date(c.remind_at))
       const flagged = c.in_todo && !due
       if (!overdue && !dueToday && !remindToday && !flagged) continue
-      items.push({ card: c, overdue, rank: priorityRank(s, c), blocked: linkBadges(s, c.id).blocked, urgency: overdue ? 0 : dueToday || remindToday ? 1 : 2 })
+      items.push({ card: c, due: dl?.at || '9', overdue, rank: priorityRank(s, c), blocked: linkBadges(s, c.id).blocked, urgency: overdue ? 0 : dueToday || remindToday ? 1 : 2 })
     }
-    items.sort((a, b) => a.rank - b.rank || a.urgency - b.urgency || (a.card.due_at || '9').localeCompare(b.card.due_at || '9') || a.card.position - b.card.position)
+    items.sort((a, b) => a.rank - b.rank || a.urgency - b.urgency || a.due.localeCompare(b.due) || a.card.position - b.card.position)
     const ready = items.filter((x) => !x.blocked)
     const blocked = items.filter((x) => x.blocked)
     doneToday.sort((a, b) => (b.completed_at || '').localeCompare(a.completed_at || ''))
     return { ready, blocked, doneToday }
-  }, [s.cards, s.hidden, s.projects, s.groups, s.labels, s.links])
+  }, [s.cards, s.hidden, s.projects, s.groups, s.labels, s.links, s.fields])
 
   // Con «tengo X minutos», solo lo que cabe (y tiene estimación)
   const ready = quick ? plan.ready.filter((x) => x.card.estimate_minutes && x.card.estimate_minutes <= quick) : plan.ready

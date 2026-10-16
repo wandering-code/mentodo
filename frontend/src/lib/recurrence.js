@@ -1,3 +1,4 @@
+import { deadlineKey } from './deadline'
 import { addDays, addMonths, addWeeks, addYears, differenceInCalendarDays, startOfWeek } from 'date-fns'
 
 /* Misma regla que el backend (cards.next_date): la repetición siguiente,
@@ -28,12 +29,8 @@ const readAt = (card, key) => {
   return v?.at ? new Date(v.at) : null
 }
 
-/* Qué fecha marca el ritmo: la elegida en la regla o, si no, la que usa el
-   calendario del proyecto (lo normal es querer ver ahí cada repetición) */
-export function defaultRepeatKey(s, projectId) {
-  const cal = Object.values(s.views).find((v) => v.project_id === projectId && v.kind === 'calendar' && v.config?.date_key)
-  return cal?.config.date_key || 'due'
-}
+/* Qué fecha marca el ritmo si la regla no elige: la de entrega del proyecto */
+export const defaultRepeatKey = deadlineKey
 
 /* Próximas repeticiones de una tarea pendiente (sin contar la actual), tal
    como caerían en la fecha `dateKey`, hasta `until`. Todas las fechas de la

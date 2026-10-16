@@ -19,7 +19,7 @@ def project_out(p: Project):
         "id": p.id, "name": p.name, "icon": p.icon, "color": p.color, "description": p.description,
         "position": p.position, "archived": p.archived, "hidden_props": p.hidden_props or [],
         "prop_names": p.prop_names or {}, "prop_order": p.prop_order or [],
-        "notes_tab_position": p.notes_tab_position,
+        "notes_tab_position": p.notes_tab_position, "deadline_key": p.deadline_key or "due",
         "created_at": iso(p.created_at), "updated_at": iso(p.updated_at),
     }
 

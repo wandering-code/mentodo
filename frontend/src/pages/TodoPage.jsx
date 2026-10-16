@@ -3,6 +3,7 @@ import { AnimatePresence } from 'motion/react'
 import { addDays, endOfDay, isBefore, isToday, startOfDay } from 'date-fns'
 import { ChevronRight, CircleCheckBig, Plus, SlidersHorizontal } from 'lucide-react'
 import { useStore } from '../lib/store'
+import { deadlineOf } from '../lib/deadline'
 import { useCardNav } from '../lib/nav'
 import { fmt } from '../lib/dates'
 import { CardRow } from '../components/CardRow'
@@ -63,20 +64,22 @@ export function TodoPage() {
         if (c.completed_at && isToday(new Date(c.completed_at))) out.doneToday.push(c)
         continue
       }
-      if (!c.due_at) out.nodate.push(c)
+      const dl = deadlineOf(s, c)
+      if (!dl) out.nodate.push(c)
       else {
-        const d = new Date(c.due_at)
+        const d = new Date(dl.at)
         if (isBefore(d, today0)) out.overdue.push(c)
         else if (isToday(d)) out.today.push(c)
         else if (isBefore(d, weekEnd)) out.week.push(c)
         else out.later.push(c)
       }
     }
-    const byDue = (a, b) => (a.due_at || '').localeCompare(b.due_at || '') || a.position - b.position
+    const dueAt = (c) => deadlineOf(s, c)?.at || ''
+    const byDue = (a, b) => dueAt(a).localeCompare(dueAt(b)) || a.position - b.position
     for (const k in out) out[k].sort(k === 'nodate' ? (a, b) => (b.updated_at || '').localeCompare(a.updated_at || '') : byDue)
     out.doneToday.sort((a, b) => (b.completed_at || '').localeCompare(a.completed_at || ''))
     return out
-  }, [s.cards, s.hidden, s.projects, selected])
+  }, [s.cards, s.hidden, s.projects, s.fields, selected])
 
   const pending = groups.overdue.length + groups.today.length + groups.week.length + groups.later.length + groups.nodate.length
   const { open: openCard } = useCardNav()

@@ -6,7 +6,7 @@ import { ChevronLeft, ChevronRight, Plus, Repeat } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { haptic } from '../lib/layers'
 import { allDayIso, fmt } from '../lib/dates'
-import { dueInfo } from '../lib/cards'
+import { dateInfo, deadlineKey, deadlineOf, readDate, useDeadlineKey } from '../lib/deadline'
 import { Button, cx, IconButton, useIsMobile } from '../components/ui'
 import { CardRow } from '../components/CardRow'
 import { upcoming } from '../lib/recurrence'
@@ -15,11 +15,7 @@ const key = (d) => fmt(d, 'yyyy-MM-dd')
 
 /* La fecha que muestra el calendario: la principal («due») o una propiedad
    de fecha propia («f:<id>»), según elija la vista */
-export function readDate(card, dateKey) {
-  if (!dateKey || dateKey === 'due') return card.due_at ? { at: card.due_at, allDay: card.due_all_day } : null
-  const v = card.values?.[dateKey.slice(2)]
-  return v?.at ? { at: v.at, allDay: v.all_day ?? true } : null
-}
+export { readDate }
 
 export function dateBody(dateKey, at, allDay) {
   if (!dateKey || dateKey === 'due') return { due_at: at, due_all_day: allDay }
@@ -28,6 +24,8 @@ export function dateBody(dateKey, at, allDay) {
 
 function Chip({ card, onOpen, overlay, dateKey }) {
   const dt = readDate(card, dateKey)
+  // En rojo solo si lo que se pasó es la entrega (no un inicio, por ejemplo)
+  const late = useDeadlineKey(card.project_id) === dateKey && dateInfo(dt, card.done)?.overdue
   const { setNodeRef, attributes, listeners, isDragging } = useDraggable({ id: card.id, disabled: overlay })
   return (
     <button
@@ -38,7 +36,7 @@ function Chip({ card, onOpen, overlay, dateKey }) {
       onClick={(e) => (e.stopPropagation(), onOpen?.(card))}
       className={cx(
         'touch-drag flex w-full items-center gap-1.5 truncate rounded-md px-1.5 py-[3px] text-left text-[12px] leading-tight transition-colors [touch-action:manipulation]',
-        card.done ? 'text-faint line-through' : dt && !card.done && new Date(dt.at) < new Date(new Date().setHours(0, 0, 0, 0)) ? 'lbl text-danger' : 'bg-accent-soft text-ink hover:brightness-95',
+        card.done ? 'text-faint line-through' : late ? 'lbl text-danger' : 'bg-accent-soft text-ink hover:brightness-95',
         isDragging && 'opacity-30',
         overlay && 'shadow-float bg-surface',
       )}
@@ -97,7 +95,7 @@ function Day({ day, month, cards, ghosts = [], onOpen, onAdd, compact, selected,
       {compact && cards.length + ghosts.length > 0 && (
         <div className="flex gap-[3px]">
           {cards.slice(0, 3).map((c) => (
-            <span key={c.id} className={cx('size-[5px] rounded-full', c.done ? 'bg-line' : dueInfo(c)?.overdue ? 'bg-danger' : 'bg-accent')} />
+            <span key={c.id} className={cx('size-[5px] rounded-full', c.done ? 'bg-line' : dateInfo(deadlineOf(useStore.getState(), c), c.done)?.overdue ? 'bg-danger' : 'bg-accent')} />
           ))}
           {ghosts.slice(0, Math.max(0, 3 - cards.length)).map((c) => (
             <span key={`g${c.id}`} className="size-[5px] rounded-full border border-faint" />
@@ -116,8 +114,8 @@ function Day({ day, month, cards, ghosts = [], onOpen, onAdd, compact, selected,
 }
 
 export function CalendarView({ project, view, cards, onOpen }) {
-  const dateKey = view?.config?.date_key || 'due'
   const s = useStore()
+  const dateKey = view?.config?.date_key || deadlineKey(s, project.id)
   const [month, setMonth] = useState(() => startOfMonth(new Date()))
   // En el móvil no caben los títulos en cada día: puntos en la rejilla y,
   // debajo, la agenda del día elegido (como el calendario del sistema)

@@ -53,6 +53,10 @@ class Project(Base):
     prop_order = Column(JSON, nullable=False, default=list)
     # Sitio de la pestaña «Apuntes» entre las vistas (null = al final)
     notes_tab_position = Column(Float, nullable=True)
+    # Qué fecha cuenta como entrega: la principal («due») o una propia de
+    # tipo fecha («f:<id>»). Con ella se calcula lo atrasado, lo de hoy, los
+    # avisos, los aplazamientos y las repeticiones.
+    deadline_key = Column(String(24), nullable=False, default="due", server_default="due")
     created_at = Column(DateTime(timezone=True), default=now)
     updated_at = Column(DateTime(timezone=True), default=now, onupdate=now)
 

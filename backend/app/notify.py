@@ -24,6 +24,7 @@ from sqlalchemy.exc import IntegrityError
 
 from .config import settings
 from .db import SessionLocal
+from .deadline import deadline_key, read_date
 from .models import Card, Field, Label, Notification, NotificationRule, Project, PushSubscription, User
 from .realtime import hub
 from .serialize import notification_out
@@ -40,30 +41,22 @@ def _tz(user: User) -> ZoneInfo:
         return ZoneInfo("Europe/Madrid")
 
 
-def effective_due(card: Card, tz: ZoneInfo) -> datetime | None:
-    if not card.due_at:
+def _as_due(found, tz: ZoneInfo) -> datetime | None:
+    if not found:
         return None
-    if card.due_all_day:
-        d = card.due_at.astimezone(tz).date()
-        return datetime.combine(d, time(ALL_DAY_HOUR), tz)
-    return card.due_at
-
-
-def rule_due(card: Card, rule: NotificationRule, tz: ZoneInfo) -> datetime | None:
-    """Fecha que vigila una regla: la principal de la tarjeta o un campo de fecha propio."""
-    field = rule.params.get("field") or "due"
-    if field == "due":
-        return effective_due(card, tz)
-    v = (card.values or {}).get(str(field))
-    if not isinstance(v, dict) or not v.get("at"):
-        return None
-    try:
-        at = datetime.fromisoformat(v["at"].replace("Z", "+00:00"))
-    except ValueError:
-        return None
-    if v.get("all_day", True):
+    at, all_day = found
+    if all_day:
         return datetime.combine(at.astimezone(tz).date(), time(ALL_DAY_HOUR), tz)
     return at
+
+
+def rule_due(card: Card, rule: NotificationRule, tz: ZoneInfo, project: Project | None = None) -> datetime | None:
+    """Fecha que vigila una regla: la que elija la regla («due», la principal,
+    o el id de un campo de fecha) o, si no elige, la que el proyecto cuenta
+    como entrega."""
+    field = rule.params.get("field")
+    key = deadline_key(project) if not field else "due" if field == "due" else f"f:{field}"
+    return _as_due(read_date(card, key), tz)
 
 
 def _fmt_offset(minutes: int) -> str:
@@ -156,7 +149,7 @@ def run_checks() -> list[tuple[int, dict]]:
                     emit(f"remind:{card.id}:{card.remind_at.isoformat()}", f"⏰ {title}", pname,
                          card, url=_card_url(card))
                 for r in _rules_for(rules, "before_due", card.project_id):
-                    due = rule_due(card, r, tz)
+                    due = rule_due(card, r, tz, projects.get(card.project_id))
                     if not due:
                         continue
                     minutes = int(r.params.get("minutes", 1440))
@@ -166,7 +159,7 @@ def run_checks() -> list[tuple[int, dict]]:
                         emit(f"before:{r.id}:{card.id}:{due.isoformat()}", f"{what} {_fmt_offset(minutes)}: {title}",
                              pname, card, url=_card_url(card))
                 for r in _rules_for(rules, "overdue", card.project_id):
-                    due = rule_due(card, r, tz)
+                    due = rule_due(card, r, tz, projects.get(card.project_id))
                     if due and due <= now and now - due < timedelta(days=3):
                         what = field_names.get(r.params.get("field"))
                         emit(f"overdue:{r.id}:{card.id}:{due.isoformat()}",
@@ -193,11 +186,14 @@ def run_checks() -> list[tuple[int, dict]]:
                 if local_now.hour != hour:
                     continue
                 today = local_now.date()
-                todays = [c for c in cards if c.due_at and (r.project_id is None or c.project_id == r.project_id)
-                          and c.due_at.astimezone(tz).date() <= today]
+                def ddate(c):
+                    found = read_date(c, deadline_key(projects.get(c.project_id)))
+                    return found[0].astimezone(tz).date() if found else None
+                todays = [c for c in cards if (r.project_id is None or c.project_id == r.project_id)
+                          and ddate(c) and ddate(c) <= today]
                 if not todays:
                     continue
-                overdue = sum(1 for c in todays if c.due_at.astimezone(tz).date() < today)
+                overdue = sum(1 for c in todays if ddate(c) < today)
                 scope = projects[r.project_id].name if r.project_id in projects else "Hoy"
                 body = ", ".join((c.title or "Sin título") for c in todays[:4]) + ("…" if len(todays) > 4 else "")
                 head = f"{scope}: {len(todays)} para hoy" + (f" ({overdue} atrasadas)" if overdue else "")

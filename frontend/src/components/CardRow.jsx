@@ -34,7 +34,7 @@ export function CardRow({ card, onOpen, hideGroupId, showProject }) {
         <div className={cx('text-[15px] leading-snug transition-colors duration-300 line-clamp-2 sm:text-[14.5px]', card.done ? 'text-faint line-through decoration-[var(--faint)]' : 'text-ink')}>
           {card.title || <span className="text-faint">Sin título</span>}
         </div>
-        {(showProject || chips.length > 0 || card.due_at || badges.blocked || badges.subtasks || meta.dates.length > 0 || cl || card.estimate_minutes) && (
+        {(showProject || chips.length > 0 || card.due_at || Object.keys(card.values || {}).length > 0 || badges.blocked || badges.subtasks || meta.dates.length > 0 || cl || card.estimate_minutes) && (
           // El título manda: los datos van siempre debajo, nunca le quitan sitio
           <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1">
             <Meta card={card} chips={chips} cl={cl} meta={meta} badges={badges} project={showProject && project} />
@@ -62,7 +62,7 @@ function Meta({ card, chips, cl, meta, badges, project }) {
           {card.estimate_minutes < 60 ? `${card.estimate_minutes}m` : `${card.estimate_minutes / 60}h`}
         </span>
       )}
-      {meta.show('due') && <DueBadge card={card} />}
+      {meta.show(meta.deadline) && <DueBadge card={card} />}
       {card.recurrence && <Repeat size={12} className="text-muted" />}
       {badges.blocked && !card.done && <Lock size={12} className="text-danger" />}
       {badges.subtasks && (

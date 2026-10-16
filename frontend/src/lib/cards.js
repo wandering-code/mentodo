@@ -1,4 +1,5 @@
-import { isBefore, isToday, isTomorrow, startOfDay } from 'date-fns'
+import { dateInfo, deadlineOf } from './deadline'
+import { useStore } from './store'
 
 // Ordenación y filtrado comunes a todas las vistas.
 
@@ -108,9 +109,7 @@ export const SORT_FIELDS = [
   { id: 'done', name: 'Terminadas' },
 ]
 
-export function dueInfo(card) {
-  if (!card.due_at) return null
-  const d = new Date(card.due_at)
-  const overdue = !card.done && isBefore(card.due_all_day ? startOfDay(d) : d, card.due_all_day ? startOfDay(new Date()) : new Date())
-  return { date: d, overdue, today: isToday(d), tomorrow: isTomorrow(d) }
+/* Estado de la fecha de entrega de una tarjeta (la que marque su proyecto) */
+export function dueInfo(card, s = useStore.getState()) {
+  return dateInfo(deadlineOf(s, card), card.done)
 }

@@ -7,7 +7,8 @@ from sqlalchemy.orm import Session
 
 from ..db import get_db
 from ..deps import Emitter, emitter
-from ..models import Card, CardEvent, Label, LabelGroup
+from ..deadline import deadline_key, read_date
+from ..models import Card, CardEvent, Label, LabelGroup, Project
 from ..ownership import own_card, own_project
 from ..serialize import card_out
 
@@ -182,23 +183,18 @@ def next_date(rule: dict, base, today):
     return nxt
 
 
-def _anchor_key(rule) -> str:
-    """Fecha cuyo ritmo marca la repetición: la principal («due») o una
-    propiedad de fecha propia («f:<id>»)."""
-    k = (rule or {}).get("key") or "due"
-    return k if k == "due" or k.startswith("f:") else "due"
+def _anchor_key(db: Session, rule, c: Card) -> str:
+    """Fecha cuyo ritmo marca la repetición: la que elija la regla o, si no,
+    la que el proyecto cuenta como entrega."""
+    k = (rule or {}).get("key")
+    if k == "due" or (k or "").startswith("f:"):
+        return k
+    return deadline_key(db.get(Project, c.project_id) if c.project_id else None)
 
 
 def _read_anchor(c: Card, key: str):
-    if key == "due":
-        return c.due_at
-    v = (c.values or {}).get(key[2:])
-    if isinstance(v, dict) and v.get("at"):
-        try:
-            return datetime.fromisoformat(v["at"].replace("Z", "+00:00"))
-        except ValueError:
-            return None
-    return None
+    found = read_date(c, key)
+    return found[0] if found else None
 
 
 def _write_anchor(c: Card, key: str, day, tz):
@@ -220,7 +216,7 @@ def _tz(user):
         return ZoneInfo("Europe/Madrid")
 
 
-def first_due(db_user, c: Card):
+def first_due(db: Session, db_user, c: Card):
     """Una tarea que se repite y no tiene la fecha que marca su ritmo recibe
     la de su primera repetición (hoy o el siguiente día que toque): así sale
     en el calendario y las siguientes heredan el ritmo."""
@@ -229,7 +225,7 @@ def first_due(db_user, c: Card):
     rule = c.recurrence
     if not rule or c.done or c.is_template:
         return
-    key = _anchor_key(rule)
+    key = _anchor_key(db, rule, c)
     if _read_anchor(c, key):
         return
     tz = _tz(db_user)
@@ -261,7 +257,7 @@ def spawn_next(db: Session, user, done_card: Card) -> Card | None:
         return None
     tz = _tz(user)
     today = datetime.now(tz).date()
-    key = _anchor_key(rule)
+    key = _anchor_key(db, rule, done_card)
     anchor = _read_anchor(done_card, key)
     anchor_local = anchor.astimezone(tz).date() if anchor else None
     base = today if rule.get("from") == "done" or not anchor_local else anchor_local
@@ -477,13 +473,10 @@ def patch_card(card_id: int, body: CardPatch, em: Emitter = Depends(emitter), db
         c.project_id = data["project_id"]
         c.labels = []  # las etiquetas y los campos son de cada proyecto
         c.values = {}
-    # Aplazamiento: una tarea pendiente cuya fecha pasa a ser más tarde (no
-    # cuenta ponerle fecha por primera vez ni adelantarla)
-    if ("due_at" in data and data["due_at"] and c.due_at and not c.done and not c.is_template
-            and data["due_at"].date() > c.due_at.date()):
-        c.postpone_count = (c.postpone_count or 0) + 1
-        db.add(CardEvent(user_id=em.user.id, card_id=c.id, kind="postpone",
-                         data={"from": c.due_at.isoformat(), "to": data["due_at"].isoformat()}))
+    # Aplazamiento: una tarea pendiente cuya fecha de entrega pasa a ser más
+    # tarde (no cuenta ponérsela por primera vez ni adelantarla)
+    dkey = deadline_key(db.get(Project, c.project_id) if c.project_id else None)
+    before = read_date(c, dkey)
     for k in ("title", "content", "in_todo", "due_at", "due_all_day", "remind_at", "estimate_minutes", "position",
               "hidden_props", "template", "recurrence"):
         if k in data and not (k in ("hidden_props", "template") and data[k] is None):
@@ -501,8 +494,13 @@ def patch_card(card_id: int, body: CardPatch, em: Emitter = Depends(emitter), db
     elif data.get("done") is not None and data["done"] != c.done:
         _set_done(c, data["done"])
         _sync_labels_with_done(db, c)
+    after = read_date(c, dkey)
+    if before and after and not c.done and not c.is_template and after[0].date() > before[0].date():
+        c.postpone_count = (c.postpone_count or 0) + 1
+        db.add(CardEvent(user_id=em.user.id, card_id=c.id, kind="postpone",
+                         data={"key": dkey, "from": before[0].isoformat(), "to": after[0].isoformat()}))
     if "recurrence" in data:
-        first_due(em.user, c)
+        first_due(db, em.user, c)
     c.updated_at = datetime.now(timezone.utc)
     spawned = spawn_next(db, em.user, c) if (c.done and not was_done) else None
     db.commit()

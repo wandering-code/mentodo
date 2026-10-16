@@ -1,3 +1,5 @@
+import re
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
@@ -33,6 +35,7 @@ class ProjectPatch(BaseModel):
     prop_names: dict[str, str] | None = None
     prop_order: list[str] | None = None
     notes_tab_position: float | None = None
+    deadline_key: str | None = Field(None, max_length=24)
 
 
 # (nombre, varias por tarjeta, es el estado, etiquetas)
@@ -88,6 +91,10 @@ def create_project(body: ProjectIn, em: Emitter = Depends(emitter), db: Session 
 @router.patch("/projects/{project_id}")
 def patch_project(project_id: int, body: ProjectPatch, em: Emitter = Depends(emitter), db: Session = Depends(get_db)):
     p = own_project(db, em.user.id, project_id)
+    if body.deadline_key and body.deadline_key != "due":
+        f = db.get(CustomField, int(body.deadline_key[2:])) if re.fullmatch(r"f:\d+", body.deadline_key) else None
+        if not f or f.project_id != p.id or f.kind != "date":
+            raise HTTPException(422, "La fecha de entrega tiene que ser una propiedad de fecha del proyecto")
     for k, v in body.model_dump(exclude_unset=True).items():
         if v is not None:
             setattr(p, k, v)
@@ -329,7 +336,13 @@ def patch_field(field_id: int, body: FieldPatch, em: Emitter = Depends(emitter),
 @router.delete("/fields/{field_id}")
 def delete_field(field_id: int, em: Emitter = Depends(emitter), db: Session = Depends(get_db)):
     f = own_field(db, em.user.id, field_id)
+    p = db.get(Project, f.project_id)
+    reset = p and p.deadline_key == f"f:{f.id}"
+    if reset:
+        p.deadline_key = "due"  # sin esa fecha, vuelve a contar la principal
     db.delete(f)
     db.commit()
     em.delete("field", field_id)
+    if reset:
+        em.upsert("project", project_out(p))
     return {"ok": True}

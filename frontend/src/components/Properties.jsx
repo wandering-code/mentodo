@@ -6,6 +6,7 @@ import { humanDate, toDateTimeInput } from '../lib/dates'
 import { FIELD_KINDS, fieldValue, hasValue, hiddenInCard, hiddenInProject, movedOrder, projectProps, repeatText, WD } from '../lib/props'
 import { DatePicker, LabelPicker } from './Pickers'
 import { defaultRepeatKey } from '../lib/recurrence'
+import { dateInfo, readDate, useDeadlineKey } from '../lib/deadline'
 import { cx, Divider, IconButton, LabelChip, MenuItem, MenuLabel, Popover, Toggle, usePopover } from './ui'
 
 /* Propiedades de una tarjeta: las de serie, los grupos de etiquetas y los
@@ -471,7 +472,8 @@ function DateButton({ at, allDay, onChange, onClear, empty = 'Sin fecha', compac
 
 function DueValue({ card, compact }) {
   const updateCard = useStore((s) => s.updateCard)
-  const overdue = card.due_at && !card.done && new Date(card.due_at) < new Date(new Date().setHours(0, 0, 0, 0))
+  const isDeadline = useDeadlineKey(card.project_id) === 'due'
+  const overdue = isDeadline && dateInfo(readDate(card, 'due'), card.done)?.overdue
   return (
     <DateButton
       at={card.due_at}
@@ -569,6 +571,7 @@ function TodoValue({ card }) {
 
 function FieldValue({ field, card, compact }) {
   const updateCard = useStore((s) => s.updateCard)
+  const deadline = useDeadlineKey(card.project_id)
   const value = fieldValue(card, field)
   const set = (v) => updateCard(card.id, { values: { [field.id]: v } })
   const input = cx('h-8 w-full rounded-lg bg-transparent px-2 outline-none transition-colors placeholder:text-faint hover:bg-hover focus:bg-sunken', compact && 'text-[13px]')
@@ -579,6 +582,7 @@ function FieldValue({ field, card, compact }) {
         at={value?.at}
         allDay={value?.all_day ?? true}
         compact={compact}
+        overdue={deadline === `f:${field.id}` && dateInfo(readDate(card, `f:${field.id}`), card.done)?.overdue}
         onChange={(at, all_day) => set({ at, all_day })}
         onClear={() => set(null)}
       />
@@ -634,11 +638,16 @@ function FieldValue({ field, card, compact }) {
 export function useCardMeta(card) {
   const project = useStore((s) => (card.project_id ? s.projects[card.project_id] : null))
   const fields = useStore((s) => s.fields)
+  const deadline = useDeadlineKey(card.project_id)
   const show = (key) => !hiddenInProject(project, key) && !hiddenInCard(card, key)
+  // Las otras fechas (no la de entrega, que va aparte y con colores), con
+  // su nombre para distinguirlas
   const dates = Object.values(fields)
-    .filter((f) => f.project_id === card.project_id && f.kind === 'date' && show(`f:${f.id}`))
+    .filter((f) => f.project_id === card.project_id && f.kind === 'date' && `f:${f.id}` !== deadline && show(`f:${f.id}`))
     .map((f) => ({ field: f, value: fieldValue(card, f) }))
     .filter((d) => d.value?.at)
-  return { show, dates, hasValue: (p) => hasValue(card, p) }
+  if (deadline !== 'due' && card.due_at && show('due'))
+    dates.unshift({ field: { id: 'due', name: project?.prop_names?.due || 'Fecha' }, value: { at: card.due_at, all_day: card.due_all_day } })
+  return { show, dates, deadline, hasValue: (p) => hasValue(card, p) }
 }
 

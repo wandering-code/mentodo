@@ -40,7 +40,8 @@ function RuleRow({ rule, projectId }) {
       <span className="text-[14px] font-medium">{kind.name}</span>
       <div className="flex flex-1 flex-wrap items-center gap-2 text-[13.5px] text-muted">
         {(rule.kind === 'before_due' || rule.kind === 'overdue') && dateFields.length > 0 && (
-          <select className={select} value={rule.params.field || 'due'} onChange={(e) => set({ field: e.target.value === 'due' ? 'due' : Number(e.target.value) })}>
+          <select className={select} value={rule.params.field || ''} onChange={(e) => set({ field: e.target.value === '' ? null : e.target.value === 'due' ? 'due' : Number(e.target.value) })}>
+            <option value="">La de entrega</option>
             <option value="due">{s.projects[projectId]?.prop_names?.due || 'Fecha'}</option>
             {dateFields.map((f) => (
               <option key={f.id} value={f.id}>
