@@ -375,6 +375,8 @@ export const useStore = create((set, getState) => ({
       res.then((fresh) => {
         const sp = fresh?.spawned
         if (!sp) return
+        // La nueva llega en la propia respuesta: no depende del tiempo real
+        if (sp.card) set((st) => (st.cards[sp.card.id] ? {} : { cards: { ...st.cards, [sp.card.id]: sp.card } }))
         const when = sp.at ? format(new Date(sp.at), "EEE d 'de' MMM", { locale: es }) : null
         toast.success(when ? `Se repite: nueva para el ${when}` : 'Se repite: creada la siguiente', {
           action: { label: 'Abrir', onClick: () => window.dispatchEvent(new CustomEvent('mentodo:open-card', { detail: sp.id })) },
