@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { ArrowDown, ArrowUp, ExternalLink, EyeOff, Folder, Pencil, Plus, Tag, Trash2, X, CircleCheck, CircleX } from 'lucide-react'
-import { useStore } from '../lib/store'
+import { undoToast, useStore } from '../lib/store'
 import { humanDate, toDateTimeInput } from '../lib/dates'
 import { FIELD_KINDS, fieldValue, hasValue, hiddenInCard, hiddenInProject, movedOrder, notAdded, projectProps, repeatText, WD } from '../lib/props'
 import { DatePicker, LabelPicker } from './Pickers'
@@ -64,13 +64,17 @@ function PropRow({ prop, card, project, all }) {
 
   const hideInCard = () => {
     menu.close()
+    const before = { extra_props: card.extra_props || [], hidden_props: card.hidden_props || [] }
     // Si era «solo donde se añade», se quita de esta tarjeta; si no, se oculta
     if (card.extra_props?.includes(prop.key)) s.updateCard(card.id, { extra_props: card.extra_props.filter((k) => k !== prop.key) })
     else s.updateCard(card.id, { hidden_props: [...(card.hidden_props || []), prop.key] })
+    undoToast(`«${prop.name}» oculta en esta tarjeta`, () => s.updateCard(card.id, before))
   }
   const hideInProject = () => {
     menu.close()
-    s.updateProject(project.id, { hidden_props: [...(project.hidden_props || []), prop.key] })
+    const before = project.hidden_props || []
+    s.updateProject(project.id, { hidden_props: [...before, prop.key] })
+    undoToast(`«${prop.name}» oculta en todo el proyecto`, () => s.updateProject(project.id, { hidden_props: before }))
   }
   const remove = () => {
     menu.close()

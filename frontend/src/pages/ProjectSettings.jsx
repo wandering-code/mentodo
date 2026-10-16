@@ -4,7 +4,7 @@ import { motion } from 'motion/react'
 import { SortableList, SortableRow } from '../components/Sortable'
 import { TemplatesManager } from '../components/Templates'
 import { Archive, ArchiveRestore, ArrowLeft, CircleCheck, Eye, MinusCircle, EyeOff, GripVertical, Flag, Plus, Trash2 } from 'lucide-react'
-import { useStore } from '../lib/store'
+import { undoToast, useStore } from '../lib/store'
 import { groupLabels, projectGroups } from '../lib/cards'
 import { defaultName, FIELD_KINDS, fieldIcon, hiddenInProject, projectProps } from '../lib/props'
 import { LABEL_COLORS, PROJECT_ICONS } from '../lib/palette'
@@ -46,7 +46,14 @@ function LabelRow({ label, isStatus }) {
       />
       {isStatus && (
         <button
-          onClick={() => updateLabel(label.id, { marks_done: !label.marks_done })}
+          onClick={() => {
+            // Para deshacer: la que era «Terminado» antes (solo hay una por grupo)
+            const prev = Object.values(useStore.getState().labels).find((l) => l.group_id === label.group_id && l.marks_done)
+            updateLabel(label.id, { marks_done: !label.marks_done })
+            undoToast(label.marks_done ? `«${label.name}» ya no cuenta como terminado` : `«${label.name}» cuenta ahora como terminado`, () =>
+              prev ? updateLabel(prev.id, { marks_done: true }) : updateLabel(label.id, { marks_done: false }),
+            )
+          }}
           title={label.marks_done ? 'Las tarjetas con esta etiqueta cuentan como terminadas' : 'Usar esta etiqueta para lo terminado'}
           className={cx(
             'inline-flex h-7 shrink-0 items-center gap-1.5 rounded-lg px-2 text-[12.5px] font-medium transition-[background-color,color,opacity] duration-150',
@@ -61,7 +68,11 @@ function LabelRow({ label, isStatus }) {
       )}
       {isStatus && !label.marks_done && (
         <button
-          onClick={() => updateLabel(label.id, { inactive: !label.inactive })}
+          onClick={() => {
+            const was = !!label.inactive
+            updateLabel(label.id, { inactive: !was })
+            undoToast(was ? `«${label.name}» vuelve a contar` : `«${label.name}» ya no cuenta`, () => updateLabel(label.id, { inactive: was }))
+          }}
           title={label.inactive ? 'Las tarjetas en este estado no salen en Hoy ni en To Do ni generan avisos' : 'Que las tarjetas en este estado no cuenten como pendientes'}
           className={cx(
             'inline-flex h-7 shrink-0 items-center gap-1.5 rounded-lg px-2 text-[12.5px] font-medium transition-[background-color,color,opacity] duration-150',
@@ -153,10 +164,11 @@ function PropertyRow({ p, project }) {
     else if (p.field) s.updateField(p.field.id, { name })
     else s.updateProject(project.id, { prop_names: { ...(project.prop_names || {}), [p.key]: name } })
   }
-  const toggle = () =>
-    s.updateProject(project.id, {
-      hidden_props: visible ? [...(project.hidden_props || []), p.key] : (project.hidden_props || []).filter((k) => k !== p.key),
-    })
+  const toggle = () => {
+    const before = project.hidden_props || []
+    s.updateProject(project.id, { hidden_props: visible ? [...before, p.key] : before.filter((k) => k !== p.key) })
+    undoToast(visible ? `«${p.name}» oculta en todo el proyecto` : `«${p.name}» visible en todo el proyecto`, () => s.updateProject(project.id, { hidden_props: before }))
+  }
   const custom = !p.group && !p.field && project.prop_names?.[p.key]
   const optIn = !!(p.field?.opt_in || p.group?.opt_in)
   // Fechas: una de ellas cuenta como entrega (como «Terminado» en el estado)
@@ -195,7 +207,12 @@ function PropertyRow({ p, project }) {
       )}
       {isDate && (
         <button
-          onClick={() => !isDeadline && s.updateProject(project.id, { deadline_key: p.key })}
+          onClick={() => {
+            if (isDeadline) return
+            const before = project.deadline_key || 'due'
+            s.updateProject(project.id, { deadline_key: p.key })
+            undoToast(`La entrega es ahora «${p.name}»`, () => s.updateProject(project.id, { deadline_key: before }))
+          }}
           title={isDeadline ? 'Con esta fecha se calcula lo atrasado, lo de hoy, los avisos y las repeticiones' : 'Usar esta fecha como entrega'}
           className={cx(
             'inline-flex h-7 shrink-0 items-center gap-1.5 rounded-lg px-2 text-[12.5px] font-medium transition-[background-color,color,opacity] duration-150',
@@ -210,7 +227,11 @@ function PropertyRow({ p, project }) {
       )}
       {((p.field) || (p.group && !p.group.is_status)) && (
         <button
-          onClick={() => (p.field ? s.updateField(p.field.id, { opt_in: !optIn }) : s.updateGroup(p.group.id, { opt_in: !optIn }))}
+          onClick={() => {
+            const set = (v) => (p.field ? s.updateField(p.field.id, { opt_in: v }) : s.updateGroup(p.group.id, { opt_in: v }))
+            set(!optIn)
+            undoToast(optIn ? `«${p.name}» aparece en todas las tarjetas` : `«${p.name}» solo donde se añada`, () => set(optIn))
+          }}
           title={optIn ? 'Solo aparece en las tarjetas donde la añadas (o que tengan valor). Pulsa para que aparezca en todas.' : 'Aparece en todas las tarjetas. Pulsa para que solo aparezca donde la añadas.'}
           className="h-7 shrink-0 rounded-lg px-2 text-[12px] text-faint transition-colors hover:bg-hover hover:text-muted"
         >
@@ -366,7 +387,14 @@ export function ProjectSettings() {
 
       <SettingsSection title="Zona de proyecto">
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={() => s.updateProject(id, { archived: !project.archived })}>
+          <Button
+            variant="outline"
+            onClick={() => {
+              const was = project.archived
+              s.updateProject(id, { archived: !was })
+              undoToast(was ? 'Proyecto recuperado' : 'Proyecto aparcado', () => s.updateProject(id, { archived: was }))
+            }}
+          >
             {project.archived ? <ArchiveRestore size={15} /> : <Archive size={15} />}
             {project.archived ? 'Recuperar proyecto' : 'Aparcar proyecto'}
           </Button>

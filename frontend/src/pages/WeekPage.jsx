@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { addDays, addWeeks, differenceInCalendarDays, endOfWeek, isWithinInterval, startOfWeek } from 'date-fns'
 import { Archive, CalendarRange, ChevronLeft, ChevronRight, CircleCheckBig, Hourglass, PauseCircle, Plus, Undo2 } from 'lucide-react'
-import { useStore } from '../lib/store'
+import { undoToast, useStore } from '../lib/store'
 import { useCardNav } from '../lib/nav'
 import { get } from '../lib/api'
 import { fmt } from '../lib/dates'
@@ -189,7 +189,7 @@ export function WeekPage() {
               <div key={p.id} className="flex items-center gap-3 rounded-xl px-3 py-2 hover:bg-hover">
                 <span className="text-[18px]">{p.icon}</span>
                 <span className="min-w-0 flex-1 truncate text-[14.5px]">{p.name}</span>
-                <Button size="sm" variant="ghost" onClick={() => s.updateProject(p.id, { archived: true })}>
+                <Button size="sm" variant="ghost" onClick={() => (s.updateProject(p.id, { archived: true }), undoToast(`«${p.name}» aparcado`, () => s.updateProject(p.id, { archived: false })))}>
                   <Archive size={14} /> Aparcar
                 </Button>
               </div>

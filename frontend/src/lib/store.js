@@ -137,18 +137,8 @@ export const useStore = create((set, getState) => ({
     }
   },
   updateProject: (id, body) => optimisticPatch(set, getState, 'projects', `/projects/${id}`, id, body),
-  async deleteProject(id) {
-    set((s) => {
-      const next = { ...s }
-      removeLocal(next, 'project', id)
-      return next
-    })
-    try {
-      await del(`/projects/${id}`)
-    } catch (e) {
-      fail(e)
-      getState().bootstrap()
-    }
+  deleteProject(id) {
+    deferDelete(set, getState, { kind: 'project', id, path: `/projects/${id}`, message: `Proyecto «${getState().projects[id]?.name || ''}» eliminado` })
   },
 
   // ── Grupos y etiquetas ──
@@ -185,17 +175,8 @@ export const useStore = create((set, getState) => ({
     const local = body.is_status ? { ...body, multi: false } : body
     return optimisticPatch(set, getState, 'groups', `/groups/${id}`, id, body, local)
   },
-  async deleteGroup(id) {
-    set((s) => {
-      const next = { ...s }
-      removeLocal(next, 'group', id)
-      return next
-    })
-    try {
-      await del(`/groups/${id}`)
-    } catch (e) {
-      fail(e)
-    }
+  deleteGroup(id) {
+    deferDelete(set, getState, { kind: 'group', id, path: `/groups/${id}`, message: `Propiedad «${getState().groups[id]?.name || ''}» eliminada` })
   },
   async createLabel(body) {
     try {
@@ -217,17 +198,8 @@ export const useStore = create((set, getState) => ({
     }
     return optimisticPatch(set, getState, 'labels', `/labels/${id}`, id, body)
   },
-  async deleteLabel(id) {
-    set((s) => {
-      const next = { ...s }
-      removeLocal(next, 'label', id)
-      return next
-    })
-    try {
-      await del(`/labels/${id}`)
-    } catch (e) {
-      fail(e)
-    }
+  deleteLabel(id) {
+    deferDelete(set, getState, { kind: 'label', id, path: `/labels/${id}`, message: `Etiqueta «${getState().labels[id]?.name || ''}» eliminada` })
   },
 
   // ── Campos propios ──
@@ -241,13 +213,8 @@ export const useStore = create((set, getState) => ({
     }
   },
   updateField: (id, body) => optimisticPatch(set, getState, 'fields', `/fields/${id}`, id, body),
-  async deleteField(id) {
-    set((s) => ({ fields: without(s.fields, id) }))
-    try {
-      await del(`/fields/${id}`)
-    } catch (e) {
-      fail(e)
-    }
+  deleteField(id) {
+    deferDelete(set, getState, { kind: 'field', id, path: `/fields/${id}`, message: `Propiedad «${getState().fields[id]?.name || ''}» eliminada` })
   },
 
   // ── Apuntes ──
@@ -261,13 +228,8 @@ export const useStore = create((set, getState) => ({
     }
   },
   updateNote: (id, body) => optimisticPatch(set, getState, 'notes', `/notes/${id}`, id, body),
-  async deleteNote(id) {
-    set((s) => ({ notes: without(s.notes, id) }))
-    try {
-      await del(`/notes/${id}`)
-    } catch (e) {
-      fail(e)
-    }
+  deleteNote(id) {
+    deferDelete(set, getState, { kind: 'note', id, path: `/notes/${id}`, message: `Apunte «${getState().notes[id]?.title || 'Sin título'}» eliminado` })
   },
 
   // ── Vistas ──
@@ -281,13 +243,8 @@ export const useStore = create((set, getState) => ({
     }
   },
   updateView: (id, body) => optimisticPatch(set, getState, 'views', `/views/${id}`, id, body),
-  async deleteView(id) {
-    set((s) => ({ views: without(s.views, id) }))
-    try {
-      await del(`/views/${id}`)
-    } catch (e) {
-      fail(e)
-    }
+  deleteView(id) {
+    deferDelete(set, getState, { kind: 'view', id, path: `/views/${id}`, message: `Vista «${getState().views[id]?.name || ''}» eliminada` })
   },
 
   // ── Tarjetas ──
@@ -322,13 +279,8 @@ export const useStore = create((set, getState) => ({
       fail(e)
     }
   },
-  async deleteAttachment(id) {
-    set((s) => ({ attachments: without(s.attachments, id) }))
-    try {
-      await del(`/attachments/${id}`)
-    } catch (e) {
-      fail(e)
-    }
+  deleteAttachment(id) {
+    deferDelete(set, getState, { kind: 'attachment', id, path: `/attachments/${id}`, message: `Adjunto «${getState().attachments[id]?.filename || ''}» eliminado` })
   },
 
   // ── Relaciones ──
@@ -341,13 +293,8 @@ export const useStore = create((set, getState) => ({
       fail(e)
     }
   },
-  async deleteLink(id) {
-    set((s) => ({ links: without(s.links, id) }))
-    try {
-      await del(`/links/${id}`)
-    } catch (e) {
-      fail(e)
-    }
+  deleteLink(id) {
+    deferDelete(set, getState, { kind: 'link', id, path: `/links/${id}`, message: 'Relación quitada' })
   },
 
   // ── Plantillas ──
@@ -378,13 +325,8 @@ export const useStore = create((set, getState) => ({
       fail(e)
     }
   },
-  async deleteTemplate(id) {
-    set((s) => ({ templates: without(s.templates, id) }))
-    try {
-      await del(`/cards/${id}`)
-    } catch (e) {
-      fail(e)
-    }
+  deleteTemplate(id) {
+    deferDelete(set, getState, { kind: 'card', id, path: `/cards/${id}`, message: `Plantilla «${getState().templates[id]?.template?.name || ''}» eliminada` })
   },
   async duplicateCard(id, withContent) {
     try {
@@ -427,30 +369,7 @@ export const useStore = create((set, getState) => ({
     return optimisticPatch(set, getState, isTemplate ? 'templates' : 'cards', `/cards/${id}`, id, body, local)
   },
   deleteCard(id) {
-    const card = getState().cards[id]
-    if (!card) return
-    set((s) => ({ hidden: { ...s.hidden, [id]: true } }))
-    let undone = false
-    const timer = setTimeout(async () => {
-      if (undone) return
-      set((s) => ({ cards: without(s.cards, id), hidden: without(s.hidden, id) }))
-      try {
-        await del(`/cards/${id}`)
-      } catch (e) {
-        fail(e)
-      }
-    }, 5000)
-    toast(`«${card.title || 'Sin título'}» eliminada`, {
-      duration: 5000,
-      action: {
-        label: 'Deshacer',
-        onClick: () => {
-          undone = true
-          clearTimeout(timer)
-          set((s) => ({ hidden: without(s.hidden, id) }))
-        },
-      },
-    })
+    deferDelete(set, getState, { kind: 'card', id, path: `/cards/${id}`, message: `«${getState().cards[id]?.title || 'Sin título'}» eliminada` })
   },
 
   // ── Reglas y avisos ──
@@ -463,13 +382,8 @@ export const useStore = create((set, getState) => ({
     }
   },
   updateRule: (id, body) => optimisticPatch(set, getState, 'rules', `/rules/${id}`, id, body),
-  async deleteRule(id) {
-    set((s) => ({ rules: without(s.rules, id) }))
-    try {
-      await del(`/rules/${id}`)
-    } catch (e) {
-      fail(e)
-    }
+  deleteRule(id) {
+    deferDelete(set, getState, { kind: 'rule', id, path: `/rules/${id}`, message: 'Aviso eliminado' })
   },
   async readAllNotifications() {
     set((s) => ({ notifications: s.notifications.map((n) => ({ ...n, read: true })) }))
@@ -528,6 +442,81 @@ function syncDoneLabels(s, card, done) {
     }
   }
   return ids
+}
+
+// ── Deshacer ─────────────────────────────────────────────────────────────────
+// Las acciones delicadas muestran un aviso con «Deshacer». Los borrados se
+// aplazan: se quitan al momento de la pantalla, pero el servidor no los
+// recibe hasta que pasa el plazo; si se cierra la página antes, se envían
+// igualmente (keepalive).
+export const UNDO_MS = 8000
+const SLICES = ['projects', 'groups', 'labels', 'views', 'fields', 'notes', 'templates', 'links', 'attachments', 'cards', 'rules']
+const pendingDeletes = new Map() // clave → ruta de la API
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('pagehide', () => {
+    for (const path of pendingDeletes.values()) {
+      fetch(`/api${path}`, { method: 'DELETE', keepalive: true, credentials: 'include', headers: { 'x-client-id': CLIENT_ID } }).catch(() => {})
+    }
+    pendingDeletes.clear()
+  })
+}
+
+/* Aviso con «Deshacer» para un cambio ya hecho (undo lo revierte) */
+export function undoToast(message, undo) {
+  toast(message, { duration: UNDO_MS, action: { label: 'Deshacer', onClick: undo } })
+}
+
+/* Devuelve lo que quitó un borrado sin pisar lo que haya cambiado mientras */
+function restoreSnapshot(set, snap) {
+  set((s) => {
+    const next = {}
+    for (const k of SLICES) {
+      const cur = s[k]
+      const back = { ...cur }
+      for (const [id, v] of Object.entries(snap[k])) if (!(id in cur)) back[id] = v
+      next[k] = back
+    }
+    // Etiquetas quitadas de las tarjetas al borrar su grupo o la etiqueta
+    const lostLabels = new Set(Object.keys(snap.labels).filter((id) => !(id in s.labels)).map(Number))
+    if (lostLabels.size) {
+      next.cards = Object.fromEntries(
+        Object.entries(next.cards).map(([id, c]) => {
+          const old = snap.cards[id]
+          const add = old ? old.label_ids.filter((l) => lostLabels.has(l) && !c.label_ids.includes(l)) : []
+          return [id, add.length ? { ...c, label_ids: [...c.label_ids, ...add] } : c]
+        }),
+      )
+    }
+    return next
+  })
+}
+
+function deferDelete(set, getState, { kind, id, path, message }) {
+  const state = getState()
+  const snap = Object.fromEntries(SLICES.map((k) => [k, state[k]]))
+  set((s) => {
+    const next = { ...s }
+    removeLocal(next, kind, id)
+    return next
+  })
+  const key = `${kind}:${id}`
+  pendingDeletes.set(key, path)
+  const timer = setTimeout(async () => {
+    if (!pendingDeletes.has(key)) return
+    pendingDeletes.delete(key)
+    try {
+      await del(path)
+    } catch (e) {
+      fail(e)
+      getState().bootstrap()
+    }
+  }, UNDO_MS)
+  undoToast(message, () => {
+    pendingDeletes.delete(key)
+    clearTimeout(timer)
+    restoreSnapshot(set, snap)
+  })
 }
 
 function removeLocal(next, kind, id) {
