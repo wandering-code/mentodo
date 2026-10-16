@@ -182,6 +182,25 @@ def next_date(rule: dict, base, today):
     return nxt
 
 
+def first_due(db_user, c: Card):
+    """Una tarea que se repite y no tiene fecha recibe la de su primera
+    repetición (hoy o la siguiente que toque): así sale en el calendario y
+    las siguientes heredan el ritmo."""
+    from datetime import time, timedelta
+    from zoneinfo import ZoneInfo
+
+    rule = c.recurrence
+    if not rule or c.due_at or c.done or c.is_template:
+        return
+    try:
+        tz = ZoneInfo(db_user.timezone or "Europe/Madrid")
+    except Exception:
+        tz = ZoneInfo("Europe/Madrid")
+    today = datetime.now(tz).date()
+    day = next_date(rule, today - timedelta(days=1), today) if rule.get("freq") == "weekly" and rule.get("weekdays") else today
+    c.due_at, c.due_all_day = datetime.combine(day, time(12), tz).astimezone(timezone.utc), True
+
+
 def _uncheck(content):
     if not isinstance(content, dict):
         return content
@@ -446,6 +465,8 @@ def patch_card(card_id: int, body: CardPatch, em: Emitter = Depends(emitter), db
     elif data.get("done") is not None and data["done"] != c.done:
         _set_done(c, data["done"])
         _sync_labels_with_done(db, c)
+    if "recurrence" in data:
+        first_due(em.user, c)
     c.updated_at = datetime.now(timezone.utc)
     spawned = spawn_next(db, em.user, c) if (c.done and not was_done) else None
     db.commit()

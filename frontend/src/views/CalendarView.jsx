@@ -2,13 +2,14 @@ import { useMemo, useState } from 'react'
 import { DndContext, DragOverlay, MouseSensor, TouchSensor, useDraggable, useDroppable, useSensor, useSensors } from '@dnd-kit/core'
 import { addDays, addMonths, endOfMonth, endOfWeek, isSameDay, isSameMonth, startOfMonth, startOfWeek, subMonths } from 'date-fns'
 import { AnimatePresence, motion } from 'motion/react'
-import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Repeat } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { haptic } from '../lib/layers'
 import { allDayIso, fmt } from '../lib/dates'
 import { dueInfo } from '../lib/cards'
 import { Button, cx, IconButton, useIsMobile } from '../components/ui'
 import { CardRow } from '../components/CardRow'
+import { upcoming } from '../lib/recurrence'
 
 const key = (d) => fmt(d, 'yyyy-MM-dd')
 
@@ -48,7 +49,22 @@ function Chip({ card, onOpen, overlay, dateKey }) {
   )
 }
 
-function Day({ day, month, cards, onOpen, onAdd, compact, selected, onSelect, dateKey }) {
+/* Repetición futura de una tarea: aún no existe como tarjeta (se crea al
+   terminar la anterior). Al pulsarla se abre la tarea actual. */
+function Ghost({ card, onOpen }) {
+  return (
+    <button
+      onClick={(e) => (e.stopPropagation(), onOpen?.(card))}
+      title="Próxima repetición"
+      className="flex w-full items-center gap-1.5 truncate rounded-md border border-dashed border-line px-1.5 py-[2px] text-left text-[12px] leading-tight text-muted transition-colors hover:bg-hover"
+    >
+      <Repeat size={11} className="shrink-0 text-faint" />
+      <span className="truncate">{card.title || 'Sin título'}</span>
+    </button>
+  )
+}
+
+function Day({ day, month, cards, ghosts = [], onOpen, onAdd, compact, selected, onSelect, dateKey }) {
   const { setNodeRef, isOver } = useDroppable({ id: key(day) })
   const today = isSameDay(day, new Date())
   return (
@@ -78,17 +94,23 @@ function Day({ day, month, cards, onOpen, onAdd, compact, selected, onSelect, da
           </button>
         )}
       </div>
-      {compact && cards.length > 0 && (
+      {compact && cards.length + ghosts.length > 0 && (
         <div className="flex gap-[3px]">
           {cards.slice(0, 3).map((c) => (
             <span key={c.id} className={cx('size-[5px] rounded-full', c.done ? 'bg-line' : dueInfo(c)?.overdue ? 'bg-danger' : 'bg-accent')} />
+          ))}
+          {ghosts.slice(0, Math.max(0, 3 - cards.length)).map((c) => (
+            <span key={`g${c.id}`} className="size-[5px] rounded-full border border-faint" />
           ))}
         </div>
       )}
       {!compact && cards.slice(0, 4).map((c) => (
         <Chip key={c.id} card={c} onOpen={onOpen} dateKey={dateKey} />
       ))}
-      {!compact && cards.length > 4 && <span className="px-1.5 text-[11.5px] text-faint">+{cards.length - 4} más</span>}
+      {!compact && ghosts.slice(0, Math.max(0, 4 - cards.length)).map((c) => (
+        <Ghost key={`g${c.id}`} card={c} onOpen={onOpen} />
+      ))}
+      {!compact && cards.length + ghosts.length > 4 && <span className="px-1.5 text-[11.5px] text-faint">+{cards.length + ghosts.length - 4} más</span>}
     </div>
   )
 }
@@ -126,6 +148,14 @@ export function CalendarView({ project, view, cards, onOpen }) {
     for (const k in m) m[k].sort((a, b) => Number(a.done) - Number(b.done) || (at(a).allDay ? 0 : 1) - (at(b).allDay ? 0 : 1) || at(a).at.localeCompare(at(b).at))
     return m
   }, [cards, dateKey])
+  // Próximas repeticiones (solo con la fecha de entrega, que es la que avanza)
+  const ghostsByDay = useMemo(() => {
+    const m = {}
+    if (dateKey !== 'due') return m
+    const until = days[days.length - 1]
+    for (const c of cards) for (const d of upcoming(c, until)) (m[key(d)] ||= []).push(c)
+    return m
+  }, [cards, dateKey, days])
   const undated = cards.filter((c) => !readDate(c, dateKey) && !c.done).length
 
   const go = (n) => {
@@ -199,6 +229,7 @@ export function CalendarView({ project, view, cards, onOpen }) {
                   day={d}
                   month={month}
                   cards={byDay[key(d)] || []}
+                  ghosts={ghostsByDay[key(d)]}
                   onOpen={onOpen}
                   onAdd={add}
                   compact={compact}
@@ -221,7 +252,14 @@ export function CalendarView({ project, view, cards, onOpen }) {
             {(byDay[key(selected)] || []).map((c) => (
               <CardRow key={c.id} card={c} onOpen={onOpen} />
             ))}
-            {!(byDay[key(selected)] || []).length && <p className="px-1 py-3 text-[14px] text-faint">Nada para este día.</p>}
+            {(ghostsByDay[key(selected)] || []).map((c) => (
+              <button key={`g${c.id}`} onClick={() => onOpen(c)} className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-[15px] text-muted hover:bg-hover">
+                <Repeat size={15} className="shrink-0 text-faint" />
+                <span className="min-w-0 flex-1 truncate">{c.title || 'Sin título'}</span>
+                <span className="text-[12px] text-faint">se repetirá</span>
+              </button>
+            ))}
+            {!(byDay[key(selected)] || []).length && !(ghostsByDay[key(selected)] || []).length && <p className="px-1 py-3 text-[14px] text-faint">Nada para este día.</p>}
           </div>
         )}
         <DragOverlay dropAnimation={null}>{active ? <div className="w-36"><Chip card={s.cards[active]} overlay dateKey={dateKey} /></div> : null}</DragOverlay>
