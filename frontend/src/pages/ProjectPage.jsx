@@ -373,11 +373,18 @@ function Toolbar({ project, view }) {
         ? s.fields[Number(f.slice(2))]?.name
         : (f === 'due_at' && project.prop_names?.due) || SORT_FIELDS.find((x) => x.id === f)?.name) || f
 
+  // Chips de la bandeja: los que cambian lo que se ve (filtro, orden,
+  // ocultar terminadas) se pintan con el acento cuando están activos
   const pill = (activeState) =>
-    cx('inline-flex h-7 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-2 text-[13px] transition-colors', activeState ? 'bg-accent-soft text-accent' : 'text-muted hover:bg-hover hover:text-ink')
+    cx(
+      'inline-flex h-7 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 text-[12.5px] transition-colors',
+      activeState ? 'bg-accent-soft font-medium text-accent' : 'text-muted hover:bg-surface hover:text-ink',
+    )
 
   return (
-    <div className="flex items-center gap-1 overflow-x-auto touch-pan-x overflow-y-hidden overscroll-x-contain px-4 py-1.5 [scrollbar-width:none] sm:px-8">
+    // Las pestañas eligen qué ver; esta bandeja, cómo verlo
+    <div className="px-4 pb-1 pt-3 sm:px-8">
+    <div className="inline-flex max-w-full items-center gap-0.5 overflow-x-auto touch-pan-x overflow-y-hidden overscroll-x-contain rounded-xl border border-line bg-sunken p-1 [scrollbar-width:none]">
       {(view.kind === 'board' || view.kind === 'list') && (
         <button onClick={group.toggle} className={pill(false)}>
           <Layers size={14} />
@@ -405,6 +412,7 @@ function Toolbar({ project, view }) {
         <span className="max-sm:hidden">{cfg.hide_done ? 'Ocultando terminadas' : 'Terminadas visibles'}</span>
         <span className="sm:hidden">{cfg.hide_done ? 'Sin terminadas' : 'Terminadas'}</span>
       </button>
+    </div>
 
       <Popover open={dateSel.open} anchor={dateSel.anchor} onClose={dateSel.close} width={240}>
         <MenuLabel>Mostrar en el calendario</MenuLabel>
