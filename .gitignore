@@ -33,3 +33,6 @@ backend/uploads/*
 
 # Log de las copias de seguridad del mini PC
 backup.log
+
+# Exportaciones de Notion para importar (datos privados, con claves)
+despliegues/
