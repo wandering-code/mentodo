@@ -157,13 +157,18 @@ export function ReportView({ project, view, onOpen }) {
             const total = list.reduce((a, r) => a + r.days, 0)
             const mDate = new Date(`${month}-01T12:00:00`)
             return (
-              <section key={month} className="entra mt-5" style={{ '--entra-dura': '220ms' }}>
-                <div className="mb-1 flex items-baseline gap-2 border-b border-line px-1 pb-1.5">
-                  <h4 className="flex-1 text-[15px] font-semibold first-letter:uppercase">{fmt(mDate, 'MMMM')}</h4>
-                  <span className="text-[13.5px] text-muted">
-                    <b className="font-semibold tabular-nums text-ink">{nf(total)}</b> {total === 1 ? 'jornada' : 'jornadas'}
+              // Cada mes es un bloque propio: se ve de un vistazo dónde acaba
+              // uno y empieza el siguiente
+              <section key={month} className="entra mt-4 overflow-hidden rounded-2xl border border-line bg-surface shadow-soft" style={{ '--entra-dura': '220ms' }}>
+                <div className="flex items-center gap-2 border-b border-line bg-sunken px-3 py-2.5 sm:px-4">
+                  <h4 className="flex-1 text-[16px] font-semibold tracking-[-0.01em] first-letter:uppercase">
+                    {fmt(mDate, 'MMMM')} <span className="font-normal text-faint">{fmt(mDate, 'yyyy')}</span>
+                  </h4>
+                  <span className="rounded-lg bg-accent-soft px-2.5 py-1 text-[13px] text-accent">
+                    <b className="font-semibold tabular-nums">{nf(total)}</b> {total === 1 ? 'jornada' : 'jornadas'}
                   </span>
                 </div>
+                <div className="p-1.5 sm:p-2">
                 {list.map((r) => (
                   <div key={r.key} className="group flex items-center gap-3 rounded-xl px-1 py-1.5 transition-colors hover:bg-hover sm:px-2">
                     <button onClick={() => onOpen(r.card)} className="min-w-0 flex-1 text-left">
@@ -189,6 +194,7 @@ export function ReportView({ project, view, onOpen }) {
                     </div>
                   </div>
                 ))}
+                </div>
               </section>
             )
           })}
