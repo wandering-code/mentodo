@@ -7,6 +7,7 @@ import { get } from '../lib/api'
 import { fmt } from '../lib/dates'
 import { CardRow } from '../components/CardRow'
 import { Button, cx, IconButton } from '../components/ui'
+import { isInactive } from '../lib/cards'
 
 const fmtMin = (m) => (m < 60 ? `${m} min` : m % 60 ? `${Math.floor(m / 60)} h ${m % 60}` : `${m / 60} h`)
 
@@ -54,7 +55,7 @@ export function WeekPage() {
     // inicial (empezadas y paradas)
     const stuck = offset === 0
       ? cards.filter((c) => {
-          if (c.done || !c.project_id || s.projects[c.project_id]?.archived) return false
+          if (c.done || !c.project_id || s.projects[c.project_id]?.archived || isInactive(s, c)) return false
           if (differenceInCalendarDays(now, new Date(c.updated_at)) < 7) return false
           const status = Object.values(s.groups).find((g) => g.project_id === c.project_id && g.is_status)
           if (!status) return false

@@ -198,6 +198,7 @@ class LabelPatch(BaseModel):
     color: str | None = Field(None, max_length=20)
     position: float | None = None
     marks_done: bool | None = None
+    inactive: bool | None = None
 
 
 @router.post("/labels", status_code=201)
@@ -222,6 +223,12 @@ def patch_label(label_id: int, body: LabelPatch, em: Emitter = Depends(emitter),
         if not db.get(LabelGroup, l.group_id).is_status:
             raise HTTPException(422, "Solo las etiquetas del grupo de estado pueden significar terminado")
         _clear_done_labels(db, em, l.group_id, keep=l.id)
+    if body.inactive and not db.get(LabelGroup, l.group_id).is_status:
+        raise HTTPException(422, "Solo las etiquetas del grupo de estado pueden no contar")
+    if body.marks_done:
+        l.inactive = False  # terminado y «no cuenta» son excluyentes
+    if body.inactive:
+        l.marks_done = False
     for k, v in body.model_dump(exclude_unset=True).items():
         if v is not None:
             setattr(l, k, v)

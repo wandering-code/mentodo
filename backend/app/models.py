@@ -87,6 +87,10 @@ class Label(Base):
     # Una tarjeta con esta etiqueta cuenta como terminada (p. ej. "Hecho"). Solo
     # puede estar activa en una etiqueta del grupo de estado: el servidor lo garantiza.
     marks_done = Column(Boolean, nullable=False, default=False)
+    # Estado que «no cuenta» (p. ej. "Despliegues", un archivo de referencia):
+    # sus tarjetas no salen en Hoy ni en To Do ni generan avisos, aunque su
+    # fecha haya pasado. Solo en el grupo de estado.
+    inactive = Column(Boolean, nullable=False, default=False, server_default="false")
 
 
 card_labels = Table(

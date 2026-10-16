@@ -6,17 +6,19 @@ import { Archive, Bell, ChevronRight, CircleCheckBig, Inbox, NotebookText, Plus,
 import { useStore } from '../lib/store'
 import { Collapse, cx, IconButton, IS_MAC, Kbd, spring } from './ui'
 import { Logo, Wordmark } from './Logo'
+import { isInactive } from '../lib/cards'
 
 export function useNav() {
   const cards = useStore((s) => s.cards)
   const hidden = useStore((s) => s.hidden)
+  const labels = useStore((s) => s.labels)
   return useMemo(() => {
     const list = Object.values(cards).filter((c) => !hidden[c.id])
     return {
       inbox: list.filter((c) => c.project_id === null && !c.done).length,
-      todo: list.filter((c) => c.in_todo && !c.done).length,
+      todo: list.filter((c) => c.in_todo && !c.done && !isInactive({ labels }, c)).length,
     }
-  }, [cards, hidden])
+  }, [cards, hidden, labels])
 }
 
 function NavItem({ to, icon: Icon, children, count, onClick, end, touch }) {

@@ -9,6 +9,7 @@ import { linkBadges } from '../lib/links'
 import { deadlineOf } from '../lib/deadline'
 import { CardRow } from '../components/CardRow'
 import { Block, cx } from '../components/ui'
+import { isInactive } from '../lib/cards'
 
 const AVAIL = [2, 4, 6, 8]
 const QUICK = [10, 30, 60]
@@ -59,7 +60,7 @@ export function TodayPage() {
   const plan = useMemo(() => {
     const today0 = startOfDay(new Date())
     const today1 = endOfDay(new Date())
-    const active = (c) => !s.hidden[c.id] && (c.project_id === null || !s.projects[c.project_id]?.archived)
+    const active = (c) => !s.hidden[c.id] && !isInactive(s, c) && (c.project_id === null || !s.projects[c.project_id]?.archived)
     const doneToday = []
     const items = []
     for (const c of Object.values(s.cards)) {

@@ -8,6 +8,7 @@ import { useCardNav } from '../lib/nav'
 import { fmt } from '../lib/dates'
 import { CardRow } from '../components/CardRow'
 import { Block, Divider, MenuItem, MenuLabel, Popover, cx, usePopover } from '../components/ui'
+import { isInactive } from '../lib/cards'
 
 function greeting(name) {
   const h = new Date().getHours()
@@ -47,6 +48,7 @@ export function TodoPage() {
       (c) =>
         c.in_todo &&
         !s.hidden[c.id] &&
+        !isInactive(s, c) &&
         (c.project_id === null || !s.projects[c.project_id]?.archived) &&
         (selected == null || selected.includes(c.project_id ?? 0)),
     )
@@ -71,7 +73,7 @@ export function TodoPage() {
     for (const k in out) out[k].sort(k === 'nodate' ? (a, b) => (b.updated_at || '').localeCompare(a.updated_at || '') : byDue)
     out.doneToday.sort((a, b) => (b.completed_at || '').localeCompare(a.completed_at || ''))
     return out
-  }, [s.cards, s.hidden, s.projects, s.fields, selected])
+  }, [s.cards, s.hidden, s.projects, s.fields, s.labels, selected])
 
   const pending = groups.overdue.length + groups.today.length + groups.week.length + groups.later.length + groups.nodate.length
   const { open: openCard } = useCardNav()

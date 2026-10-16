@@ -139,6 +139,8 @@ def run_checks() -> list[tuple[int, dict]]:
                 if n:
                     created.append((user.id, n))
 
+            # Las tarjetas en un estado que «no cuenta» no generan avisos
+            cards = [c for c in cards if not any(l.inactive for l in c.labels)]
             for card in cards:
                 if card.project_id and projects.get(card.project_id) and projects[card.project_id].archived:
                     continue

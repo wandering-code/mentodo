@@ -3,7 +3,7 @@ import { Navigate, useNavigate, useParams } from 'react-router'
 import { motion } from 'motion/react'
 import { SortableList, SortableRow } from '../components/Sortable'
 import { TemplatesManager } from '../components/Templates'
-import { Archive, ArchiveRestore, ArrowLeft, CircleCheck, Eye, EyeOff, GripVertical, Flag, Plus, Trash2 } from 'lucide-react'
+import { Archive, ArchiveRestore, ArrowLeft, CircleCheck, Eye, MinusCircle, EyeOff, GripVertical, Flag, Plus, Trash2 } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { groupLabels, projectGroups } from '../lib/cards'
 import { defaultName, FIELD_KINDS, fieldIcon, hiddenInProject, projectProps } from '../lib/props'
@@ -57,6 +57,21 @@ function LabelRow({ label, isStatus }) {
         >
           <CircleCheck size={14} />
           {label.marks_done ? 'Terminado' : <span className="hidden sm:inline">Marcar como terminado</span>}
+        </button>
+      )}
+      {isStatus && !label.marks_done && (
+        <button
+          onClick={() => updateLabel(label.id, { inactive: !label.inactive })}
+          title={label.inactive ? 'Las tarjetas en este estado no salen en Hoy ni en To Do ni generan avisos' : 'Que las tarjetas en este estado no cuenten como pendientes'}
+          className={cx(
+            'inline-flex h-7 shrink-0 items-center gap-1.5 rounded-lg px-2 text-[12.5px] font-medium transition-[background-color,color,opacity] duration-150',
+            label.inactive
+              ? 'bg-sunken text-muted'
+              : 'text-faint opacity-0 hover:bg-hover hover:text-muted group-hover:opacity-100 max-sm:opacity-100',
+          )}
+        >
+          <MinusCircle size={14} />
+          {label.inactive ? 'No cuenta' : <span className="hidden sm:inline">No cuenta</span>}
         </button>
       )}
       <IconButton size="sm" label="Borrar etiqueta" onClick={() => confirm(`¿Borrar «${label.name}»?`) && deleteLabel(label.id)}>

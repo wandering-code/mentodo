@@ -113,3 +113,9 @@ export const SORT_FIELDS = [
 export function dueInfo(card, s = useStore.getState()) {
   return dateInfo(deadlineOf(s, card), card.done)
 }
+
+/* Tarjeta en un estado que «no cuenta» (p. ej. un archivo de despliegues):
+   no sale en Hoy ni en To Do ni genera avisos */
+export function isInactive(s, card) {
+  return card.label_ids.some((id) => s.labels[id]?.inactive)
+}

@@ -32,7 +32,7 @@ def group_out(g: LabelGroup):
 def label_out(l: Label):
     return {
         "id": l.id, "group_id": l.group_id, "name": l.name, "color": l.color,
-        "position": l.position, "marks_done": l.marks_done,
+        "position": l.position, "marks_done": l.marks_done, "inactive": l.inactive,
     }
 
 
