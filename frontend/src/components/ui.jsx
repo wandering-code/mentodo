@@ -347,7 +347,13 @@ export function usePopover() {
   return {
     open: !!anchor,
     anchor,
-    toggle: (e) => setAnchor((a) => (a ? null : e.currentTarget)),
+    // El elemento se lee aquí, no dentro del actualizador: React puede
+    // ejecutarlo más tarde, cuando el evento ya no tiene currentTarget, y
+    // entonces el menú no se abría (pasaba en el primer clic tras cargar)
+    toggle: (e) => {
+      const el = e.currentTarget
+      setAnchor((a) => (a ? null : el))
+    },
     openAt: (el) => setAnchor(el),
     close: () => setAnchor(null),
   }

@@ -8,7 +8,7 @@ import { useStore } from '../lib/store'
 import { useCardNav } from '../lib/nav'
 import { fieldIcon, projectProps } from '../lib/props'
 import { deadlineKey } from '../lib/deadline'
-import { applyFilter, groupLabels, projectGroups, projectViews, SORT_FIELDS, visibleCards } from '../lib/cards'
+import { DATE_FILTERS, SORT_FIELDS, VALUE_FILTERS, YESNO_FILTERS, applyFilter, filterCount, filterKind, groupLabels, projectGroups, projectViews, visibleCards } from '../lib/cards'
 import { BoardView } from '../views/BoardView'
 import { TableView } from '../views/TableView'
 import { ListView } from '../views/ListView'
@@ -378,6 +378,14 @@ function Toolbar({ project, view }) {
   const setCfg = (patch) => s.updateView(view.id, { config: { ...cfg, ...patch } })
   const sorts = cfg.sort || []
   const filterLabels = cfg.filter?.labels || []
+  const nFilters = filterCount(cfg.filter)
+  const propFilters = cfg.filter?.props || {}
+  const setPropFilter = (key, val) => {
+    const next = { ...propFilters }
+    if (val == null || val === '') delete next[key]
+    else next[key] = val
+    setCfg({ filter: { ...cfg.filter, props: next } })
+  }
   const sortName = (f) =>
     (f.startsWith('group:')
       ? s.groups[Number(f.slice(6))]?.name
@@ -418,9 +426,9 @@ function Toolbar({ project, view }) {
           <span><span className="max-sm:hidden">Fecha: </span>{dateProps.find((p) => p.key === (cfg.date_key || deadlineKey(s, project.id)))?.name || 'Fecha'}</span>
         </button>
       )}
-      <button onClick={filter.toggle} className={pill(filterLabels.length)}>
+      <button onClick={filter.toggle} className={pill(nFilters)}>
         <Filter size={14} />
-        Filtrar{filterLabels.length ? ` · ${filterLabels.length}` : ''}
+        Filtrar{nFilters ? ` · ${nFilters}` : ''}
       </button>
       <button onClick={() => setCfg({ hide_done: !cfg.hide_done })} className={pill(cfg.hide_done)}>
         {cfg.hide_done ? <EyeOff size={14} /> : <Eye size={14} />}
@@ -496,7 +504,7 @@ function Toolbar({ project, view }) {
         )}
       </Popover>
 
-      <Popover open={filter.open} anchor={filter.anchor} onClose={filter.close} width={280}>
+      <Popover open={filter.open} anchor={filter.anchor} onClose={filter.close} width={330}>
         {groups.map((g) => (
           <div key={g.id} className="pb-1">
             <MenuLabel>{g.name}</MenuLabel>
@@ -516,14 +524,49 @@ function Toolbar({ project, view }) {
             </div>
           </div>
         ))}
+        {projectProps(s, project.id)
+          .filter((p) => !p.group && filterKind(p.key, s))
+          .map((p) => (
+            <PropFilter key={p.key} prop={p} kind={filterKind(p.key, s)} value={propFilters[p.key]} onChange={(v) => setPropFilter(p.key, v)} />
+          ))}
         <Divider />
         <div className="flex items-center gap-2 px-2.5 py-1.5 text-[14px]">
           <span className="flex-1">Ocultar terminadas</span>
           <Toggle checked={!!cfg.hide_done} onChange={(v) => setCfg({ hide_done: v })} />
         </div>
-        {filterLabels.length > 0 && <MenuItem onClick={() => setCfg({ filter: { ...cfg.filter, labels: [] } })}>Quitar filtros</MenuItem>}
+        {nFilters > 0 && <MenuItem onClick={() => setCfg({ filter: { ...cfg.filter, labels: [], props: {} } })}>Quitar filtros</MenuItem>}
       </Popover>
     </div>
   )
 }
 
+
+/* Filtro de una propiedad (no etiquetas) según su tipo */
+function PropFilter({ prop, kind, value, onChange }) {
+  const opts = kind === 'date' ? DATE_FILTERS : kind === 'yesno' ? YESNO_FILTERS : VALUE_FILTERS
+  const text = kind === 'text' && value?.startsWith('has:') ? value.slice(4) : ''
+  const chip = (on) =>
+    cx('h-7 rounded-lg px-2 text-[12.5px] transition-colors', on ? 'bg-accent-soft font-medium text-accent' : 'bg-sunken text-muted hover:text-ink')
+  return (
+    <div className="pb-1">
+      <MenuLabel>{prop.name}</MenuLabel>
+      <div className="flex flex-wrap gap-1 px-2 pb-1">
+        {opts.map(([id, name]) => (
+          <button key={id} onClick={() => onChange(value === id ? null : id)} className={chip(value === id)}>
+            {name}
+          </button>
+        ))}
+        {kind === 'text' && (
+          <input
+            key={value?.startsWith('has:') ? 'has' : 'none'}
+            defaultValue={text}
+            placeholder="Contiene…"
+            onBlur={(e) => onChange(e.target.value.trim() ? `has:${e.target.value.trim()}` : value?.startsWith('has:') ? null : value)}
+            onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+            className={cx('h-7 w-28 rounded-lg px-2 text-[16px] outline-none sm:text-[12.5px]', text ? 'bg-accent-soft text-accent' : 'bg-sunken')}
+          />
+        )}
+      </div>
+    </div>
+  )
+}

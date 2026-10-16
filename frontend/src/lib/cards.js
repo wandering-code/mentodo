@@ -1,4 +1,5 @@
-import { dateInfo, deadlineOf } from './deadline'
+import { addDays, isAfter, isBefore, isSameDay, isSameMonth, isSameWeek, startOfDay } from 'date-fns'
+import { dateInfo, deadlineOf, readDate } from './deadline'
 import { useStore } from './store'
 
 // Ordenación y filtrado comunes a todas las vistas.
@@ -41,7 +42,74 @@ export function applyFilter(cards, filter = {}, s) {
     const q = filter.text.toLowerCase()
     out = out.filter((c) => c.title.toLowerCase().includes(q))
   }
+  // Resto de propiedades: { clave: condición } (todas se tienen que cumplir)
+  for (const [key, cond] of Object.entries(filter.props || {})) {
+    if (cond == null || cond === '') continue
+    out = out.filter((c) => matchProp(c, key, cond, s))
+  }
   return out
+}
+
+/* Opciones de filtro según el tipo de propiedad */
+export const DATE_FILTERS = [
+  ['overdue', 'Atrasada'],
+  ['today', 'Hoy'],
+  ['week', 'Esta semana'],
+  ['month', 'Este mes'],
+  ['next30', 'Próximos 30 días'],
+  ['set', 'Con fecha'],
+  ['empty', 'Sin fecha'],
+]
+export const YESNO_FILTERS = [
+  ['yes', 'Sí'],
+  ['no', 'No'],
+]
+export const VALUE_FILTERS = [
+  ['set', 'Con valor'],
+  ['empty', 'Vacío'],
+]
+
+/* Tipo de filtro de una propiedad: date | yesno | text | value */
+export function filterKind(key, s) {
+  if (key === 'due') return 'date'
+  if (key === 'todo' || key === 'repeat') return 'yesno'
+  if (key === 'remind' || key === 'estimate') return 'value'
+  if (key.startsWith('f:')) {
+    const kind = s.fields[key.slice(2)]?.kind
+    return kind === 'date' ? 'date' : kind === 'checkbox' ? 'yesno' : kind === 'text' || kind === 'url' ? 'text' : 'value'
+  }
+  return null
+}
+
+function rawValue(card, key) {
+  if (key.startsWith('f:')) return card.values?.[key.slice(2)]
+  return { due: card.due_at, remind: card.remind_at, repeat: card.recurrence, estimate: card.estimate_minutes, todo: card.in_todo }[key]
+}
+const empty = (v) => v === undefined || v === null || v === '' || v === false
+
+function matchProp(card, key, cond, s) {
+  const kind = filterKind(key, s)
+  const v = rawValue(card, key)
+  if (kind === 'yesno') return cond === 'yes' ? !empty(v) : empty(v)
+  if (kind === 'text' && cond.startsWith('has:')) return String(v || '').toLowerCase().includes(cond.slice(4).toLowerCase())
+  if (cond === 'set') return !empty(v)
+  if (cond === 'empty') return empty(v)
+  if (kind !== 'date') return true
+  const d = readDate(card, key)
+  if (!d) return false
+  const at = startOfDay(new Date(d.at))
+  const today = startOfDay(new Date())
+  if (cond === 'overdue') return !card.done && isBefore(at, today)
+  if (cond === 'today') return isSameDay(at, today)
+  if (cond === 'week') return isSameWeek(at, today, { weekStartsOn: 1 })
+  if (cond === 'month') return isSameMonth(at, today)
+  if (cond === 'next30') return !isBefore(at, today) && !isAfter(at, addDays(today, 30))
+  return true
+}
+
+/* Número de filtros activos (etiquetas + propiedades) */
+export function filterCount(filter = {}) {
+  return (filter.labels?.length || 0) + Object.values(filter.props || {}).filter((v) => v != null && v !== '' && v !== 'has:').length
 }
 
 function labelRank(s, card, groupId) {
