@@ -7,7 +7,7 @@ import {
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { AnimatePresence, motion } from 'motion/react'
-import { MoreHorizontal, Plus } from 'lucide-react'
+import { ChevronsLeftRight, ChevronsRightLeft, MoreHorizontal, Plus } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { between, groupLabels, sortCards } from '../lib/cards'
 import { LABEL_COLORS } from '../lib/palette'
@@ -38,7 +38,7 @@ function SortableCard({ card, groupId, onOpen, disabled }) {
   )
 }
 
-function Column({ id, label, group, cards, onOpen, onAdd, manual, projectId }) {
+function Column({ id, label, group, cards, onOpen, onAdd, manual, projectId, collapsed, onToggle }) {
   const { setNodeRef, isOver } = useDroppable({ id: `col:${id}`, data: { type: 'column', col: id } })
   const [adding, setAdding] = useState(false)
   const [text, setText] = useState('')
@@ -55,8 +55,39 @@ function Column({ id, label, group, cards, onOpen, onAdd, manual, projectId }) {
     inputRef.current?.focus()
   }
 
+  const name = label ? label.name : `Sin ${group.name.toLowerCase()}`
+
+  // Plegada: una tira estrecha con el nombre en vertical (sigue aceptando
+  // tarjetas que se suelten encima)
+  if (collapsed) {
+    return (
+      <div className="flex w-11 shrink-0 flex-col">
+        <div className="mb-2 h-8" />
+        <button
+          ref={setNodeRef}
+          onClick={onToggle}
+          title={`Desplegar «${name}»`}
+          className={cx(
+            'entra flex min-h-48 flex-1 flex-col items-center gap-2 rounded-2xl py-3 transition-colors duration-200',
+            isOver ? 'bg-accent-soft' : 'bg-[color-mix(in_oklab,var(--sunken)_70%,transparent)] hover:bg-sunken',
+          )}
+          style={{ '--entra-desde': 'translateX(-6px)', '--entra-dura': '220ms' }}
+        >
+          <ChevronsLeftRight size={14} className="shrink-0 text-faint" />
+          <span className="text-[12.5px] tabular-nums text-faint">{cards.length}</span>
+          <span
+            data-c={label?.color}
+            className={cx('rounded-md px-0.5 py-2 text-[13px] font-medium [writing-mode:vertical-rl]', label ? 'lbl' : 'text-muted')}
+          >
+            {name}
+          </span>
+        </button>
+      </div>
+    )
+  }
+
   return (
-    <div className="flex w-[84vw] max-w-[300px] shrink-0 flex-col sm:w-[300px]">
+    <div className="entra flex w-[84vw] max-w-[300px] shrink-0 flex-col sm:w-[300px]" style={{ '--entra-dura': '220ms' }}>
       <div className="group/col mb-2 flex h-8 items-center gap-2 px-1.5">
         {label ? (
           <span data-c={label.color} className="lbl rounded-md px-2 py-0.5 text-[13px] font-medium">
@@ -67,6 +98,9 @@ function Column({ id, label, group, cards, onOpen, onAdd, manual, projectId }) {
         )}
         <span className="text-[12.5px] tabular-nums text-faint">{cards.length}</span>
         <span className="flex-1" />
+        <IconButton size="sm" label="Plegar columna" onClick={onToggle} className="opacity-0 group-hover/col:opacity-100 max-sm:opacity-100">
+          <ChevronsRightLeft size={15} />
+        </IconButton>
         <TemplateButton projectId={projectId} labelIds={id === NONE ? [] : [Number(id)]} className="opacity-0 group-hover/col:opacity-100 max-sm:opacity-100" />
         <IconButton size="sm" label="Añadir tarjeta" onClick={() => setAdding(true)} className="opacity-0 group-hover/col:opacity-100 max-sm:opacity-100">
           <Plus size={15} />
@@ -182,6 +216,14 @@ export function BoardView({ project, view, cards, onOpen }) {
   const group = s.groups[groupId]
   const labels = useMemo(() => (group ? groupLabels(s, group.id) : []), [s.labels, group]) // eslint-disable-line react-hooks/exhaustive-deps
   const manual = !view.config.sort?.length
+  // Columnas plegadas: se guardan en la vista (se mantienen y se sincronizan)
+  const collapsed = (view.config.collapsed || []).map(String)
+  const toggleCollapsed = (col) => {
+    const key = String(col)
+    const cur = (useStore.getState().views[view.id]?.config || view.config)
+    const list = (cur.collapsed || []).map(String)
+    s.updateView(view.id, { config: { ...cur, collapsed: list.includes(key) ? list.filter((k) => k !== key) : [...list, key] } })
+  }
   const [active, setActive] = useState(null)
   // Columnas "en vivo" mientras se arrastra: { colId: [cardIds] }
   const [live, setLive] = useState(null)
@@ -353,6 +395,8 @@ export function BoardView({ project, view, cards, onOpen }) {
             onAdd={add}
             manual={manual}
             projectId={project.id}
+            collapsed={collapsed.includes(String(col))}
+            onToggle={() => toggleCollapsed(col)}
           />
         ))}
         <NewColumn group={group} count={labels.length} />
