@@ -7,7 +7,7 @@ import {
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { AnimatePresence, motion } from 'motion/react'
-import { ChevronsLeftRight, ChevronsRightLeft, MoreHorizontal, Plus } from 'lucide-react'
+import { ChevronRight, MoreHorizontal, Plus } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { between, groupLabels, sortCards } from '../lib/cards'
 import { LABEL_COLORS } from '../lib/palette'
@@ -57,38 +57,12 @@ function Column({ id, label, group, cards, onOpen, onAdd, manual, projectId, col
 
   const name = label ? label.name : `Sin ${group.name.toLowerCase()}`
 
-  // Plegada: una tira estrecha con el nombre en vertical (sigue aceptando
-  // tarjetas que se suelten encima)
-  if (collapsed) {
-    return (
-      <div className="flex w-11 shrink-0 flex-col">
-        <div className="mb-2 h-8" />
-        <button
-          ref={setNodeRef}
-          onClick={onToggle}
-          title={`Desplegar «${name}»`}
-          className={cx(
-            'entra flex min-h-48 flex-1 flex-col items-center gap-2 rounded-2xl py-3 transition-colors duration-200',
-            isOver ? 'bg-accent-soft' : 'bg-[color-mix(in_oklab,var(--sunken)_70%,transparent)] hover:bg-sunken',
-          )}
-          style={{ '--entra-desde': 'translateX(-6px)', '--entra-dura': '220ms' }}
-        >
-          <ChevronsLeftRight size={14} className="shrink-0 text-faint" />
-          <span className="text-[12.5px] tabular-nums text-faint">{cards.length}</span>
-          <span
-            data-c={label?.color}
-            className={cx('rounded-md px-0.5 py-2 text-[13px] font-medium [writing-mode:vertical-rl]', label ? 'lbl' : 'text-muted')}
-          >
-            {name}
-          </span>
-        </button>
-      </div>
-    )
-  }
-
   return (
-    <div className="entra flex w-[84vw] max-w-[300px] shrink-0 flex-col sm:w-[300px]" style={{ '--entra-dura': '220ms' }}>
+    <div className="flex w-[84vw] max-w-[300px] shrink-0 flex-col sm:w-[300px]">
       <div className="group/col mb-2 flex h-8 items-center gap-2 px-1.5">
+        <IconButton size="sm" label={collapsed ? `Desplegar «${name}»` : `Plegar «${name}»`} onClick={onToggle} className="-ml-1 -mr-1.5">
+          <ChevronRight size={15} className="text-faint" style={{ transform: `rotate(${collapsed ? 0 : 90}deg)`, transition: 'transform .25s cubic-bezier(.32,.72,0,1)' }} />
+        </IconButton>
         {label ? (
           <span data-c={label.color} className="lbl rounded-md px-2 py-0.5 text-[13px] font-medium">
             {label.name}
@@ -98,9 +72,6 @@ function Column({ id, label, group, cards, onOpen, onAdd, manual, projectId, col
         )}
         <span className="text-[12.5px] tabular-nums text-faint">{cards.length}</span>
         <span className="flex-1" />
-        <IconButton size="sm" label="Plegar columna" onClick={onToggle} className="opacity-0 group-hover/col:opacity-100 max-sm:opacity-100">
-          <ChevronsRightLeft size={15} />
-        </IconButton>
         <TemplateButton projectId={projectId} labelIds={id === NONE ? [] : [Number(id)]} className="opacity-0 group-hover/col:opacity-100 max-sm:opacity-100" />
         <IconButton size="sm" label="Añadir tarjeta" onClick={() => setAdding(true)} className="opacity-0 group-hover/col:opacity-100 max-sm:opacity-100">
           <Plus size={15} />
@@ -111,10 +82,25 @@ function Column({ id, label, group, cards, onOpen, onAdd, manual, projectId, col
           </IconButton>
         )}
       </div>
+      {collapsed ? (
+        // Plegada: solo se ocultan las tarjetas; la franja sigue aceptando
+        // tarjetas soltadas encima
+        <button
+          ref={setNodeRef}
+          onClick={onToggle}
+          className={cx(
+            'entra flex h-11 items-center justify-center rounded-2xl text-[13px] text-faint transition-colors duration-200',
+            isOver ? 'bg-accent-soft text-accent' : 'bg-[color-mix(in_oklab,var(--sunken)_70%,transparent)] hover:bg-sunken hover:text-muted',
+          )}
+          style={{ '--entra-dura': '200ms' }}
+        >
+          {cards.length === 0 ? 'Sin tarjetas' : cards.length === 1 ? '1 tarjeta' : `${cards.length} tarjetas`}
+        </button>
+      ) : (
       <div
         ref={setNodeRef}
         className={cx(
-          'flex min-h-24 flex-1 flex-col gap-2 rounded-2xl p-1.5 transition-colors duration-200',
+          'entra flex min-h-24 flex-1 flex-col gap-2 rounded-2xl p-1.5 transition-colors duration-200',
           isOver ? 'bg-accent-soft' : 'bg-[color-mix(in_oklab,var(--sunken)_70%,transparent)]',
         )}
       >
@@ -157,6 +143,7 @@ function Column({ id, label, group, cards, onOpen, onAdd, manual, projectId, col
           )}
         </AnimatePresence>
       </div>
+      )}
       {label && (
         <>
           <Popover open={menu.open} anchor={menu.anchor} onClose={menu.close} width={230}>
