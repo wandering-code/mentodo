@@ -6,7 +6,11 @@ self.skipWaiting()
 self.addEventListener('activate', () => self.clients.claim())
 
 cleanupOutdatedCaches()
-precacheAndRoute(self.__WB_MANIFEST)
+// Iconos y manifest fuera de la caché del service worker: iOS los pide al
+// añadir a la pantalla de inicio y, servidos desde aquí, puede no usarlos
+// (letra gris en vez del logo). Así van siempre directos a la red.
+const BYPASS = /(^|\/)(icons\/|apple-touch-icon|icon-\d+\.png|manifest\.webmanifest)/
+precacheAndRoute(self.__WB_MANIFEST.filter((e) => !BYPASS.test(typeof e === 'string' ? e : e.url)))
 registerRoute(new NavigationRoute(createHandlerBoundToURL('/index.html'), { denylist: [/^\/api/, /^\/ws/] }))
 
 self.addEventListener('push', (event) => {

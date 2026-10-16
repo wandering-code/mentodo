@@ -11,10 +11,13 @@
     <meta name="theme-color" content="#f8f6f0" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <link rel="icon" href="/logo.svg" type="image/svg+xml" />
+    <!-- Favicon en PNG, no SVG: iOS no sabe usar un SVG para la pantalla de
+         inicio y, si lo elige, pone una letra gris -->
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/favicon-192.png" />
     <!-- Icono de la pantalla de inicio en iPhone/iPad. iOS lo guarda por URL
          y no lo vuelve a pedir: para cambiarlo, usar un nombre de archivo nuevo -->
-    <link rel="apple-touch-icon" sizes="180x180" href="/icons/mentodo-touch-180.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/app-180.png" />
+    <link rel="apple-touch-icon-precomposed" sizes="180x180" href="/icons/app-180.png" />
     <meta name="apple-mobile-web-app-title" content="Mentodo" />
     <meta name="application-name" content="Mentodo" />
     <title>Mentodo</title>
