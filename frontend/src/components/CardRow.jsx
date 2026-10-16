@@ -73,8 +73,8 @@ function Meta({ card, chips, cl, meta, badges, project }) {
           {badges.subtasks.done}/{badges.subtasks.total}
         </span>
       )}
-      {meta.checks.map((f) => (
-        <CheckBadge key={f.id} field={f} />
+      {meta.checks.map(({ field: f, on }) => (
+        <CheckBadge key={f.id} field={f} on={on} />
       ))}
       {meta.dates.map(({ field, value }) => (
         <span key={field.id} className="inline-flex items-center gap-1 text-[12px] text-muted" title={field.name}>

@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { ArrowDown, ArrowUp, ExternalLink, EyeOff, Folder, Pencil, Plus, Tag, Trash2, X, Check } from 'lucide-react'
+import { ArrowDown, ArrowUp, ExternalLink, EyeOff, Folder, Pencil, Plus, Tag, Trash2, X, CircleCheck, CircleX } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { humanDate, toDateTimeInput } from '../lib/dates'
 import { FIELD_KINDS, fieldValue, hasValue, hiddenInCard, hiddenInProject, movedOrder, notAdded, projectProps, repeatText, WD } from '../lib/props'
@@ -15,7 +15,8 @@ import { cx, Divider, IconButton, LabelChip, MenuItem, MenuLabel, Popover, Toggl
 export function Properties({ card, project, onMove }) {
   const s = useStore()
   const props = useMemo(() => projectProps(s, card.project_id), [s.groups, s.fields, s.projects, card.project_id]) // eslint-disable-line react-hooks/exhaustive-deps
-  const off = (p) => hiddenInProject(project, p.key) || hiddenInCard(card, p.key) || notAdded(card, p, s.labels)
+  // Oculta en el proyecto salvo que esta tarjeta la haya vuelto a mostrar
+  const off = (p) => (hiddenInProject(project, p.key) && !card.extra_props?.includes(p.key)) || hiddenInCard(card, p.key) || notAdded(card, p, s.labels)
   const visible = props.filter((p) => !off(p))
   const hidden = props.filter(off)
 
@@ -154,10 +155,14 @@ function AddProperty({ card, project, hidden }) {
   // Por defecto, la propiedad nueva solo aparece en esta tarjeta
   const [everywhere, setEverywhere] = useState(false)
 
+  // Mostrar desde una tarjeta solo afecta a esa tarjeta, aunque estuviera
+  // oculta en todo el proyecto (para el proyecto entero: Ajustes → Propiedades)
   const show = (p) => {
-    if (notAdded(card, p, s.labels)) s.updateCard(card.id, { extra_props: [...(card.extra_props || []), p.key] })
-    if (hiddenInCard(card, p.key)) s.updateCard(card.id, { hidden_props: card.hidden_props.filter((k) => k !== p.key) })
-    if (hiddenInProject(project, p.key)) s.updateProject(project.id, { hidden_props: project.hidden_props.filter((k) => k !== p.key) })
+    const patch = {}
+    if ((notAdded(card, p, s.labels) || hiddenInProject(project, p.key)) && !card.extra_props?.includes(p.key))
+      patch.extra_props = [...(card.extra_props || []), p.key]
+    if (hiddenInCard(card, p.key)) patch.hidden_props = card.hidden_props.filter((k) => k !== p.key)
+    if (Object.keys(patch).length) s.updateCard(card.id, patch)
     pop.close()
   }
 
@@ -658,29 +663,33 @@ export function useCardMeta(card) {
   const project = useStore((s) => (card.project_id ? s.projects[card.project_id] : null))
   const fields = useStore((s) => s.fields)
   const deadline = useDeadlineKey(card.project_id)
-  const show = (key) => !hiddenInProject(project, key) && !hiddenInCard(card, key)
+  const show = (key) => (!hiddenInProject(project, key) || !!card.extra_props?.includes(key)) && !hiddenInCard(card, key)
   // Las otras fechas (no la de entrega, que va aparte y con colores), con
   // su nombre para distinguirlas
   const dates = Object.values(fields)
     .filter((f) => f.project_id === card.project_id && f.kind === 'date' && `f:${f.id}` !== deadline && show(`f:${f.id}`))
     .map((f) => ({ field: f, value: fieldValue(card, f) }))
     .filter((d) => d.value?.at)
-  // Casillas marcadas: se ven como insignia (p. ej. «✓ Oficial»)
+  // Casillas: icono verde si está marcada. Rojo si no lo está, pero solo en
+  // las «solo donde se añade» que esta tarjeta ha añadido (si no, saldría
+  // en rojo en todas las tarjetas del proyecto)
   const checks = Object.values(fields)
-    .filter((f) => f.project_id === card.project_id && f.kind === 'checkbox' && show(`f:${f.id}`) && fieldValue(card, f) === true)
-    .sort((a, b) => a.position - b.position)
+    .filter((f) => f.project_id === card.project_id && f.kind === 'checkbox' && show(`f:${f.id}`))
+    .map((f) => ({ field: f, on: fieldValue(card, f) === true }))
+    .filter(({ field, on }) => on || (field.opt_in && card.extra_props?.includes(`f:${field.id}`)))
+    .sort((a, b) => a.field.position - b.field.position)
   if (deadline !== 'due' && card.due_at && show('due'))
     dates.unshift({ field: { id: 'due', name: project?.prop_names?.due || 'Fecha' }, value: { at: card.due_at, all_day: card.due_all_day } })
   return { show, dates, checks, deadline, hasValue: (p) => hasValue(card, p) }
 }
 
 
-/* Insignia de una casilla marcada (en tablero y listas) */
-export function CheckBadge({ field }) {
+/* Icono de una casilla en tablero y listas: verde si está marcada, rojo si no */
+export function CheckBadge({ field, on }) {
+  const Icon = on ? CircleCheck : CircleX
   return (
-    <span className="inline-flex items-center gap-1 rounded-md bg-accent-soft px-1.5 py-[1px] text-[11.5px] font-medium text-accent">
-      <Check size={11} strokeWidth={2.75} />
-      {field.name}
+    <span title={`${field.name}: ${on ? 'sí' : 'no'}`} className="inline-flex" style={{ color: on ? 'var(--tc-verde)' : 'var(--danger)' }}>
+      <Icon size={14} strokeWidth={2.25} />
     </span>
   )
 }

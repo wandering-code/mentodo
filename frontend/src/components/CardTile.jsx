@@ -85,8 +85,8 @@ export const CardTile = memo(
               <LabelChip key={l.id} label={l} size="sm" />
             ))}
             {meta.show(meta.deadline) && <DueBadge card={card} />}
-            {meta.checks.map((f) => (
-              <CheckBadge key={f.id} field={f} />
+            {meta.checks.map(({ field: f, on }) => (
+              <CheckBadge key={f.id} field={f} on={on} />
             ))}
             {meta.dates.map(({ field, value }) => (
               <span key={field.id} className="inline-flex items-center gap-1 text-[12px] text-muted" title={field.name}>
