@@ -22,17 +22,36 @@ export function stepDate(rule, d) {
   return addDays(d, 1)
 }
 
-/* Próximas repeticiones de una tarea pendiente (sin contar la actual),
-   hasta `until`. Las que cuentan «desde que la termino» no se pueden prever. */
-export function upcoming(card, until, max = 60) {
+const readAt = (card, key) => {
+  if (!key || key === 'due') return card.due_at ? new Date(card.due_at) : null
+  const v = card.values?.[key.slice(2)]
+  return v?.at ? new Date(v.at) : null
+}
+
+/* Qué fecha marca el ritmo: la elegida en la regla o, si no, la que usa el
+   calendario del proyecto (lo normal es querer ver ahí cada repetición) */
+export function defaultRepeatKey(s, projectId) {
+  const cal = Object.values(s.views).find((v) => v.project_id === projectId && v.kind === 'calendar' && v.config?.date_key)
+  return cal?.config.date_key || 'due'
+}
+
+/* Próximas repeticiones de una tarea pendiente (sin contar la actual), tal
+   como caerían en la fecha `dateKey`, hasta `until`. Todas las fechas de la
+   tarjeta avanzan lo mismo que la que marca el ritmo. Las que cuentan «desde
+   que la termino» no se pueden prever. */
+export function upcoming(card, until, dateKey = 'due', max = 60) {
   const r = card.recurrence
-  if (!r || card.done || !card.due_at || r.from === 'done') return []
+  if (!r || card.done || r.from === 'done') return []
+  const anchor = readAt(card, r.key || 'due')
+  const target = readAt(card, dateKey)
+  if (!anchor || !target) return []
   const out = []
-  let d = new Date(card.due_at)
+  let d = anchor
   for (let i = 0; i < max; i++) {
     d = stepDate(r, d)
-    if (d > until) break
-    out.push(d)
+    const at = addDays(target, differenceInCalendarDays(d, anchor))
+    if (at > until) break
+    out.push(at)
   }
   return out
 }

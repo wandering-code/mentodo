@@ -5,6 +5,7 @@ import { useStore } from '../lib/store'
 import { humanDate, toDateTimeInput } from '../lib/dates'
 import { FIELD_KINDS, fieldValue, hasValue, hiddenInCard, hiddenInProject, movedOrder, projectProps, repeatText, WD } from '../lib/props'
 import { DatePicker, LabelPicker } from './Pickers'
+import { defaultRepeatKey } from '../lib/recurrence'
 import { cx, Divider, IconButton, LabelChip, MenuItem, MenuLabel, Popover, Toggle, usePopover } from './ui'
 
 /* Propiedades de una tarjeta: las de serie, los grupos de etiquetas y los
@@ -299,11 +300,19 @@ function RelativeDate({ card, dateKey }) {
 
 function RepeatValue({ card, compact }) {
   const updateCard = useStore((s) => s.updateCard)
+  const st = useStore()
   const pop = usePopover()
   const r = card.recurrence
-  const today = (card.due_at ? new Date(card.due_at) : new Date()).getDay()
+  // Fechas que pueden marcar el ritmo: la principal y las propias de tipo fecha
+  const dateProps = useMemo(
+    () => projectProps(st, card.project_id).filter((p) => p.key === 'due' || p.field?.kind === 'date'),
+    [st.projects, st.fields, card.project_id], // eslint-disable-line react-hooks/exhaustive-deps
+  )
+  const repeatKey = r?.key || (r ? 'due' : defaultRepeatKey(st, card.project_id))
+  const anchorAt = repeatKey === 'due' ? card.due_at : card.values?.[repeatKey.slice(2)]?.at
+  const today = (anchorAt ? new Date(anchorAt) : new Date()).getDay()
   const wd = (today + 6) % 7 // lunes = 0
-  const set = (rule) => updateCard(card.id, { recurrence: rule })
+  const set = (rule) => updateCard(card.id, { recurrence: rule && { ...rule, key: rule.key || repeatKey } })
   const presets = [
     ['Cada día', { freq: 'daily', interval: 1 }],
     ['Días laborables', { freq: 'weekly', interval: 1, weekdays: [0, 1, 2, 3, 4] }],
@@ -375,6 +384,22 @@ function RepeatValue({ card, compact }) {
                 </button>
               )
             })}
+          </div>
+        )}
+        {dateProps.length > 1 && (
+          <div className="flex items-center gap-2 px-3 pb-2 text-[14px] sm:px-2.5">
+            <span className="shrink-0">Fecha que se repite</span>
+            <select
+              value={repeatKey}
+              onChange={(e) => patch({ key: e.target.value })}
+              className="h-9 min-w-0 flex-1 rounded-lg bg-sunken px-2 text-[16px] outline-none sm:h-8 sm:text-[14px]"
+            >
+              {dateProps.map((p) => (
+                <option key={p.key} value={p.key}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
           </div>
         )}
         <label className="flex items-center gap-3 px-3 py-2 text-[14px] sm:px-2.5">

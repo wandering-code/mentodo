@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { DndContext, DragOverlay, MouseSensor, TouchSensor, useDraggable, useDroppable, useSensor, useSensors } from '@dnd-kit/core'
-import { addDays, addMonths, endOfMonth, endOfWeek, isSameDay, isSameMonth, startOfMonth, startOfWeek, subMonths } from 'date-fns'
+import { addDays, addMonths, endOfDay, endOfMonth, endOfWeek, isSameDay, isSameMonth, startOfMonth, startOfWeek, subMonths } from 'date-fns'
 import { AnimatePresence, motion } from 'motion/react'
 import { ChevronLeft, ChevronRight, Plus, Repeat } from 'lucide-react'
 import { useStore } from '../lib/store'
@@ -148,12 +148,11 @@ export function CalendarView({ project, view, cards, onOpen }) {
     for (const k in m) m[k].sort((a, b) => Number(a.done) - Number(b.done) || (at(a).allDay ? 0 : 1) - (at(b).allDay ? 0 : 1) || at(a).at.localeCompare(at(b).at))
     return m
   }, [cards, dateKey])
-  // Próximas repeticiones (solo con la fecha de entrega, que es la que avanza)
+  // Próximas repeticiones, en la fecha que muestra el calendario
   const ghostsByDay = useMemo(() => {
     const m = {}
-    if (dateKey !== 'due') return m
-    const until = days[days.length - 1]
-    for (const c of cards) for (const d of upcoming(c, until)) (m[key(d)] ||= []).push(c)
+    const until = endOfDay(days[days.length - 1])
+    for (const c of cards) for (const d of upcoming(c, until, dateKey)) (m[key(d)] ||= []).push(c)
     return m
   }, [cards, dateKey, days])
   const undated = cards.filter((c) => !readDate(c, dateKey) && !c.done).length

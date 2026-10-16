@@ -182,23 +182,60 @@ def next_date(rule: dict, base, today):
     return nxt
 
 
-def first_due(db_user, c: Card):
-    """Una tarea que se repite y no tiene fecha recibe la de su primera
-    repetición (hoy o la siguiente que toque): así sale en el calendario y
-    las siguientes heredan el ritmo."""
-    from datetime import time, timedelta
+def _anchor_key(rule) -> str:
+    """Fecha cuyo ritmo marca la repetición: la principal («due») o una
+    propiedad de fecha propia («f:<id>»)."""
+    k = (rule or {}).get("key") or "due"
+    return k if k == "due" or k.startswith("f:") else "due"
+
+
+def _read_anchor(c: Card, key: str):
+    if key == "due":
+        return c.due_at
+    v = (c.values or {}).get(key[2:])
+    if isinstance(v, dict) and v.get("at"):
+        try:
+            return datetime.fromisoformat(v["at"].replace("Z", "+00:00"))
+        except ValueError:
+            return None
+    return None
+
+
+def _write_anchor(c: Card, key: str, day, tz):
+    from datetime import time
+
+    at = datetime.combine(day, time(12), tz).astimezone(timezone.utc)
+    if key == "due":
+        c.due_at, c.due_all_day = at, True
+    else:
+        c.values = {**(c.values or {}), key[2:]: {"at": at.isoformat(), "all_day": True}}
+
+
+def _tz(user):
     from zoneinfo import ZoneInfo
 
-    rule = c.recurrence
-    if not rule or c.due_at or c.done or c.is_template:
-        return
     try:
-        tz = ZoneInfo(db_user.timezone or "Europe/Madrid")
+        return ZoneInfo(user.timezone or "Europe/Madrid")
     except Exception:
-        tz = ZoneInfo("Europe/Madrid")
+        return ZoneInfo("Europe/Madrid")
+
+
+def first_due(db_user, c: Card):
+    """Una tarea que se repite y no tiene la fecha que marca su ritmo recibe
+    la de su primera repetición (hoy o el siguiente día que toque): así sale
+    en el calendario y las siguientes heredan el ritmo."""
+    from datetime import timedelta
+
+    rule = c.recurrence
+    if not rule or c.done or c.is_template:
+        return
+    key = _anchor_key(rule)
+    if _read_anchor(c, key):
+        return
+    tz = _tz(db_user)
     today = datetime.now(tz).date()
     day = next_date(rule, today - timedelta(days=1), today) if rule.get("freq") == "weekly" and rule.get("weekdays") else today
-    c.due_at, c.due_all_day = datetime.combine(day, time(12), tz).astimezone(timezone.utc), True
+    _write_anchor(c, key, day, tz)
 
 
 def _uncheck(content):
@@ -222,15 +259,15 @@ def spawn_next(db: Session, user, done_card: Card) -> Card | None:
     rule = done_card.recurrence
     if not rule or done_card.is_template:
         return None
-    try:
-        tz = ZoneInfo(user.timezone or "Europe/Madrid")
-    except Exception:
-        tz = ZoneInfo("Europe/Madrid")
+    tz = _tz(user)
     today = datetime.now(tz).date()
-    due_local = done_card.due_at.astimezone(tz).date() if done_card.due_at else None
-    base = today if rule.get("from") == "done" or not due_local else due_local
+    key = _anchor_key(rule)
+    anchor = _read_anchor(done_card, key)
+    anchor_local = anchor.astimezone(tz).date() if anchor else None
+    base = today if rule.get("from") == "done" or not anchor_local else anchor_local
     nxt = next_date(rule, base, today if rule.get("from") != "done" else today + timedelta(days=1))
-    delta = timedelta(days=(nxt - (due_local or base)).days)
+    # Todas las fechas de la tarjeta se mueven lo mismo que la que marca el ritmo
+    delta = timedelta(days=(nxt - (anchor_local or base)).days)
 
     c = Card(user_id=user.id, project_id=done_card.project_id, title=done_card.title,
              content=_uncheck(done_card.content), in_todo=done_card.in_todo,
@@ -238,9 +275,6 @@ def spawn_next(db: Session, user, done_card: Card) -> Card | None:
              recurrence=rule, position=done_card.position)
     if done_card.due_at:
         c.due_at, c.due_all_day = done_card.due_at + delta, done_card.due_all_day
-    else:
-        from datetime import time
-        c.due_at, c.due_all_day = datetime.combine(nxt, time(12), tz).astimezone(timezone.utc), True
     if done_card.remind_at:
         c.remind_at = done_card.remind_at + delta
     values = {}
@@ -254,6 +288,8 @@ def spawn_next(db: Session, user, done_card: Card) -> Card | None:
         else:
             values[k] = v
     c.values = values
+    if not anchor:
+        _write_anchor(c, key, nxt, tz)
     db.add(c)
     db.flush()
     c.labels = _start_labels(db, list(done_card.labels))
