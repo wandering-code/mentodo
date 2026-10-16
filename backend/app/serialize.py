@@ -10,7 +10,7 @@ def user_out(u: User):
         "id": u.id, "username": u.username, "display_name": u.display_name, "status": u.status,
         "is_admin": u.is_admin, "accent": u.accent, "theme": u.theme, "timezone": u.timezone,
         "todo_projects": u.todo_projects, "created_at": iso(u.created_at),
-        "vault_salt": u.vault_salt, "vault_check": u.vault_check,
+        "vault_salt": u.vault_salt, "vault_check": u.vault_check, "prefs": u.prefs or {},
     }
 
 

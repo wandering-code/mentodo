@@ -29,6 +29,8 @@ class User(Base):
     todo_projects = Column(JSON, nullable=True)
     # Bóveda de secretos: cifrado en el navegador con una frase maestra. El
     # servidor solo guarda la sal y una comprobación cifrada, nunca la frase.
+    # Preferencias sueltas de la interfaz: {"today_time": false, ...}
+    prefs = Column(JSON, nullable=False, default=dict, server_default="{}")
     vault_salt = Column(String(64), nullable=True)
     vault_check = Column(String(200), nullable=True)
     created_at = Column(DateTime(timezone=True), default=now)

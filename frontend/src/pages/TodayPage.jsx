@@ -41,8 +41,12 @@ export function TodayPage() {
   const s = useStore()
   const { open } = useCardNav()
   const userId = s.user?.id
-  const [avail, setAvail] = useState(() => readAvail(userId))
-  const [quick, setQuick] = useState(null)
+  // Planificar el tiempo se puede apagar en Ajustes → Hoy
+  const timeOn = s.user?.prefs?.today_time !== false
+  const [availRaw, setAvail] = useState(() => readAvail(userId))
+  const [quickRaw, setQuick] = useState(null)
+  const avail = timeOn ? availRaw : null
+  const quick = timeOn ? quickRaw : null
   const [showDone, setShowDone] = useState(false)
 
   const chooseAvail = (h) => {
@@ -127,6 +131,7 @@ export function TodayPage() {
       </p>
 
       {/* Tiempo disponible y «tengo X minutos» */}
+      {timeOn && (
       <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2">
         <div className="flex items-center gap-1">
           <span className="mr-1 text-[13px] text-muted">Hoy tengo</span>
@@ -146,6 +151,7 @@ export function TodayPage() {
           ))}
         </div>
       </div>
+      )}
       {availMin != null && (
         <div className="mt-3">
           <div className="h-2 overflow-hidden rounded-full bg-sunken">

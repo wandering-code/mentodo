@@ -11,7 +11,7 @@ import { RulesEditor } from '../components/RulesEditor'
 import { VaultDialog } from '../components/VaultDialog'
 import { TemplatesManager } from '../components/Templates'
 import { lockVault, useVault, vaultSupported } from '../lib/vault'
-import { Button, cx, Input, spring } from '../components/ui'
+import { Button, cx, Input, spring, Toggle } from '../components/ui'
 import { SettingsSection } from './ProjectSettings'
 
 const THEMES = [
@@ -130,6 +130,16 @@ export function SettingsPage() {
             </button>
           ))}
         </div>
+      </SettingsSection>
+
+      <SettingsSection title="Hoy" description="Qué aparece en la página Hoy.">
+        <label className="flex items-center gap-3 text-[14px]">
+          <span className="flex-1">
+            Planificar el tiempo
+            <span className="block text-[12.5px] text-faint">«Hoy tengo X h» y «Solo un rato», para ver qué cabe en tu día según las estimaciones</span>
+          </span>
+          <Toggle checked={user.prefs?.today_time !== false} onChange={(v) => s.updateMe({ prefs: { today_time: v } })} />
+        </label>
       </SettingsSection>
 
       <SettingsSection title="Avisos" description="Notificaciones en este dispositivo aunque Mentodo esté cerrado.">

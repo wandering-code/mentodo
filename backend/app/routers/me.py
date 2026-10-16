@@ -22,6 +22,7 @@ class MePatch(BaseModel):
     clear_todo_projects: bool = False
     vault_salt: str | None = Field(None, max_length=64)
     vault_check: str | None = Field(None, max_length=200)
+    prefs: dict[str, bool | int | str | None] | None = None  # se fusiona con las guardadas
 
 
 class PasswordIn(BaseModel):
@@ -39,6 +40,8 @@ def patch_me(body: MePatch, em: Emitter = Depends(emitter), db: Session = Depend
         val = getattr(body, field)
         if val is not None:
             setattr(user, field, val)
+    if body.prefs:
+        user.prefs = {k: v for k, v in {**(user.prefs or {}), **body.prefs}.items() if v is not None}
     if body.clear_todo_projects:
         user.todo_projects = None
     db.commit()
