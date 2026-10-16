@@ -509,6 +509,9 @@ def patch_card(card_id: int, body: CardPatch, em: Emitter = Depends(emitter), db
     out = card_out(c)
     em.upsert("card", out)
     if spawned:
+        # Para avisar en el dispositivo que la ha terminado («Se repite: …»)
+        found = read_date(spawned, _anchor_key(db, spawned.recurrence, spawned))
+        out = {**out, "spawned": {"id": spawned.id, "at": found[0].isoformat() if found else None}}
         # echo: también al dispositivo que la ha terminado (la respuesta solo
         # trae la tarjeta terminada)
         em.upsert("card", card_out(spawned), echo=True)

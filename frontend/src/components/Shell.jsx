@@ -65,7 +65,15 @@ export function Shell() {
   const online = useStore((s) => s.online)
   const [params] = useSearchParams()
   const loc = useLocation()
-  const { close: closeCard } = useCardNav()
+  const { close: closeCard, open: openCard } = useCardNav()
+  // «Abrir» desde un aviso (p. ej. la siguiente de una tarea que se repite)
+  const openRef = useRef(openCard)
+  openRef.current = openCard
+  useEffect(() => {
+    const onOpen = (e) => openRef.current({ id: e.detail })
+    window.addEventListener('mentodo:open-card', onOpen)
+    return () => window.removeEventListener('mentodo:open-card', onOpen)
+  }, [])
   const cardId = params.get('card') ? Number(params.get('card')) : null
 
   useEffect(() => {

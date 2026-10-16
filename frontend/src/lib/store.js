@@ -1,3 +1,5 @@
+import { format } from 'date-fns'
+import { es } from 'date-fns/locale'
 import { create } from 'zustand'
 import { toast } from 'sonner'
 import { ApiError, CLIENT_ID, del, get, patch, post } from './api'
@@ -366,7 +368,19 @@ export const useStore = create((set, getState) => ({
       local.label_ids = []
       local.values = {}
     }
-    return optimisticPatch(set, getState, isTemplate ? 'templates' : 'cards', `/cards/${id}`, id, body, local)
+    const res = optimisticPatch(set, getState, isTemplate ? 'templates' : 'cards', `/cards/${id}`, id, body, local)
+    // Al terminar una tarea que se repite, el servidor crea la siguiente:
+    // se avisa para que no parezca que la repetición se ha perdido
+    if (card?.recurrence && local.done)
+      res.then((fresh) => {
+        const sp = fresh?.spawned
+        if (!sp) return
+        const when = sp.at ? format(new Date(sp.at), "EEE d 'de' MMM", { locale: es }) : null
+        toast.success(when ? `Se repite: nueva para el ${when}` : 'Se repite: creada la siguiente', {
+          action: { label: 'Abrir', onClick: () => window.dispatchEvent(new CustomEvent('mentodo:open-card', { detail: sp.id })) },
+        })
+      })
+    return res
   },
   deleteCard(id) {
     deferDelete(set, getState, { kind: 'card', id, path: `/cards/${id}`, message: `«${getState().cards[id]?.title || 'Sin título'}» eliminada` })
