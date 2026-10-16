@@ -433,7 +433,7 @@ export function Empty({ icon: Icon, title, children }) {
 
 /* Bloque con cabecera (como los meses del informe de jornadas): separa de un
    vistazo cada grupo de una lista. Plegable si se pide. */
-export function Block({ title, count, tone, collapsible = false, defaultOpen = true, right, children, className }) {
+export function Block({ title, count, tone, collapsible = false, defaultOpen = true, right, children, className, highlight = false }) {
   const [open, setOpen] = useState(defaultOpen)
   const shownOpen = !collapsible || open
   const Head = collapsible ? 'button' : 'div'
@@ -441,7 +441,7 @@ export function Block({ title, count, tone, collapsible = false, defaultOpen = t
     <section className={cx('entra mt-4 overflow-hidden rounded-2xl border border-line bg-surface shadow-soft', className)} style={{ '--entra-dura': '220ms' }}>
       <Head
         {...(collapsible ? { onClick: () => setOpen((v) => !v), type: 'button' } : {})}
-        className={cx('flex w-full items-center gap-2 bg-sunken px-3 py-2.5 text-left transition-[border-color] sm:px-4', shownOpen ? 'border-b border-line' : 'border-b border-transparent')}
+        className={cx('flex w-full items-center gap-2 px-3 py-2.5 text-left', highlight ? 'bg-accent-soft' : 'bg-sunken', ' transition-[border-color] sm:px-4', shownOpen ? 'border-b border-line' : 'border-b border-transparent')}
       >
         {collapsible && (
           <ChevronRight size={15} className="shrink-0 text-faint" style={{ transform: `rotate(${open ? 90 : 0}deg)`, transition: 'transform .25s cubic-bezier(.32,.72,0,1)' }} />

@@ -1,14 +1,14 @@
 import { useMemo, useState } from 'react'
 import { AnimatePresence } from 'motion/react'
 import { endOfDay, isBefore, isToday, startOfDay } from 'date-fns'
-import { ChevronRight, Coffee, Lock, Sun, Timer } from 'lucide-react'
+import { Coffee, Lock, Star, Sun, Timer } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { useCardNav } from '../lib/nav'
 import { fmt } from '../lib/dates'
 import { linkBadges } from '../lib/links'
 import { deadlineOf } from '../lib/deadline'
 import { CardRow } from '../components/CardRow'
-import { Collapse, cx } from '../components/ui'
+import { Block, cx } from '../components/ui'
 
 const AVAIL = [2, 4, 6, 8]
 const QUICK = [10, 30, 60]
@@ -47,7 +47,6 @@ export function TodayPage() {
   const [quickRaw, setQuick] = useState(null)
   const avail = timeOn ? availRaw : null
   const quick = timeOn ? quickRaw : null
-  const [showDone, setShowDone] = useState(false)
 
   const chooseAvail = (h) => {
     const v = avail === h ? null : h
@@ -170,49 +169,43 @@ export function TodayPage() {
 
       {quick && ready.length === 0 && <p className="mt-8 text-center text-[14px] text-faint">Nada de {fmtMin(quick)} o menos con estimación. Pon estimaciones a tus tareas para usar esto.</p>}
 
-      {main && (
-        <section className="entra mt-7">
-          <h2 className="mb-1 px-1 text-[12.5px] font-medium uppercase tracking-wide text-accent">Lo principal</h2>
-          <div className={cx('rounded-2xl border border-[color-mix(in_oklab,var(--accent)_30%,var(--line))] bg-accent-soft p-1', overflowIds.has(main.card.id) && 'opacity-60')}>
-            <CardRow card={main.card} onOpen={open} showProject />
-          </div>
-        </section>
-      )}
-      {next.length > 0 && (
-        <section className="mt-6">
-          <h2 className="mb-1 px-1 text-[12.5px] font-medium uppercase tracking-wide text-muted">Después</h2>
-          {rowList(next)}
-        </section>
-      )}
-      {rest.length > 0 && (
-        <section className="mt-6">
-          <h2 className="mb-1 flex items-center gap-1.5 px-1 text-[12.5px] font-medium uppercase tracking-wide text-faint">
-            <Coffee size={13} /> Si sobra tiempo
-          </h2>
-          {rowList(rest)}
-        </section>
-      )}
-      {plan.blocked.length > 0 && !quick && (
-        <section className="mt-6">
-          <h2 className="mb-1 flex items-center gap-1.5 px-1 text-[12.5px] font-medium uppercase tracking-wide text-danger">
-            <Lock size={13} /> Esperando a otras
-          </h2>
-          {rowList(plan.blocked)}
-        </section>
-      )}
-      {doneN > 0 && (
-        <section className="mt-6">
-          <button onClick={() => setShowDone((v) => !v)} className="mb-1 flex h-8 items-center gap-1.5 px-1 text-[12.5px] font-medium uppercase tracking-wide text-faint">
-            <ChevronRight size={14} style={{ transform: `rotate(${showDone ? 90 : 0}deg)`, transition: 'transform .25s cubic-bezier(.32,.72,0,1)' }} />
-            Hecho hoy · {doneN}
-          </button>
-          <Collapse open={showDone}>
+      {/* Cada grupo en su bloque, como To Do y el informe de jornadas */}
+      <div className="mt-3">
+        {main && (
+          <Block
+            title={<span className="flex items-center gap-1.5"><Star size={14} /> Lo principal</span>}
+            tone="text-accent"
+            highlight
+            className="border-[color-mix(in_oklab,var(--accent)_35%,var(--line))]"
+          >
+            <div className={cx(overflowIds.has(main.card.id) && 'opacity-60')}>
+              <CardRow card={main.card} onOpen={open} showProject />
+            </div>
+          </Block>
+        )}
+        {next.length > 0 && (
+          <Block title="Después" count={next.length}>
+            {rowList(next)}
+          </Block>
+        )}
+        {rest.length > 0 && (
+          <Block title={<span className="flex items-center gap-1.5"><Coffee size={14} /> Si sobra tiempo</span>} tone="text-muted" count={rest.length} collapsible>
+            {rowList(rest)}
+          </Block>
+        )}
+        {plan.blocked.length > 0 && !quick && (
+          <Block title={<span className="flex items-center gap-1.5"><Lock size={14} /> Esperando a otras</span>} tone="text-danger" count={plan.blocked.length} collapsible>
+            {rowList(plan.blocked)}
+          </Block>
+        )}
+        {doneN > 0 && (
+          <Block title="Hecho hoy" tone="text-faint" count={doneN} collapsible defaultOpen={false}>
             {plan.doneToday.map((c) => (
               <CardRow key={c.id} card={c} onOpen={open} showProject />
             ))}
-          </Collapse>
-        </section>
-      )}
+          </Block>
+        )}
+      </div>
     </div>
   )
 }
