@@ -75,6 +75,8 @@ class LabelGroup(Base):
     # Solo en él tiene sentido una etiqueta "de terminado".
     is_status = Column(Boolean, nullable=False, default=False)
     position = Column(Float, nullable=False, default=0)
+    # Solo aparece en las tarjetas donde se añade (o que tienen etiqueta), no en todas
+    opt_in = Column(Boolean, nullable=False, default=False, server_default="false")
 
 
 class Label(Base):
@@ -122,6 +124,8 @@ class Card(Base):
     values = Column(JSON, nullable=False, default=dict)
     # Propiedades ocultas solo en esta tarjeta (mismas claves que en Project)
     hidden_props = Column(JSON, nullable=False, default=list)
+    # Propiedades «solo donde se añaden» que esta tarjeta sí muestra
+    extra_props = Column(JSON, nullable=False, default=list, server_default="[]")
     # Plantilla: tarjeta modelo que no sale en las vistas. `template` guarda su
     # nombre y las fechas relativas: {"name": "...", "offsets": {"due": 0, "f:3": 7}}
     is_template = Column(Boolean, nullable=False, default=False, server_default="false", index=True)
@@ -144,6 +148,8 @@ class Field(Base):
     name = Column(String(60), nullable=False)
     kind = Column(String(12), nullable=False)  # date | text | number | checkbox | url
     position = Column(Float, nullable=False, default=0)
+    # Solo aparece en las tarjetas donde se añade (o que tienen valor), no en todas
+    opt_in = Column(Boolean, nullable=False, default=False, server_default="false")
 
 
 class Note(Base):

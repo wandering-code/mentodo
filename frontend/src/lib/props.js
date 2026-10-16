@@ -63,6 +63,15 @@ export const hiddenInProject = (project, key) => !!project?.hidden_props?.includ
 export const hiddenInCard = (card, key) => !!card?.hidden_props?.includes(key)
 export const propVisible = (project, card, key) => !hiddenInProject(project, key) && !hiddenInCard(card, key)
 
+/* Propiedad «solo donde se añade» que esta tarjeta no ha añadido (ni tiene
+   valor): no se muestra, pero se puede añadir desde «Añadir propiedad» */
+export function notAdded(card, prop, labels) {
+  const optIn = prop.field?.opt_in || prop.group?.opt_in
+  if (!optIn || card?.extra_props?.includes(prop.key)) return false
+  if (prop.group) return !card.label_ids.some((id) => labels?.[id]?.group_id === prop.group.id)
+  return !hasValue(card, prop)
+}
+
 export function fieldValue(card, field) {
   return card.values?.[String(field.id)]
 }

@@ -1,9 +1,9 @@
 import { useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { ArrowDown, ArrowUp, ExternalLink, EyeOff, Folder, Pencil, Plus, Tag, Trash2, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, ExternalLink, EyeOff, Folder, Pencil, Plus, Tag, Trash2, X, Check } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { humanDate, toDateTimeInput } from '../lib/dates'
-import { FIELD_KINDS, fieldValue, hasValue, hiddenInCard, hiddenInProject, movedOrder, projectProps, repeatText, WD } from '../lib/props'
+import { FIELD_KINDS, fieldValue, hasValue, hiddenInCard, hiddenInProject, movedOrder, notAdded, projectProps, repeatText, WD } from '../lib/props'
 import { DatePicker, LabelPicker } from './Pickers'
 import { defaultRepeatKey } from '../lib/recurrence'
 import { dateInfo, readDate, useDeadlineKey } from '../lib/deadline'
@@ -15,8 +15,9 @@ import { cx, Divider, IconButton, LabelChip, MenuItem, MenuLabel, Popover, Toggl
 export function Properties({ card, project, onMove }) {
   const s = useStore()
   const props = useMemo(() => projectProps(s, card.project_id), [s.groups, s.fields, s.projects, card.project_id]) // eslint-disable-line react-hooks/exhaustive-deps
-  const visible = props.filter((p) => !hiddenInProject(project, p.key) && !hiddenInCard(card, p.key))
-  const hidden = props.filter((p) => hiddenInProject(project, p.key) || hiddenInCard(card, p.key))
+  const off = (p) => hiddenInProject(project, p.key) || hiddenInCard(card, p.key) || notAdded(card, p, s.labels)
+  const visible = props.filter((p) => !off(p))
+  const hidden = props.filter(off)
 
   return (
     <div className="mt-5 flex flex-col gap-0.5 text-[14px]">
@@ -62,7 +63,9 @@ function PropRow({ prop, card, project, all }) {
 
   const hideInCard = () => {
     menu.close()
-    s.updateCard(card.id, { hidden_props: [...(card.hidden_props || []), prop.key] })
+    // Si era «solo donde se añade», se quita de esta tarjeta; si no, se oculta
+    if (card.extra_props?.includes(prop.key)) s.updateCard(card.id, { extra_props: card.extra_props.filter((k) => k !== prop.key) })
+    else s.updateCard(card.id, { hidden_props: [...(card.hidden_props || []), prop.key] })
   }
   const hideInProject = () => {
     menu.close()
@@ -148,8 +151,11 @@ function AddProperty({ card, project, hidden }) {
   const s = useStore.getState()
   const [creating, setCreating] = useState(null) // tipo que se está creando
   const [name, setName] = useState('')
+  // Por defecto, la propiedad nueva solo aparece en esta tarjeta
+  const [everywhere, setEverywhere] = useState(false)
 
   const show = (p) => {
+    if (notAdded(card, p, s.labels)) s.updateCard(card.id, { extra_props: [...(card.extra_props || []), p.key] })
     if (hiddenInCard(card, p.key)) s.updateCard(card.id, { hidden_props: card.hidden_props.filter((k) => k !== p.key) })
     if (hiddenInProject(project, p.key)) s.updateProject(project.id, { hidden_props: project.hidden_props.filter((k) => k !== p.key) })
     pop.close()
@@ -158,9 +164,16 @@ function AddProperty({ card, project, hidden }) {
   const create = async () => {
     const n = name.trim()
     if (!n) return
-    if (creating === 'labels') await s.createGroup({ project_id: project.id, name: n })
-    else await s.createField({ project_id: project.id, name: n, kind: creating })
+    const made =
+      creating === 'labels'
+        ? await s.createGroup({ project_id: project.id, name: n, opt_in: !everywhere })
+        : await s.createField({ project_id: project.id, name: n, kind: creating, opt_in: !everywhere })
+    if (made && !everywhere) {
+      const key = creating === 'labels' ? `g:${made.id}` : `f:${made.id}`
+      s.updateCard(card.id, { extra_props: [...(card.extra_props || []), key] })
+    }
     setCreating(null)
+    setEverywhere(false)
     setName('')
     pop.close()
   }
@@ -185,19 +198,25 @@ function AddProperty({ card, project, hidden }) {
               placeholder={creating === 'date' ? 'p. ej. Entrega, Revisión…' : 'Nombre'}
               className="h-9 w-full rounded-lg bg-sunken px-2.5 text-[14px] outline-none placeholder:text-faint"
             />
-            <p className="px-1 pt-2 text-[12px] text-faint">Se añade a todas las tarjetas del proyecto.</p>
+            <label className="flex items-center gap-2.5 px-1 pt-2.5 text-[13px]">
+              <Toggle checked={everywhere} onChange={setEverywhere} />
+              <span>
+                Añadir a todas las tarjetas
+                <span className="block text-[12px] text-faint">{everywhere ? 'Aparecerá en todas las del proyecto.' : 'Solo en esta; en las demás, desde «Añadir propiedad».'}</span>
+              </span>
+            </label>
           </div>
         ) : (
           <>
             {hidden.length > 0 && (
               <>
-                <MenuLabel>Ocultas</MenuLabel>
+                <MenuLabel>Disponibles</MenuLabel>
                 {hidden.map((p) => (
                   <MenuItem
                     key={p.key}
                     icon={p.icon}
                     onClick={() => show(p)}
-                    right={<span className="text-[11.5px] text-faint">{hiddenInProject(project, p.key) ? 'en el proyecto' : 'aquí'}</span>}
+                    right={<span className="text-[11.5px] text-faint">{hiddenInProject(project, p.key) ? 'en el proyecto' : hiddenInCard(card, p.key) ? 'aquí' : 'añadir'}</span>}
                   >
                     {p.name}
                   </MenuItem>
@@ -646,8 +665,22 @@ export function useCardMeta(card) {
     .filter((f) => f.project_id === card.project_id && f.kind === 'date' && `f:${f.id}` !== deadline && show(`f:${f.id}`))
     .map((f) => ({ field: f, value: fieldValue(card, f) }))
     .filter((d) => d.value?.at)
+  // Casillas marcadas: se ven como insignia (p. ej. «✓ Oficial»)
+  const checks = Object.values(fields)
+    .filter((f) => f.project_id === card.project_id && f.kind === 'checkbox' && show(`f:${f.id}`) && fieldValue(card, f) === true)
+    .sort((a, b) => a.position - b.position)
   if (deadline !== 'due' && card.due_at && show('due'))
     dates.unshift({ field: { id: 'due', name: project?.prop_names?.due || 'Fecha' }, value: { at: card.due_at, all_day: card.due_all_day } })
-  return { show, dates, deadline, hasValue: (p) => hasValue(card, p) }
+  return { show, dates, checks, deadline, hasValue: (p) => hasValue(card, p) }
 }
 
+
+/* Insignia de una casilla marcada (en tablero y listas) */
+export function CheckBadge({ field }) {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-md bg-accent-soft px-1.5 py-[1px] text-[11.5px] font-medium text-accent">
+      <Check size={11} strokeWidth={2.75} />
+      {field.name}
+    </span>
+  )
+}

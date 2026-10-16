@@ -158,6 +158,7 @@ function PropertyRow({ p, project }) {
       hidden_props: visible ? [...(project.hidden_props || []), p.key] : (project.hidden_props || []).filter((k) => k !== p.key),
     })
   const custom = !p.group && !p.field && project.prop_names?.[p.key]
+  const optIn = !!(p.field?.opt_in || p.group?.opt_in)
   // Fechas: una de ellas cuenta como entrega (como «Terminado» en el estado)
   const isDate = p.key === 'due' || p.field?.kind === 'date'
   const isDeadline = isDate && (project.deadline_key || 'due') === p.key
@@ -205,6 +206,15 @@ function PropertyRow({ p, project }) {
         >
           <Flag size={13} />
           {isDeadline ? 'Entrega' : <span className="hidden sm:inline">Marcar como entrega</span>}
+        </button>
+      )}
+      {((p.field) || (p.group && !p.group.is_status)) && (
+        <button
+          onClick={() => (p.field ? s.updateField(p.field.id, { opt_in: !optIn }) : s.updateGroup(p.group.id, { opt_in: !optIn }))}
+          title={optIn ? 'Solo aparece en las tarjetas donde la añadas (o que tengan valor). Pulsa para que aparezca en todas.' : 'Aparece en todas las tarjetas. Pulsa para que solo aparezca donde la añadas.'}
+          className="h-7 shrink-0 rounded-lg px-2 text-[12px] text-faint transition-colors hover:bg-hover hover:text-muted"
+        >
+          {optIn ? 'Donde se añada' : 'En todas'}
         </button>
       )}
       <span className="hidden w-16 shrink-0 text-right text-[12px] text-faint sm:inline">

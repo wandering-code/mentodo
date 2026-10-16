@@ -119,6 +119,7 @@ class GroupIn(BaseModel):
     project_id: int
     name: str = Field(min_length=1, max_length=60)
     multi: bool = False
+    opt_in: bool = False
 
 
 class GroupPatch(BaseModel):
@@ -126,6 +127,7 @@ class GroupPatch(BaseModel):
     multi: bool | None = None
     is_status: bool | None = None
     position: float | None = None
+    opt_in: bool | None = None
 
 
 def _clear_done_labels(db: Session, em: Emitter, group_id: int, keep: int | None = None):
@@ -139,7 +141,7 @@ def _clear_done_labels(db: Session, em: Emitter, group_id: int, keep: int | None
 def create_group(body: GroupIn, em: Emitter = Depends(emitter), db: Session = Depends(get_db)):
     own_project(db, em.user.id, body.project_id)
     top = db.scalar(select(func.max(LabelGroup.position)).where(LabelGroup.project_id == body.project_id)) or 0
-    g = LabelGroup(project_id=body.project_id, name=body.name, multi=body.multi, position=top + 1)
+    g = LabelGroup(project_id=body.project_id, name=body.name, multi=body.multi, opt_in=body.opt_in, position=top + 1)
     db.add(g)
     db.commit()
     out = group_out(g)
@@ -154,6 +156,8 @@ def patch_group(group_id: int, body: GroupPatch, em: Emitter = Depends(emitter),
         g.name = body.name
     if body.position is not None:
         g.position = body.position
+    if body.opt_in is not None:
+        g.opt_in = body.opt_in
     if body.is_status is True and not g.is_status:
         # Solo un grupo de estado por proyecto: el anterior deja de serlo
         for other in db.scalars(select(LabelGroup).where(LabelGroup.project_id == g.project_id,
@@ -309,18 +313,20 @@ class FieldIn(BaseModel):
     project_id: int
     name: str = Field(min_length=1, max_length=60)
     kind: str = Field(pattern=FIELD_KINDS)
+    opt_in: bool = False
 
 
 class FieldPatch(BaseModel):
     name: str | None = Field(None, min_length=1, max_length=60)
     position: float | None = None
+    opt_in: bool | None = None
 
 
 @router.post("/fields", status_code=201)
 def create_field(body: FieldIn, em: Emitter = Depends(emitter), db: Session = Depends(get_db)):
     own_project(db, em.user.id, body.project_id)
     top = db.scalar(select(func.max(CustomField.position)).where(CustomField.project_id == body.project_id)) or 0
-    f = CustomField(project_id=body.project_id, name=body.name, kind=body.kind, position=top + 1)
+    f = CustomField(project_id=body.project_id, name=body.name, kind=body.kind, opt_in=body.opt_in, position=top + 1)
     db.add(f)
     db.commit()
     out = field_out(f)

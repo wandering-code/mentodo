@@ -26,7 +26,7 @@ def project_out(p: Project):
 
 def group_out(g: LabelGroup):
     return {"id": g.id, "project_id": g.project_id, "name": g.name, "multi": g.multi,
-            "is_status": g.is_status, "position": g.position}
+            "is_status": g.is_status, "position": g.position, "opt_in": g.opt_in}
 
 
 def label_out(l: Label):
@@ -43,7 +43,7 @@ def card_out(c: Card):
         "due_at": iso(c.due_at), "due_all_day": c.due_all_day, "remind_at": iso(c.remind_at),
         "estimate_minutes": c.estimate_minutes, "position": c.position,
         "label_ids": sorted(l.id for l in c.labels),
-        "values": c.values or {}, "hidden_props": c.hidden_props or [],
+        "values": c.values or {}, "hidden_props": c.hidden_props or [], "extra_props": c.extra_props or [],
         "is_template": c.is_template, "template": c.template, "recurrence": c.recurrence,
         "postpone_count": c.postpone_count or 0,
         "created_at": iso(c.created_at), "updated_at": iso(c.updated_at),
@@ -71,7 +71,7 @@ def notification_out(n: Notification):
 
 
 def field_out(f: Field):
-    return {"id": f.id, "project_id": f.project_id, "name": f.name, "kind": f.kind, "position": f.position}
+    return {"id": f.id, "project_id": f.project_id, "name": f.name, "kind": f.kind, "position": f.position, "opt_in": f.opt_in}
 
 
 def note_out(n: Note):

@@ -3,7 +3,7 @@ import { CalendarClock, Clock3, ListTree, Lock, Repeat } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { checklist, DueBadge } from './CardTile'
 import { Checkbox, cx, LabelChip } from './ui'
-import { useCardMeta } from './Properties'
+import { CheckBadge, useCardMeta } from './Properties'
 import { humanDate } from '../lib/dates'
 import { badgesFromKey, linkBadgesKey } from '../lib/links'
 import { cardMenu } from './CardMenu'
@@ -73,6 +73,9 @@ function Meta({ card, chips, cl, meta, badges, project }) {
           {badges.subtasks.done}/{badges.subtasks.total}
         </span>
       )}
+      {meta.checks.map((f) => (
+        <CheckBadge key={f.id} field={f} />
+      ))}
       {meta.dates.map(({ field, value }) => (
         <span key={field.id} className="inline-flex items-center gap-1 text-[12px] text-muted" title={field.name}>
           <CalendarClock size={12} />

@@ -29,6 +29,7 @@ class CardIn(BaseModel):
     is_template: bool = False
     template: dict | None = None
     hidden_props: list[str] = []
+    extra_props: list[str] = []
 
 
 class CardPatch(BaseModel):
@@ -44,6 +45,7 @@ class CardPatch(BaseModel):
     position: float | None = None
     label_ids: list[int] | None = None
     hidden_props: list[str] | None = None
+    extra_props: list[str] | None = None
     template: dict | None = None
     recurrence: dict | None = None
     # Cambios parciales de campos propios: {"<field_id>": valor | null}
@@ -127,7 +129,7 @@ def create_card(body: CardIn, em: Emitter = Depends(emitter), db: Session = Depe
              in_todo=body.in_todo, due_at=body.due_at, due_all_day=body.due_all_day,
              estimate_minutes=body.estimate_minutes, position=position, values=body.values,
              is_template=body.is_template, template=body.template if body.is_template else None,
-             hidden_props=body.hidden_props)
+             hidden_props=body.hidden_props, extra_props=body.extra_props)
     db.add(c)
     db.flush()
     if body.label_ids:
@@ -267,7 +269,7 @@ def spawn_next(db: Session, user, done_card: Card) -> Card | None:
 
     c = Card(user_id=user.id, project_id=done_card.project_id, title=done_card.title,
              content=_uncheck(done_card.content), in_todo=done_card.in_todo,
-             estimate_minutes=done_card.estimate_minutes, hidden_props=list(done_card.hidden_props or []),
+             estimate_minutes=done_card.estimate_minutes, hidden_props=list(done_card.hidden_props or []), extra_props=list(done_card.extra_props or []),
              recurrence=rule, position=done_card.position)
     if done_card.due_at:
         c.due_at, c.due_all_day = done_card.due_at + delta, done_card.due_all_day
@@ -330,7 +332,7 @@ def instantiate(db: Session, user, src: Card, project_id: int | None, *, positio
         top = db.scalar(select(func.min(Card.position)).where(Card.user_id == user.id, Card.project_id == project_id))
         position = (top or 0) - 1
     c = Card(user_id=user.id, project_id=project_id, title=src.title, content=src.content, in_todo=src.in_todo,
-             estimate_minutes=src.estimate_minutes, hidden_props=list(src.hidden_props or []),
+             estimate_minutes=src.estimate_minutes, hidden_props=list(src.hidden_props or []), extra_props=list(src.extra_props or []),
              recurrence=src.recurrence, position=position, values=values)
     for key, days in offsets.items():
         if days is None:
@@ -398,7 +400,7 @@ def as_template(card_id: int, body: AsTemplateIn, em: Emitter = Depends(emitter)
     offsets = {k: v for k, v in offsets.items() if v is not None}
     project_id = None if body.profile else src.project_id
     t = Card(user_id=em.user.id, project_id=project_id, title=src.title, content=src.content, in_todo=src.in_todo,
-             estimate_minutes=src.estimate_minutes, hidden_props=list(src.hidden_props or []),
+             estimate_minutes=src.estimate_minutes, hidden_props=list(src.hidden_props or []), extra_props=list(src.extra_props or []),
              values={} if body.profile else keep_values, recurrence=src.recurrence, position=0,
              is_template=True, template={"name": src.title or "Plantilla", "offsets": offsets})
     db.add(t)
@@ -442,7 +444,7 @@ def duplicate_card(card_id: int, body: DuplicateIn, em: Emitter = Depends(emitte
         content=src.content if body.with_content else None, in_todo=src.in_todo,
         due_at=src.due_at, due_all_day=src.due_all_day, remind_at=src.remind_at,
         estimate_minutes=src.estimate_minutes, values=dict(src.values or {}),
-        hidden_props=list(src.hidden_props or []), recurrence=src.recurrence,
+        hidden_props=list(src.hidden_props or []), extra_props=list(src.extra_props or []), recurrence=src.recurrence,
         position=(src.position + nxt) / 2 if nxt is not None else src.position + 1,
     )
     db.add(c)
@@ -478,8 +480,8 @@ def patch_card(card_id: int, body: CardPatch, em: Emitter = Depends(emitter), db
     dkey = deadline_key(db.get(Project, c.project_id) if c.project_id else None)
     before = read_date(c, dkey)
     for k in ("title", "content", "in_todo", "due_at", "due_all_day", "remind_at", "estimate_minutes", "position",
-              "hidden_props", "template", "recurrence"):
-        if k in data and not (k in ("hidden_props", "template") and data[k] is None):
+              "hidden_props", "extra_props", "template", "recurrence"):
+        if k in data and not (k in ("hidden_props", "extra_props", "template") and data[k] is None):
             setattr(c, k, data[k])
     if data.get("values"):
         merged = dict(c.values or {})
