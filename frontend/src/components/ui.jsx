@@ -284,7 +284,10 @@ function DesktopPopover({ anchor, open, onClose, children, width, align, classNa
       const r = a.getBoundingClientRect()
       // Altura que pediría el contenido entero; si no cabe ni debajo ni
       // encima, va donde haya más sitio, recortado a ese hueco y con scroll
-      const natural = Math.min(ref.current?.scrollHeight || 300, 460)
+      // scrollHeight no incluye el borde: sin sumarlo, el menú quedaba 2 px
+      // corto y salía una barra de scroll aunque cupiera
+      const el = ref.current
+      const natural = Math.min(el ? el.scrollHeight + (el.offsetHeight - el.clientHeight) : 300, 460)
       let left = align === 'end' ? r.right - width : r.left
       left = Math.max(8, Math.min(left, window.innerWidth - width - 8))
       const below = window.innerHeight - r.bottom - 14
