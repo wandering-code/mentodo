@@ -167,7 +167,7 @@ function PropertyRow({ p, project }) {
   const toggle = () => {
     const before = project.hidden_props || []
     s.updateProject(project.id, { hidden_props: visible ? [...before, p.key] : before.filter((k) => k !== p.key) })
-    undoToast(visible ? `«${p.name}» oculta en todo el proyecto` : `«${p.name}» visible en todo el proyecto`, () => s.updateProject(project.id, { hidden_props: before }))
+    undoToast(visible ? `«${p.name}» oculta en el proyecto (salvo donde ya tiene valor)` : `«${p.name}» visible en todo el proyecto`, () => s.updateProject(project.id, { hidden_props: before }))
   }
   const custom = !p.group && !p.field && project.prop_names?.[p.key]
   const optIn = !!(p.field?.opt_in || p.group?.opt_in)

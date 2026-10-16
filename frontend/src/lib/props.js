@@ -63,6 +63,23 @@ export const hiddenInProject = (project, key) => !!project?.hidden_props?.includ
 export const hiddenInCard = (card, key) => !!card?.hidden_props?.includes(key)
 export const propVisible = (project, card, key) => !hiddenInProject(project, key) && !hiddenInCard(card, key)
 
+/* ¿Tiene valor la tarjeta en la propiedad `key`? (grupos: alguna etiqueta
+   de ese grupo) */
+export function hasKeyValue(card, key, labels) {
+  if (key.startsWith('g:')) return card.label_ids.some((id) => labels?.[id]?.group_id === Number(key.slice(2)))
+  if (key.startsWith('f:')) {
+    const v = card.values?.[key.slice(2)]
+    return v !== undefined && v !== null && v !== '' && v !== false
+  }
+  return !!{ due: card.due_at, remind: card.remind_at, repeat: card.recurrence, estimate: card.estimate_minutes, todo: card.in_todo }[key]
+}
+
+/* Oculta en todo el proyecto, salvo en las tarjetas que la han vuelto a
+   mostrar o que ya tienen valor en ella */
+export function hiddenByProject(project, card, key, labels) {
+  return hiddenInProject(project, key) && !card?.extra_props?.includes(key) && !hasKeyValue(card, key, labels)
+}
+
 /* Propiedad «solo donde se añade» que esta tarjeta no ha añadido (ni tiene
    valor): no se muestra, pero se puede añadir desde «Añadir propiedad» */
 export function notAdded(card, prop, labels) {

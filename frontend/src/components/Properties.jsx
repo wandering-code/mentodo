@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { ArrowDown, ArrowUp, ExternalLink, EyeOff, Folder, Pencil, Plus, Tag, Trash2, X, CircleCheck, CircleX } from 'lucide-react'
 import { undoToast, useStore } from '../lib/store'
 import { humanDate, toDateTimeInput } from '../lib/dates'
-import { FIELD_KINDS, fieldValue, hasValue, hiddenInCard, hiddenInProject, movedOrder, notAdded, projectProps, repeatText, WD } from '../lib/props'
+import { FIELD_KINDS, fieldValue, hasValue, hiddenInCard, hiddenInProject, movedOrder, hiddenByProject, notAdded, projectProps, repeatText, WD } from '../lib/props'
 import { DatePicker, LabelPicker } from './Pickers'
 import { defaultRepeatKey } from '../lib/recurrence'
 import { dateInfo, readDate, useDeadlineKey } from '../lib/deadline'
@@ -15,8 +15,9 @@ import { cx, Divider, IconButton, LabelChip, MenuItem, MenuLabel, Popover, Toggl
 export function Properties({ card, project, onMove }) {
   const s = useStore()
   const props = useMemo(() => projectProps(s, card.project_id), [s.groups, s.fields, s.projects, card.project_id]) // eslint-disable-line react-hooks/exhaustive-deps
-  // Oculta en el proyecto salvo que esta tarjeta la haya vuelto a mostrar
-  const off = (p) => (hiddenInProject(project, p.key) && !card.extra_props?.includes(p.key)) || hiddenInCard(card, p.key) || notAdded(card, p, s.labels)
+  // Oculta en el proyecto salvo que esta tarjeta la haya vuelto a mostrar o
+  // ya tenga valor en ella
+  const off = (p) => hiddenByProject(project, card, p.key, s.labels) || hiddenInCard(card, p.key) || notAdded(card, p, s.labels)
   const visible = props.filter((p) => !off(p))
   const hidden = props.filter(off)
 
@@ -74,7 +75,7 @@ function PropRow({ prop, card, project, all }) {
     menu.close()
     const before = project.hidden_props || []
     s.updateProject(project.id, { hidden_props: [...before, prop.key] })
-    undoToast(`«${prop.name}» oculta en todo el proyecto`, () => s.updateProject(project.id, { hidden_props: before }))
+    undoToast(`«${prop.name}» oculta en el proyecto (salvo donde ya tiene valor)`, () => s.updateProject(project.id, { hidden_props: before }))
   }
   const remove = () => {
     menu.close()
@@ -667,7 +668,8 @@ export function useCardMeta(card) {
   const project = useStore((s) => (card.project_id ? s.projects[card.project_id] : null))
   const fields = useStore((s) => s.fields)
   const deadline = useDeadlineKey(card.project_id)
-  const show = (key) => (!hiddenInProject(project, key) || !!card.extra_props?.includes(key)) && !hiddenInCard(card, key)
+  const labels = useStore((s) => s.labels)
+  const show = (key) => !hiddenByProject(project, card, key, labels) && !hiddenInCard(card, key)
   // Las otras fechas (no la de entrega, que va aparte y con colores), con
   // su nombre para distinguirlas
   const dates = Object.values(fields)
