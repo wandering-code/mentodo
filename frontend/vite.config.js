@@ -37,10 +37,14 @@ export default defineConfig({
         display: 'standalone',
         background_color: '#f7f5f0',
         theme_color: '#f7f5f0',
+        // Sin «?v=» en las URL (algunas versiones de iOS fallan con ellas) y
+        // con nombres nuevos para que iOS no use un fallo guardado. iOS usa
+        // estos iconos, no el apple-touch-icon, cuando lee el manifest.
         icons: [
-          { src: '/icons/icon-192.png?v=3', sizes: '192x192', type: 'image/png' },
-          { src: '/icons/icon-512.png?v=3', sizes: '512x512', type: 'image/png' },
-          { src: '/icons/maskable-512.png?v=3', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+          { src: '/icons/mentodo-touch-180.png', sizes: '180x180', type: 'image/png', purpose: 'any' },
+          { src: '/icons/mentodo-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+          { src: '/icons/mentodo-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+          { src: '/icons/mentodo-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
       },
       injectManifest: { globPatterns: ['**/*.{js,css,html,svg,png,woff2}'] },
