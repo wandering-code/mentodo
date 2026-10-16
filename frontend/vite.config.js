@@ -32,6 +32,7 @@ export default defineConfig({
         short_name: 'Mentodo',
         description: 'Tu mente. Todo en orden.',
         lang: 'es',
+        id: '/',
         start_url: '/',
         display: 'standalone',
         background_color: '#f7f5f0',
