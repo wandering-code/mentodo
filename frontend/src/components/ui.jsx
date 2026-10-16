@@ -1,6 +1,6 @@
 import { forwardRef, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Check, X } from 'lucide-react'
+import { Check, ChevronRight, X } from 'lucide-react'
 import { ARRIVE, css, LEAVE, QUICK, useBackToClose, usePresence } from '../lib/layers'
 
 // Muelles para lo poco que sigue en Motion (pastillas con layoutId)
@@ -428,5 +428,35 @@ export function Empty({ icon: Icon, title, children }) {
       <div className="text-[15px] font-medium text-ink">{title}</div>
       {children && <div className="mt-1 text-sm text-muted">{children}</div>}
     </div>
+  )
+}
+
+/* Bloque con cabecera (como los meses del informe de jornadas): separa de un
+   vistazo cada grupo de una lista. Plegable si se pide. */
+export function Block({ title, count, tone, collapsible = false, defaultOpen = true, right, children, className }) {
+  const [open, setOpen] = useState(defaultOpen)
+  const shownOpen = !collapsible || open
+  const Head = collapsible ? 'button' : 'div'
+  return (
+    <section className={cx('entra mt-4 overflow-hidden rounded-2xl border border-line bg-surface shadow-soft', className)} style={{ '--entra-dura': '220ms' }}>
+      <Head
+        {...(collapsible ? { onClick: () => setOpen((v) => !v), type: 'button' } : {})}
+        className={cx('flex w-full items-center gap-2 bg-sunken px-3 py-2.5 text-left transition-[border-color] sm:px-4', shownOpen ? 'border-b border-line' : 'border-b border-transparent')}
+      >
+        {collapsible && (
+          <ChevronRight size={15} className="shrink-0 text-faint" style={{ transform: `rotate(${open ? 90 : 0}deg)`, transition: 'transform .25s cubic-bezier(.32,.72,0,1)' }} />
+        )}
+        <h3 className={cx('flex-1 text-[15px] font-semibold tracking-[-0.01em]', tone)}>{title}</h3>
+        {right}
+        {count != null && <span className="rounded-lg bg-surface px-2 py-0.5 text-[12.5px] font-medium tabular-nums text-muted">{count}</span>}
+      </Head>
+      {collapsible ? (
+        <Collapse open={open}>
+          <div className="p-1.5 sm:p-2">{children}</div>
+        </Collapse>
+      ) : (
+        <div className="p-1.5 sm:p-2">{children}</div>
+      )}
+    </section>
   )
 }

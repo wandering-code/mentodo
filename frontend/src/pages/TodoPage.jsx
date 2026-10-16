@@ -1,13 +1,13 @@
 import { useMemo, useState } from 'react'
 import { AnimatePresence } from 'motion/react'
 import { addDays, endOfDay, isBefore, isToday, startOfDay } from 'date-fns'
-import { ChevronRight, CircleCheckBig, Plus, SlidersHorizontal } from 'lucide-react'
+import { CircleCheckBig, Plus, SlidersHorizontal } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { deadlineOf } from '../lib/deadline'
 import { useCardNav } from '../lib/nav'
 import { fmt } from '../lib/dates'
 import { CardRow } from '../components/CardRow'
-import { Collapse, cx, Divider, MenuItem, MenuLabel, Popover, usePopover } from '../components/ui'
+import { Block, Divider, MenuItem, MenuLabel, Popover, cx, usePopover } from '../components/ui'
 
 function greeting(name) {
   const h = new Date().getHours()
@@ -18,24 +18,16 @@ function greeting(name) {
   return `Buenas noches, ${first}`
 }
 
-function Section({ title, tone, cards, onOpen, collapsed: initial = false }) {
-  const [collapsed, setCollapsed] = useState(initial)
+function Section({ title, tone, cards, onOpen, collapsed = false }) {
   if (!cards.length) return null
   return (
-    <section className="mb-5">
-      <button onClick={() => setCollapsed((v) => !v)} className="mb-0.5 flex h-8 items-center gap-1.5 px-1 text-[13px] font-medium">
-        <ChevronRight size={14} className="text-faint" style={{ transform: `rotate(${collapsed ? 0 : 90}deg)`, transition: 'transform .25s cubic-bezier(.32,.72,0,1)' }} />
-        <span className={tone}>{title}</span>
-        <span className="ml-0.5 tabular-nums text-faint">{cards.length}</span>
-      </button>
-      <Collapse open={!collapsed}>
-        <AnimatePresence initial={false}>
-          {cards.map((c) => (
-            <CardRow key={c.id} card={c} onOpen={onOpen} showProject />
-          ))}
-        </AnimatePresence>
-      </Collapse>
-    </section>
+    <Block title={title} tone={tone} count={cards.length} collapsible defaultOpen={!collapsed}>
+      <AnimatePresence initial={false}>
+        {cards.map((c) => (
+          <CardRow key={c.id} card={c} onOpen={onOpen} showProject />
+        ))}
+      </AnimatePresence>
+    </Block>
   )
 }
 

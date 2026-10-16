@@ -5,7 +5,8 @@ import { useStore } from '../lib/store'
 import { useCardNav } from '../lib/nav'
 import { CardRow } from '../components/CardRow'
 import { ProjectPicker } from '../components/Pickers'
-import { Empty, IconButton, Popover, shortcut, usePopover } from '../components/ui'
+import { Block, Empty, IconButton, Popover, shortcut, usePopover } from '../components/ui'
+import { differenceInCalendarDays } from 'date-fns'
 
 /* Bandeja: todo lo capturado sin decidir aún dónde va. La idea es vaciarla
    de vez en cuando moviendo cada cosa a su proyecto (o borrándola). */
@@ -16,6 +17,16 @@ export function InboxPage() {
     () => Object.values(s.cards).filter((c) => c.project_id === null && !s.hidden[c.id] && !c.done).sort((a, b) => b.created_at.localeCompare(a.created_at)),
     [s.cards, s.hidden],
   )
+  // En bloques según cuándo se capturó: lo reciente arriba
+  const groups = useMemo(() => {
+    const out = [['Hoy', []], ['Ayer', []], ['Esta semana', []], ['Antes', []]]
+    const now = new Date()
+    for (const c of cards) {
+      const d = differenceInCalendarDays(now, new Date(c.created_at))
+      out[d <= 0 ? 0 : d === 1 ? 1 : d < 7 ? 2 : 3][1].push(c)
+    }
+    return out.filter(([, list]) => list.length)
+  }, [cards])
   const { open: openCard } = useCardNav()
   const add = async (e) => {
     e.preventDefault()
@@ -32,15 +43,19 @@ export function InboxPage() {
         <Plus size={17} className="text-faint" />
         <input autoFocus={window.innerWidth > 640} value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="¿Qué tienes en la cabeza?" className="flex-1 bg-transparent text-[15px] outline-none placeholder:text-faint" />
       </form>
-      <div className="mt-5">
-        <AnimatePresence initial={false}>
-          {cards.map((c) => (
-            <motion.div key={c.id} layout="position" exit={{ opacity: 0, transform: 'translateX(40px)', transition: { duration: 0.2 } }} className="group relative">
-              <CardRow card={c} onOpen={openCard} />
-              <MoveButton card={c} />
-            </motion.div>
-          ))}
-        </AnimatePresence>
+      <div className="mt-2">
+        {groups.map(([title, list]) => (
+          <Block key={title} title={title} count={list.length}>
+            <AnimatePresence initial={false}>
+              {list.map((c) => (
+                <motion.div key={c.id} layout="position" exit={{ opacity: 0, transform: 'translateX(40px)', transition: { duration: 0.2 } }} className="group relative">
+                  <CardRow card={c} onOpen={openCard} />
+                  <MoveButton card={c} />
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </Block>
+        ))}
         {cards.length === 0 && (
           <Empty icon={Inbox} title="Bandeja vacía">
             Mente despejada. Usa {shortcut('K')} o el botón + para capturar algo al vuelo.
