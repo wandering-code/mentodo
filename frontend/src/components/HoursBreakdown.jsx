@@ -5,11 +5,49 @@ import { useStore } from '../lib/store'
 import { dateOf, dayKey, fmtH } from '../lib/hours'
 import { clientOfProject } from './HoursParts'
 import { Collapse, cx } from './ui'
+import { HoursCalendar } from './HoursCalendar'
+
+const TABS = [
+  { id: 'projects', name: 'Por proyecto' },
+  { id: 'calendar', name: 'Calendario' },
+]
+
+/* Panel que se abre desde el Balance: reparto por proyecto o calendario del
+   mes. La pestaña elegida se recuerda en el dispositivo. */
+export function HoursBreakdown({ keys, viewKey, style, settings, onPick }) {
+  const userId = useStore((s) => s.user?.id)
+  const storeKey = `mentodo:hours-panel:${userId}`
+  const [tab, setTab] = useState(() => {
+    try {
+      return localStorage.getItem(storeKey) === 'calendar' ? 'calendar' : 'projects'
+    } catch {
+      return 'projects'
+    }
+  })
+  const choose = (t) => {
+    setTab(t)
+    try {
+      localStorage.setItem(storeKey, t)
+    } catch {}
+  }
+  return (
+    <div className="mt-3 rounded-2xl border border-line bg-surface p-3 shadow-soft sm:p-4">
+      <div className="mb-2 inline-flex rounded-xl bg-sunken p-1">
+        {TABS.map((t) => (
+          <button key={t.id} onClick={() => choose(t.id)} className={cx('h-8 rounded-lg px-3 text-[13px] transition-colors', tab === t.id ? 'bg-surface font-medium text-ink shadow-soft' : 'text-muted hover:text-ink')}>
+            {t.name}
+          </button>
+        ))}
+      </div>
+      {tab === 'projects' ? <ProjectBreakdown keys={keys} viewKey={viewKey} style={style} /> : <HoursCalendar viewKey={viewKey} style={style} settings={settings} onPick={onPick} />}
+    </div>
+  )
+}
 
 /* Desglose de lo imputado por proyecto (o por cliente, si el parte no va
    unido a ningún proyecto), de la semana vista o de su mes. El balance en sí
    no se reparte: la jornada es del día, no de un proyecto. */
-export function HoursBreakdown({ keys, viewKey, style }) {
+function ProjectBreakdown({ keys, viewKey, style }) {
   const s = useStore()
   const [period, setPeriod] = useState('week')
   const [openKey, setOpenKey] = useState(null)
@@ -41,9 +79,8 @@ export function HoursBreakdown({ keys, viewKey, style }) {
   const seg = (on) => cx('h-7 rounded-md px-2.5 text-[12.5px] transition-colors', on ? 'bg-surface font-medium text-ink shadow-soft' : 'text-muted hover:text-ink')
 
   return (
-    <div className="mt-3 rounded-2xl border border-line bg-surface p-3 shadow-soft sm:p-4">
-      <div className="flex items-center gap-2">
-        <span className="flex-1 text-[13.5px] font-medium">Por proyecto</span>
+    <div>
+      <div className="flex items-center justify-end gap-2">
         <div className="inline-flex rounded-lg bg-sunken p-0.5">
           <button onClick={() => setPeriod('week')} className={seg(period === 'week')}>
             Semana

@@ -441,7 +441,7 @@ export function HoursPage() {
         </div>
         <WeekStrip keys={keys} viewKey={viewKey} today={today} onPick={setViewKey} workdays={s.workdays} byDay={byDay} settings={settings} holidays={holidays} />
         <Collapse open={breakdown}>
-          <HoursBreakdown keys={keys} viewKey={viewKey} style={style} />
+          <HoursBreakdown keys={keys} viewKey={viewKey} style={style} settings={settings} onPick={setViewKey} />
         </Collapse>
       </div>
 
