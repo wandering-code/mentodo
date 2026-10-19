@@ -22,6 +22,8 @@ DEFAULTS = {
     "notify_exit": None,  # minutos antes de la salida prevista para avisar (None = no)
     "notify_close": None,  # "HH:MM": aviso si quedan horas sin imputar (None = no)
     "today_widget": True,
+    "csv_extra": False,  # columnas «Salida real» y «De más» al final del CSV
+    "today_extra": False,  # horas de más en el recuadro de Hoy
 }
 
 

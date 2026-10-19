@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router'
 import { ChevronRight, Clock, LogIn } from 'lucide-react'
 import { useStore } from '../lib/store'
-import { dayKey, dayOf, dayStatus, entriesByDay, fmtH, fmtSpan, hoursOn, hoursSettings, quantize, toHM, useHolidays, weekOf } from '../lib/hours'
+import { dayKey, dayOf, dayStatus, extraOf, entriesByDay, fmtH, fmtSpan, hoursOn, hoursSettings, quantize, toHM, useHolidays, weekOf } from '../lib/hours'
 
 /* Recuadro del parte de horas arriba de Hoy (si el módulo está activo y no se
    ha apagado en Ajustes → Parte de horas) */
@@ -27,6 +27,7 @@ export function HoursToday() {
   const st = dayStatus(day, today, list, now)
   const nowMin = now.getHours() * 60 + now.getMinutes()
   const f = (m) => fmtH(m, settings.format)
+  const extra = settings.today_extra ? extraOf(day, today, now) : null
 
   return (
     <div className="entra mt-5 flex items-center gap-3 rounded-2xl border border-line bg-surface px-3.5 py-3 shadow-soft" style={{ '--entra-espera': '100ms' }}>
@@ -44,6 +45,12 @@ export function HoursToday() {
             <span className="block truncate text-[12.5px] text-muted">
               {f(st.imputed)} de {f(day.target_minutes)}
               {st.exit != null && !day.end && ` · sales a las ${toHM(st.exit)}${nowMin < st.exit ? ` (en ${fmtSpan(st.exit - nowMin)})` : ''}`}
+              {extra && Math.abs(extra.minutes) >= 1 && (
+                <span className="font-medium" style={{ color: extra.minutes > 0 ? 'var(--tc-ambar)' : undefined }}>
+                  {' · '}
+                  {fmtH(extra.minutes, settings.format, true)} {extra.minutes > 0 ? 'de más' : 'antes de hora'}
+                </span>
+              )}
             </span>
           </>
         )}

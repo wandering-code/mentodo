@@ -8,7 +8,7 @@ import { get } from './api'
 
 const DAY = { target: 480, lunch: 45, lunch_from: '14:30' }
 export const DEFAULT_SCHEDULE = [DAY, DAY, DAY, DAY, { target: 480, lunch: 0, lunch_from: '14:30' }, { target: 0, lunch: 0, lunch_from: '14:30' }, { target: 0, lunch: 0, lunch_from: '14:30' }]
-export const DEFAULTS = { schedule: DEFAULT_SCHEDULE, step: 15, format: 'dec', region: null, notify_exit: null, notify_close: null, today_widget: true }
+export const DEFAULTS = { schedule: DEFAULT_SCHEDULE, step: 15, format: 'dec', region: null, notify_exit: null, notify_close: null, today_widget: true, csv_extra: false, today_extra: false }
 export const WEEKDAYS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
 export const WEEKDAYS_SHORT = ['L', 'M', 'X', 'J', 'V', 'S', 'D']
 
@@ -202,19 +202,25 @@ export function useHolidays(region, years) {
 
 /* CSV para Excel en español: «;» y coma decimal. Una línea por parte y los
    días sin partes también (registro de presencia). Mismas columnas que
-   Cuarto de Hora, para que lo que se haga después con él no cambie. */
+   Cuarto de Hora, para que lo que se haga después con él no cambie. Si se
+   activa en Ajustes, «Salida real» y «De más» van al final: las columnas de
+   siempre no se mueven. */
 export function hoursCsv({ keys, workdays, byDay, settings, holidays }) {
   const clean = (v) => String(v ?? '').replace(/[;\r\n]+/g, ', ')
   const n = (m) => (m / 60).toFixed(2).replace('.', ',')
-  const rows = ['Fecha;Día;Entrada;Salida prevista;Jornada;Comida;Comida desde;Cliente;Tarea;Horas']
+  const withExtra = !!settings.csv_extra
+  const rows = ['Fecha;Día;Entrada;Salida prevista;Jornada;Comida;Comida desde;Cliente;Tarea;Horas' + (withExtra ? ';Salida real;De más' : '')]
   for (const k of keys) {
     const d = dayOf(workdays, k, settings, holidays)
     const list = byDay[k] || []
     if (!d.exists && !list.length) continue
     const ex = exitOf(d)
     const head = [k.split('-').reverse().join('/'), WEEKDAYS[weekdayIdx(dateOf(k))], d.start || '', ex == null ? '' : toHM(ex) + (ex >= 1440 ? ' (+1)' : ''), n(d.target_minutes), n(d.lunch_minutes), d.lunch_from]
-    if (!list.length) rows.push([...head, '', '', ''].join(';'))
-    for (const e of list) rows.push([...head, clean(e.client), clean(e.task), n(e.minutes)].join(';'))
+    // De más solo con salida real: lo que cuenta en vivo hoy aún no es definitivo
+    const x = withExtra && d.end ? extraOf(d, k) : null
+    const tail = withExtra ? [d.end || '', x ? n(x.minutes) : ''] : []
+    if (!list.length) rows.push([...head, '', '', '', ...tail].join(';'))
+    for (const e of list) rows.push([...head, clean(e.client), clean(e.task), n(e.minutes), ...tail].join(';'))
   }
   return rows.join('\r\n')
 }

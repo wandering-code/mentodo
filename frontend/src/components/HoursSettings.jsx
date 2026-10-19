@@ -172,6 +172,27 @@ export function HoursSettings() {
           <Toggle checked={st.today_widget !== false} onChange={(v) => save({ today_widget: v })} />
         </label>
       </div>
+
+      <div className="flex flex-col gap-4">
+        <div>
+          <div className={sub}>Horas de más</div>
+          <p className="mt-0.5 text-[12.5px] text-faint">En Horas se ven siempre (junto a la salida real y al balance). Aquí eliges si también salen en otros sitios.</p>
+        </div>
+        <label className="flex items-center gap-3 text-[14px]">
+          <span className="flex-1">
+            En el CSV
+            <span className="block text-[12.5px] text-faint">Añade «Salida real» y «De más» al final; las columnas de siempre no se mueven</span>
+          </span>
+          <Toggle checked={!!st.csv_extra} onChange={(v) => save({ csv_extra: v })} />
+        </label>
+        <label className="flex items-center gap-3 text-[14px]">
+          <span className="flex-1">
+            En el recuadro de Hoy
+            <span className="block text-[12.5px] text-faint">Lo que llevas de más hoy, junto a tu hora de salida</span>
+          </span>
+          <Toggle checked={!!st.today_extra} onChange={(v) => save({ today_extra: v })} />
+        </label>
+      </div>
     </div>
   )
 }
