@@ -62,6 +62,16 @@ export function fmtSpan(min) {
   return m % 60 ? `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')}` : `${m / 60} h`
 }
 
+/* Horas de más con signo y en horas y minutos: «+45 min», «+1 h 25 min»,
+   «−30 min». Para esto se entiende mejor que 0,75 o 1,42. */
+export function fmtDelta(min) {
+  const m = Math.round(Math.abs(min))
+  const sign = min < 0 ? '−' : '+'
+  const h = Math.floor(m / 60)
+  const r = m % 60
+  return sign + (h ? `${h} h${r ? ` ${r} min` : ''}` : `${r} min`)
+}
+
 /* Lo que se escribe en «Horas»: 1,25 · 1.5 · 1:15 · 90m · 45 min */
 export function parseDuration(text) {
   const t = String(text || '').trim().toLowerCase().replace(/\s+/g, '')

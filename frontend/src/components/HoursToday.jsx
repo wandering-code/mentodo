@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router'
 import { ChevronRight, Clock, LogIn } from 'lucide-react'
 import { useStore } from '../lib/store'
-import { dayKey, dayOf, dayStatus, extraOf, entriesByDay, fmtH, fmtSpan, hoursOn, hoursSettings, quantize, toHM, useHolidays, weekOf } from '../lib/hours'
+import { dayKey, dayOf, dayStatus, extraOf, fmtDelta, entriesByDay, fmtH, fmtSpan, hoursOn, hoursSettings, quantize, toHM, useHolidays, weekOf } from '../lib/hours'
 
 /* Recuadro del parte de horas arriba de Hoy (si el módulo está activo y no se
    ha apagado en Ajustes → Parte de horas) */
@@ -48,7 +48,7 @@ export function HoursToday() {
               {extra && Math.abs(extra.minutes) >= 1 && (
                 <span className="font-medium" style={{ color: extra.minutes > 0 ? 'var(--tc-ambar)' : undefined }}>
                   {' · '}
-                  {fmtH(extra.minutes, settings.format, true)} {extra.minutes > 0 ? 'de más' : 'antes de hora'}
+                  {fmtDelta(extra.minutes)} {extra.minutes > 0 ? 'de más' : 'antes de hora'}
                 </span>
               )}
             </span>

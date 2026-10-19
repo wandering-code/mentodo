@@ -6,7 +6,7 @@ import { useStore } from '../lib/store'
 import { useCardNav } from '../lib/nav'
 import { fmt } from '../lib/dates'
 import {
-  dateOf, dayKey, dayOf, dayStatus, entriesByDay, fmtH, fmtSpan, hoursOn, hoursSettings, isZero, parseDuration, quantize, sumMinutes, toHM, toMin,
+  dateOf, dayKey, dayOf, dayStatus, fmtDelta, entriesByDay, fmtH, fmtSpan, hoursOn, hoursSettings, isZero, parseDuration, quantize, sumMinutes, toHM, toMin,
   extraOf, useHolidays, weekBalance, weekExtra, WEEKDAYS_SHORT, weekOf,
 } from '../lib/hours'
 import { DurationChips, projectOfClient, SuggestInput, TimeField, useClientSuggestions } from '../components/HoursParts'
@@ -418,7 +418,7 @@ export function HoursPage() {
             >
               <span className="whitespace-nowrap text-[12.5px] text-faint">De más</span>
               <span className="rounded-lg px-2 py-0.5 text-[13.5px] font-semibold tabular-nums" style={extraStyle(weekExtraMin)}>
-                {fmtH(weekExtraMin, style, true)}
+                {fmtDelta(weekExtraMin)}
               </span>
             </span>
           )}
@@ -480,7 +480,7 @@ export function HoursPage() {
               extra={
                 extra && !isZero(extra.minutes) && (
                   <span className="mt-1 inline-flex rounded-md px-1.5 py-0.5 text-[12px] font-semibold tabular-nums" style={extraStyle(extra.minutes)}>
-                    {fmtH(extra.minutes, style, true)} {extra.minutes > 0 ? 'de más' : 'antes de hora'}
+                    {fmtDelta(extra.minutes)} {extra.minutes > 0 ? 'de más' : 'antes de hora'}
                     {extra.live && <span className="ml-1 font-normal opacity-75">· contando</span>}
                   </span>
                 )
