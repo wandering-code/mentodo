@@ -4,6 +4,7 @@ import { get } from '../lib/api'
 import { useStore } from '../lib/store'
 import { DEFAULT_SCHEDULE, fmtH, hoursOn, hoursSettings, parseDuration, quantize, WEEKDAYS } from '../lib/hours'
 import { cx, Toggle } from './ui'
+import { TimeField } from './HoursParts'
 
 /* Ajustes → Módulos y Ajustes → Parte de horas. Todo va en user.prefs: el
    módulo apagado no deja rastro en ninguna otra parte de la app. */
@@ -82,13 +83,7 @@ export function HoursSettings() {
               <span className={cx('truncate text-[14px]', d.target ? 'text-ink' : 'text-faint')}>{WEEKDAYS[i]}</span>
               <SmallDuration minutes={d.target} style={st.format} step={st.step} onCommit={(m) => setDay(i, { target: m })} />
               <SmallDuration minutes={d.lunch} style={st.format} step={5} onCommit={(m) => setDay(i, { lunch: m })} />
-              <input
-                type="time"
-                step={300}
-                value={d.lunch_from}
-                onChange={(e) => e.target.value && setDay(i, { lunch_from: e.target.value })}
-                className="h-9 w-full rounded-lg border border-line bg-surface px-1.5 text-[14px] tabular-nums outline-none"
-              />
+              <TimeField value={d.lunch_from} allowEmpty={false} onChange={(v) => setDay(i, { lunch_from: v })} label={`Comida desde, ${WEEKDAYS[i]}`} className="w-full px-1.5 text-[14px]" />
             </div>
           ))}
         </div>
@@ -165,7 +160,7 @@ export function HoursSettings() {
             <span className="block text-[12.5px] text-faint">A esa hora, aviso si queda jornada sin imputar</span>
           </span>
           {st.notify_close && (
-            <input type="time" step={300} value={st.notify_close} onChange={(e) => e.target.value && save({ notify_close: e.target.value })} className="h-9 rounded-lg border border-line bg-surface px-2 text-[13.5px] tabular-nums outline-none" />
+            <TimeField value={st.notify_close} allowEmpty={false} onChange={(v) => save({ notify_close: v })} label="Hora del cierre del día" className="text-[13.5px]" />
           )}
           <Toggle checked={!!st.notify_close} onChange={(v) => save({ notify_close: v ? '18:00' : null })} />
         </label>

@@ -9,7 +9,7 @@ import {
   dateOf, dayKey, dayOf, dayStatus, entriesByDay, fmtH, fmtSpan, hoursOn, hoursSettings, isZero, parseDuration, quantize, sumMinutes, toHM, toMin,
   useHolidays, weekBalance, WEEKDAYS_SHORT, weekOf,
 } from '../lib/hours'
-import { DurationChips, projectOfClient, SuggestInput, useClientSuggestions } from '../components/HoursParts'
+import { DurationChips, projectOfClient, SuggestInput, TimeField, useClientSuggestions } from '../components/HoursParts'
 import { HoursExport } from '../components/HoursExport'
 import { Block, Button, Collapse, cx, Empty, IconButton } from '../components/ui'
 
@@ -65,25 +65,6 @@ function Stat({ label, children, sub }) {
       <div className="mt-0.5 text-[19px] font-semibold tabular-nums tracking-[-0.02em]">{children}</div>
       {sub && <div className="text-[12px] text-muted">{sub}</div>}
     </div>
-  )
-}
-
-/* Hora «HH:MM» que se redondea a la precisión elegida al soltarla */
-function TimeField({ value, onChange, step, className, placeholder = '--:--', allowEmpty = true, label }) {
-  return (
-    <input
-      type="time"
-      aria-label={label}
-      step={step * 60}
-      value={value || ''}
-      placeholder={placeholder}
-      onChange={(e) => {
-        const v = e.target.value
-        if (!v) return allowEmpty && onChange(null)
-        onChange(toHM(quantize(toMin(v), step)))
-      }}
-      className={cx('h-9 rounded-lg border border-line bg-surface px-2 text-[15px] tabular-nums text-ink outline-none transition-[border-color,box-shadow] focus:border-[color-mix(in_oklab,var(--accent)_55%,var(--line))] focus:shadow-[0_0_0_3px_color-mix(in_oklab,var(--accent)_16%,transparent)]', className)}
-    />
   )
 }
 

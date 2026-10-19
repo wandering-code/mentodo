@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { get } from '../lib/api'
 import { useStore } from '../lib/store'
+import { quantize, toHM, toMin } from '../lib/hours'
 import { cx } from './ui'
 
 /* Piezas del parte de horas que se usan en más de un sitio (página Horas y
@@ -143,5 +144,40 @@ export function DurationChips({ step, value, onPick, extra }) {
       ))}
       {extra}
     </div>
+  )
+}
+
+/* Hora «HH:MM». Se guarda al salir del campo (o con Intro), no en cada
+   pulsación: mientras se escribe «08:30», el navegador entrega antes
+   «08:03», y redondearlo ahí lo dejaba en 08:00 sin poder terminar. Al
+   guardar se redondea a la precisión elegida. */
+export function TimeField({ value, onChange, step = 1, className, allowEmpty = true, label }) {
+  const [text, setText] = useState(value || '')
+  const focused = useRef(false)
+  useEffect(() => {
+    if (!focused.current) setText(value || '')
+  }, [value])
+  const commit = () => {
+    focused.current = false
+    if (!text) {
+      if (allowEmpty && value) onChange(null)
+      else setText(value || '')
+      return
+    }
+    const v = toHM(quantize(toMin(text), step))
+    setText(v)
+    if (v !== value) onChange(v)
+  }
+  return (
+    <input
+      type="time"
+      aria-label={label}
+      value={text}
+      onFocus={() => (focused.current = true)}
+      onChange={(e) => setText(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+      className={cx('h-9 rounded-lg border border-line bg-surface px-2 text-[15px] tabular-nums text-ink outline-none transition-[border-color,box-shadow] focus:border-[color-mix(in_oklab,var(--accent)_55%,var(--line))] focus:shadow-[0_0_0_3px_color-mix(in_oklab,var(--accent)_16%,transparent)]', className)}
+    />
   )
 }
