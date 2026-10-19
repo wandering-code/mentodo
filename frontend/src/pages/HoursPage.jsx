@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, Navigate } from 'react-router'
 import { addDays } from 'date-fns'
-import { ArrowRight, Check, ChevronLeft, ChevronRight, Clock, Download, LogIn, Plus, RotateCcw, SlidersHorizontal, Trash2, Utensils, Wand2 } from 'lucide-react'
+import { ArrowRight, Check, ChevronDown, ChevronLeft, ChevronRight, Clock, Download, LogIn, Plus, RotateCcw, SlidersHorizontal, Trash2, Utensils, Wand2 } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { useCardNav } from '../lib/nav'
 import { fmt } from '../lib/dates'
@@ -11,6 +11,7 @@ import {
 } from '../lib/hours'
 import { DurationChips, projectOfClient, SuggestInput, TimeField, useClientSuggestions } from '../components/HoursParts'
 import { HoursExport } from '../components/HoursExport'
+import { HoursBreakdown } from '../components/HoursBreakdown'
 import { Block, Button, Collapse, cx, Empty, IconButton } from '../components/ui'
 
 /* Reloj de la página: lo que depende de la hora (trabajado, cuenta atrás) se
@@ -299,6 +300,22 @@ export function HoursPage() {
   const [viewKey, setViewKey] = useState(today)
   const [setup, setSetup] = useState(false)
   const [exporting, setExporting] = useState(false)
+  // Desglose por proyecto: plegado salvo que se abra (se recuerda en el dispositivo)
+  const bdKey = `mentodo:hours-breakdown:${s.user?.id}`
+  const [breakdown, setBreakdown] = useState(() => {
+    try {
+      return localStorage.getItem(bdKey) === '1'
+    } catch {
+      return false
+    }
+  })
+  const toggleBreakdown = () =>
+    setBreakdown((v) => {
+      try {
+        localStorage.setItem(bdKey, v ? '0' : '1')
+      } catch {}
+      return !v
+    })
   const settings = hoursSettings(s.user)
   const style = settings.format
   const keys = useMemo(() => weekOf(dateOf(viewKey)).map(dayKey), [viewKey])
@@ -384,16 +401,26 @@ export function HoursPage() {
             </Button>
           )}
           <div className="flex-1" />
-          <span className="text-[12.5px] text-faint">Balance</span>
-          <span
-            className="rounded-lg px-2 py-0.5 text-[13.5px] font-semibold tabular-nums"
-            style={{ color: isZero(balance) ? TONE.full : balance < 0 ? TONE.over : TONE.full, background: `color-mix(in oklab, ${balance < -0.5 ? TONE.over : TONE.full} 13%, transparent)` }}
-            title="Imputado menos jornada, solo en los días con partes"
+          <button
+            onClick={toggleBreakdown}
+            aria-expanded={breakdown}
+            title="Imputado menos jornada, solo en los días con partes. Toca para ver el desglose por proyecto."
+            className={cx('flex items-center gap-1.5 rounded-lg py-0.5 pl-2 pr-1 transition-colors hover:bg-hover', breakdown && 'bg-hover')}
           >
-            {fmtH(balance, style, true)}
-          </span>
+            <span className="text-[12.5px] text-faint">Balance</span>
+            <span
+              className="rounded-lg px-2 py-0.5 text-[13.5px] font-semibold tabular-nums"
+              style={{ color: isZero(balance) ? TONE.full : balance < 0 ? TONE.over : TONE.full, background: `color-mix(in oklab, ${balance < -0.5 ? TONE.over : TONE.full} 13%, transparent)` }}
+            >
+              {fmtH(balance, style, true)}
+            </span>
+            <ChevronDown size={14} className="text-faint" style={{ transform: `rotate(${breakdown ? 180 : 0}deg)`, transition: 'transform .25s cubic-bezier(.32,.72,0,1)' }} />
+          </button>
         </div>
         <WeekStrip keys={keys} viewKey={viewKey} today={today} onPick={setViewKey} workdays={s.workdays} byDay={byDay} settings={settings} holidays={holidays} />
+        <Collapse open={breakdown}>
+          <HoursBreakdown keys={keys} viewKey={viewKey} style={style} />
+        </Collapse>
       </div>
 
       {/* Anillo y cifras del día */}
