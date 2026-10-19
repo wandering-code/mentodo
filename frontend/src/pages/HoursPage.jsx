@@ -7,7 +7,7 @@ import { useCardNav } from '../lib/nav'
 import { fmt } from '../lib/dates'
 import {
   dateOf, dayKey, dayOf, dayStatus, entriesByDay, fmtH, fmtSpan, hoursOn, hoursSettings, isZero, parseDuration, quantize, sumMinutes, toHM, toMin,
-  useHolidays, weekBalance, WEEKDAYS_SHORT, weekOf,
+  extraOf, useHolidays, weekBalance, weekExtra, WEEKDAYS_SHORT, weekOf,
 } from '../lib/hours'
 import { DurationChips, projectOfClient, SuggestInput, TimeField, useClientSuggestions } from '../components/HoursParts'
 import { HoursExport } from '../components/HoursExport'
@@ -59,15 +59,20 @@ function Ring({ worked, imputed, target, tone, children }) {
   )
 }
 
-function Stat({ label, children, sub }) {
+function Stat({ label, children, sub, extra }) {
   return (
     <div className="min-w-0">
       <div className="text-[12px] font-medium text-faint">{label}</div>
       <div className="mt-0.5 text-[19px] font-semibold tabular-nums tracking-[-0.02em]">{children}</div>
       {sub && <div className="text-[12px] text-muted">{sub}</div>}
+      {extra}
     </div>
   )
 }
+
+// De más en ámbar (te has quedado); antes de hora, en neutro
+const extraStyle = (m) =>
+  m > 0 ? { color: TONE.over, background: `color-mix(in oklab, ${TONE.over} 13%, transparent)` } : { color: 'var(--muted)', background: 'var(--sunken)' }
 
 /* Duración editable en el formato del usuario; se guarda al salir del campo */
 function DurationField({ minutes, onCommit, style, step, min = 0, className, label }) {
@@ -343,6 +348,8 @@ export function HoursPage() {
   const st = dayStatus(day, viewKey, list, now)
   const isToday = viewKey === today
   const balance = weekBalance(keys, s.workdays, byDay, settings, holidays)
+  const extra = extraOf(day, viewKey, now)
+  const weekExtraMin = weekExtra(keys, s.workdays, settings, holidays, now)
   const tone = st.imputed - day.target_minutes > 0.5 ? 'over' : day.target_minutes > 0 && isZero(st.pendTot) ? 'full' : null
   const suggested = st.pendNow > 0.5 ? quantize(st.pendNow, settings.step) : st.pendTot > 0.5 ? quantize(st.pendTot, settings.step) : 0
   const nowMin = now.getHours() * 60 + now.getMinutes()
@@ -385,14 +392,15 @@ export function HoursPage() {
 
       {/* Semana */}
       <div className="entra mt-5" style={{ '--entra-espera': '80ms' }}>
-        <div className="mb-2 flex items-center gap-1">
+        <div className="mb-2 flex flex-wrap items-center gap-x-1 gap-y-1.5">
+          <div className="flex items-center gap-1">
           <IconButton label="Semana anterior" onClick={() => moveWeek(-1)}>
             <ChevronLeft size={18} />
           </IconButton>
           <IconButton label="Semana siguiente" onClick={() => moveWeek(1)}>
             <ChevronRight size={18} />
           </IconButton>
-          <span className="ml-1 text-[13.5px] text-muted">
+          <span className="ml-1 whitespace-nowrap text-[13.5px] text-muted">
             {fmt(dateOf(keys[0]), 'd MMM')} – {fmt(dateOf(keys[6]), 'd MMM')}
           </span>
           {!keys.includes(today) && (
@@ -400,7 +408,20 @@ export function HoursPage() {
               Hoy
             </Button>
           )}
-          <div className="flex-1" />
+          </div>
+          {/* En móvil, los dos indicadores bajan a su propia fila */}
+          <div className="ml-auto flex items-center gap-1">
+          {weekExtraMin != null && !isZero(weekExtraMin) && (
+            <span
+              className="flex items-center gap-1.5 pr-1"
+              title="Horas de más de la semana: lo que te has quedado después de la salida prevista (o, en negativo, lo que te fuiste antes). Cuenta los días con salida real y hoy."
+            >
+              <span className="whitespace-nowrap text-[12.5px] text-faint">De más</span>
+              <span className="rounded-lg px-2 py-0.5 text-[13.5px] font-semibold tabular-nums" style={extraStyle(weekExtraMin)}>
+                {fmtH(weekExtraMin, style, true)}
+              </span>
+            </span>
+          )}
           <button
             onClick={toggleBreakdown}
             aria-expanded={breakdown}
@@ -416,6 +437,7 @@ export function HoursPage() {
             </span>
             <ChevronDown size={14} className="text-faint" style={{ transform: `rotate(${breakdown ? 180 : 0}deg)`, transition: 'transform .25s cubic-bezier(.32,.72,0,1)' }} />
           </button>
+          </div>
         </div>
         <WeekStrip keys={keys} viewKey={viewKey} today={today} onPick={setViewKey} workdays={s.workdays} byDay={byDay} settings={settings} holidays={holidays} />
         <Collapse open={breakdown}>
@@ -454,6 +476,14 @@ export function HoursPage() {
                   : day.end
                     ? `Salida real ${day.end}`
                     : null
+              }
+              extra={
+                extra && !isZero(extra.minutes) && (
+                  <span className="mt-1 inline-flex rounded-md px-1.5 py-0.5 text-[12px] font-semibold tabular-nums" style={extraStyle(extra.minutes)}>
+                    {fmtH(extra.minutes, style, true)} {extra.minutes > 0 ? 'de más' : 'antes de hora'}
+                    {extra.live && <span className="ml-1 font-normal opacity-75">· contando</span>}
+                  </span>
+                )
               }
             >
               {st.exit == null ? <span className="text-faint">—</span> : (

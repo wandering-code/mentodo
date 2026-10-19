@@ -111,6 +111,40 @@ export function workedOf(day, key, now = new Date()) {
   return Math.max(0, Math.min(t, at - start - discount))
 }
 
+/* Horas de más: lo que te has quedado (o adelantado la salida) respecto a la
+   salida prevista. Va por presencia, no por lo imputado: no hace falta
+   imputar esas horas para verlas. Con salida real, la cuenta es exacta (y
+   negativa si te fuiste antes); hoy sin salida real, cuenta en vivo en
+   cuanto pasa la salida prevista. Sin datos (día pasado sin salida real,
+   sin entrada, futuro) no hay cifra. */
+export function extraOf(day, key, now = new Date()) {
+  const exit = exitOf(day)
+  if (exit == null || key > dayKey(now)) return null
+  const start = toMin(day.start)
+  if (day.end) {
+    let end = toMin(day.end)
+    if (end < start) end += 1440 // salida pasada la medianoche
+    return { minutes: end - exit, live: false }
+  }
+  if (key !== dayKey(now)) return null
+  const at = now.getHours() * 60 + now.getMinutes()
+  return at > exit ? { minutes: at - exit, live: true } : null
+}
+
+/* Horas de más de la semana: solo los días que tienen cifra */
+export function weekExtra(keys, workdays, settings, holidays, now = new Date()) {
+  let total = 0
+  let any = false
+  for (const k of keys) {
+    const x = extraOf(dayOf(workdays, k, settings, holidays), k, now)
+    if (x) {
+      total += x.minutes
+      any = true
+    }
+  }
+  return any ? total : null
+}
+
 export const sumMinutes = (list) => list.reduce((a, e) => a + e.minutes, 0)
 
 export function entriesByDay(entries) {

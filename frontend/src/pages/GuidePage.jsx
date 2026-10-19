@@ -337,6 +337,7 @@ const SECTIONS = [
       ['Editar', 'Toca cualquier campo de un parte para cambiarlo; la papelera lo borra (con Deshacer).'],
       ['La semana', 'Cada día con su barra (verde: completa, ámbar: por encima). Balance = imputado − jornada, solo en los días con partes: un lunes vacío no resta. Flechas para semanas pasadas.'],
       ['Por proyecto', 'Toca el Balance para ver cuánto has imputado a cada proyecto (o cliente) esta semana o este mes, con su porcentaje; cada uno se despliega en sus tareas. Va plegado si no lo usas.'],
+      ['Horas de más', 'Si pones la salida real, junto a la salida prevista ves cuánto te has quedado de más (o, en negativo, cuánto antes te fuiste); hoy cuenta en vivo en cuanto pasa la salida prevista. Arriba, junto al balance, el total de la semana. Va por el tiempo que has estado, no por lo imputado: no hace falta imputar esas horas para verlas.'],
       ['Ajustes del día', 'Cambia la jornada o la comida de un día suelto, o pon la salida real. «Horario de la semana» lo devuelve a lo de Ajustes.'],
       ['Horario y festivos', 'En Ajustes → Parte de horas: jornada y comida de cada día de la semana (el viernes puede ir sin comida), precisión (5, 15, 30 min), formato 8,25 u 8:15 y festivos de tu comunidad, que nacen con jornada 0.'],
       ['Desde las tarjetas', 'En Ajustes del proyecto → Parte de horas, activa «Imputar horas desde las tarjetas»: cada tarjeta enseña lo imputado junto a su estimación y un botón Imputar.'],
