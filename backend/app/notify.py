@@ -11,7 +11,8 @@ Tipos de regla (`params` entre paréntesis):
   `field` es "due" (la fecha principal, por defecto) o el id de un campo de fecha propio.
 - daily_digest (hour): resumen diario a esa hora con lo que vence hoy.
 - stale (label_id, days): tarjeta que lleva N días con esa etiqueta sin tocarse.
-Además, `remind_at` de cada tarjeta es un recordatorio puntual.
+Además, `remind_at` de cada tarjeta es un recordatorio puntual, y el parte de
+horas (módulo opcional) tiene sus propios avisos: ver `_hours_checks`.
 """
 import asyncio
 import json
@@ -19,13 +20,14 @@ import logging
 from datetime import datetime, time, timedelta, timezone
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
+from . import hours
 from .config import settings
 from .db import SessionLocal
 from .deadline import deadline_key, read_date
-from .models import Card, Field, Label, Notification, NotificationRule, Project, PushSubscription, User
+from .models import Card, Field, Label, Notification, NotificationRule, Project, PushSubscription, TimeEntry, User, WorkDay
 from .realtime import hub
 from .serialize import notification_out
 
@@ -200,7 +202,46 @@ def run_checks() -> list[tuple[int, dict]]:
                 body = ", ".join((c.title or "Sin título") for c in todays[:4]) + ("…" if len(todays) > 4 else "")
                 head = f"{scope}: {len(todays)} para hoy" + (f" ({overdue} atrasadas)" if overdue else "")
                 emit(f"digest:{r.id}:{today.isoformat()}", head, body, project_id=r.project_id, url="/todo")
+
+            if hours.enabled(user):
+                _hours_checks(db, user, local_now, emit)
     return created
+
+
+def _fmt_h(minutes: int, style: str) -> str:
+    if style == "hm":
+        return f"{minutes // 60}:{minutes % 60:02d} h"
+    return f"{minutes / 60:.2f}".replace(".", ",") + " h"
+
+
+def _hours_checks(db, user: User, local_now: datetime, emit):
+    """Avisos del parte de horas (cada uno se enciende aparte en Ajustes):
+    - notify_exit: X minutos antes de la salida prevista.
+    - notify_close: a esa hora, si queda jornada sin imputar."""
+    st = hours.settings_of(user)
+    if st["notify_exit"] is None and not st["notify_close"]:
+        return
+    today = local_now.date()
+    day = db.scalar(select(WorkDay).where(WorkDay.user_id == user.id, WorkDay.day == today))
+    if not day or not day.start or day.target_minutes <= 0:
+        return
+    now_m = local_now.hour * 60 + local_now.minute
+    start = hours.to_min(day.start)
+    exit_m = hours.exit_minutes(start, day.target_minutes, day.lunch_minutes, hours.to_min(day.lunch_from))
+    imputed = db.scalar(select(func.coalesce(func.sum(TimeEntry.minutes), 0))
+                        .where(TimeEntry.user_id == user.id, TimeEntry.day == today)) or 0
+    pending = day.target_minutes - imputed
+    if st["notify_exit"] is not None and not day.end and exit_m < 1440:
+        before = int(st["notify_exit"])
+        if exit_m - before <= now_m < exit_m + 60:
+            hhmm = f"{exit_m // 60:02d}:{exit_m % 60:02d}"
+            body = f"Te quedan {_fmt_h(pending, st['format'])} por imputar." if pending > 0 else "Todo imputado ✓"
+            emit(f"hours-exit:{today.isoformat()}:{hhmm}", "Hora de salir" if before == 0 else f"Sales a las {hhmm}",
+                 body, url="/horas")
+    close = hours.to_min(st["notify_close"]) if st["notify_close"] else None
+    if close is not None and close <= now_m < close + 120 and pending > 0:
+        emit(f"hours-close:{today.isoformat()}", "Cierre del día",
+             f"Te faltan {_fmt_h(pending, st['format'])} por imputar hoy.", url="/horas")
 
 
 def purge_orphan_files():

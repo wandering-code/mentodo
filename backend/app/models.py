@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 
 from sqlalchemy import (
-    JSON, Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Table, Text, UniqueConstraint,
+    JSON, Boolean, Column, Date, DateTime, Float, ForeignKey, Integer, String, Table, Text, UniqueConstraint,
 )
 from sqlalchemy.orm import relationship
 
@@ -59,6 +59,9 @@ class Project(Base):
     # tipo fecha («f:<id>»). Con ella se calcula lo atrasado, lo de hoy, los
     # avisos, los aplazamientos y las repeticiones.
     deadline_key = Column(String(24), nullable=False, default="due", server_default="due")
+    # Módulos opcionales activados en este proyecto (apagados por defecto):
+    # {"hours": true, "client": "Nombre del cliente"}
+    features = Column(JSON, nullable=False, default=dict, server_default="{}")
     created_at = Column(DateTime(timezone=True), default=now)
     updated_at = Column(DateTime(timezone=True), default=now, onupdate=now)
 
@@ -252,3 +255,41 @@ class PushSubscription(Base):
     endpoint = Column(String(1000), unique=True, nullable=False)
     keys = Column(JSON, nullable=False)
     created_at = Column(DateTime(timezone=True), default=now)
+
+
+# ── Parte de horas (módulo opcional, prefs["mod_hours"]) ─────────────────────
+
+class WorkDay(Base):
+    """Un día del parte de horas. Solo existe cuando se toca: al nacer copia el
+    horario del día de la semana (Ajustes), así cambiar el horario después no
+    reescribe los días ya pasados. Horas como "HH:MM" locales; duraciones en
+    minutos."""
+    __tablename__ = "work_days"
+    __table_args__ = (UniqueConstraint("user_id", "day"),)
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    day = Column(Date, nullable=False, index=True)
+    start = Column(String(5), nullable=True)  # entrada; null = sin fichar
+    end = Column(String(5), nullable=True)  # salida real (opcional)
+    target_minutes = Column(Integer, nullable=False, default=480)
+    lunch_minutes = Column(Integer, nullable=False, default=0)
+    lunch_from = Column(String(5), nullable=False, default="14:00")
+    updated_at = Column(DateTime(timezone=True), default=now, onupdate=now)
+
+
+class TimeEntry(Base):
+    """Un parte: tiempo imputado a un cliente y una tarea en un día. Puede venir
+    de una tarjeta; si la tarjeta o el proyecto se borran, el parte se queda
+    (las horas ya se imputaron)."""
+    __tablename__ = "time_entries"
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    day = Column(Date, nullable=False, index=True)
+    client = Column(String(120), nullable=False, default="")
+    task = Column(String(300), nullable=False, default="")
+    minutes = Column(Integer, nullable=False)
+    card_id = Column(Integer, ForeignKey("cards.id", ondelete="SET NULL"), nullable=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="SET NULL"), nullable=True, index=True)
+    position = Column(Float, nullable=False, default=0)
+    created_at = Column(DateTime(timezone=True), default=now)
+    updated_at = Column(DateTime(timezone=True), default=now, onupdate=now)

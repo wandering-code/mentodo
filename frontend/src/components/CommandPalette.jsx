@@ -3,8 +3,9 @@ import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router'
 import { Command } from 'cmdk'
 import { toast } from 'sonner'
-import { CircleCheckBig, CornerDownLeft, FileText, Inbox, LayoutTemplate, NotebookText, Plus, Settings, Sun, Zap, CalendarRange } from 'lucide-react'
+import { BookOpen, CircleCheckBig, Clock, CornerDownLeft, FileText, Inbox, LayoutTemplate, NotebookText, Plus, Settings, Sun, Zap, CalendarRange } from 'lucide-react'
 import { useStore } from '../lib/store'
+import { hoursOn } from '../lib/hours'
 import { Scrim } from './ui'
 import { ARRIVE, css, LEAVE, useBackToClose, usePresence } from '../lib/layers'
 import { cardPath } from '../lib/nav'
@@ -18,6 +19,7 @@ export function CommandPalette({ open, onClose, onNewProject }) {
   const cards = useStore((s) => s.cards)
   const notes = useStore((s) => s.notes)
   const templates = useStore((s) => s.templates)
+  const hours = useStore((s) => hoursOn(s.user))
   const fromTemplate = useFromTemplate()
   const here = Number(location.pathname.match(/^\/p\/(\d+)/)?.[1]) || null
   const projects = useStore((s) => s.projects)
@@ -155,6 +157,11 @@ export function CommandPalette({ open, onClose, onNewProject }) {
                     <Command.Item value="semana" onSelect={() => go('/semana')} className={item}>
                       <CalendarRange size={16} className="text-muted" /> Revisión semanal
                     </Command.Item>
+                    {hours && (
+                      <Command.Item value="horas" onSelect={() => go('/horas')} className={item}>
+                        <Clock size={16} className="text-muted" /> Ir a Horas
+                      </Command.Item>
+                    )}
                     <Command.Item value="todo" onSelect={() => go('/')} className={item}>
                       <CircleCheckBig size={16} className="text-muted" /> Ir a To Do
                     </Command.Item>
@@ -166,6 +173,9 @@ export function CommandPalette({ open, onClose, onNewProject }) {
                     </Command.Item>
                     <Command.Item value="newproject" onSelect={() => (onClose(), onNewProject())} className={item}>
                       <Plus size={16} className="text-muted" /> Nuevo proyecto
+                    </Command.Item>
+                    <Command.Item value="guia" onSelect={() => go('/guia')} className={item}>
+                      <BookOpen size={16} className="text-muted" /> Guía de Mentodo
                     </Command.Item>
                     <Command.Item value="settings" onSelect={() => go('/ajustes')} className={item}>
                       <Settings size={16} className="text-muted" /> Ajustes

@@ -36,6 +36,7 @@ class ProjectPatch(BaseModel):
     prop_order: list[str] | None = None
     notes_tab_position: float | None = None
     deadline_key: str | None = Field(None, max_length=24)
+    features: dict | None = None  # se fusiona con las guardadas
 
 
 # (nombre, varias por tarjeta, es el estado, etiquetas)
@@ -95,7 +96,12 @@ def patch_project(project_id: int, body: ProjectPatch, em: Emitter = Depends(emi
         f = db.get(CustomField, int(body.deadline_key[2:])) if re.fullmatch(r"f:\d+", body.deadline_key) else None
         if not f or f.project_id != p.id or f.kind != "date":
             raise HTTPException(422, "La fecha de entrega tiene que ser una propiedad de fecha del proyecto")
-    for k, v in body.model_dump(exclude_unset=True).items():
+    data = body.model_dump(exclude_unset=True)
+    if data.get("features") is not None:
+        if len(str(data["features"])) > 2000:
+            raise HTTPException(422, "Demasiados ajustes")
+        data["features"] = {k: v for k, v in {**(p.features or {}), **data["features"]}.items() if v is not None}
+    for k, v in data.items():
         if v is not None:
             setattr(p, k, v)
     db.commit()

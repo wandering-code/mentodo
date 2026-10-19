@@ -1,5 +1,5 @@
 import { forwardRef, memo } from 'react'
-import { AlarmClock, CalendarClock, ListTree, Lock, Paperclip, Repeat, CalendarDays, Clock3, FileText, ListTodo } from 'lucide-react'
+import { AlarmClock, CalendarClock, Timer, ListTree, Lock, Paperclip, Repeat, CalendarDays, Clock3, FileText, ListTodo } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { dateInfo, readDate, useDeadlineKey } from '../lib/deadline'
 import { humanDate } from '../lib/dates'
@@ -7,6 +7,7 @@ import { Checkbox, cx, LabelChip } from './ui'
 import { CheckBadge, useCardMeta } from './Properties'
 import { badgesFromKey, linkBadgesKey } from '../lib/links'
 import { cardMenu } from './CardMenu'
+import { fmtH, hoursOn } from '../lib/hours'
 
 function hasContent(c) {
   return !!c.content?.content?.some((n) => n.content?.length || n.type !== 'paragraph')
@@ -51,6 +52,9 @@ export const CardTile = memo(
   forwardRef(function CardTile({ card, hideGroupId, onOpen, dragging, overlay, style, ...rest }, ref) {
     const labels = useStore((s) => s.labels)
     const meta = useCardMeta(card)
+    // Horas imputadas (solo con el parte de horas activo en el proyecto)
+    const hours = useStore((s) => (hoursOn(s.user) && s.projects[card.project_id]?.features?.hours ? s.cardHours[card.id] || 0 : 0))
+    const hoursFormat = useStore((s) => s.user?.prefs?.hours?.format || 'dec')
     const badges = badgesFromKey(useStore((s) => linkBadgesKey(s, card.id)))
     const files = useStore((s) => Object.values(s.attachments).reduce((n, a) => n + (a.card_id === card.id ? 1 : 0), 0))
     const updateCard = useStore((s) => s.updateCard)
@@ -79,7 +83,7 @@ export const CardTile = memo(
             {card.title || <span className="text-faint">Sin título</span>}
           </div>
         </div>
-        {(chips.length > 0 || card.due_at || Object.keys(card.values || {}).length > 0 || files > 0 || card.recurrence || badges.blocked || badges.subtasks || meta.dates.length > 0 || meta.checks.length > 0 || cl || card.in_todo || card.estimate_minutes || card.remind_at || hasContent(card)) && (
+        {(chips.length > 0 || hours > 0 || card.due_at || Object.keys(card.values || {}).length > 0 || files > 0 || card.recurrence || badges.blocked || badges.subtasks || meta.dates.length > 0 || meta.checks.length > 0 || cl || card.in_todo || card.estimate_minutes || card.remind_at || hasContent(card)) && (
           <div className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1.5 pl-[26px]">
             {chips.map((l) => (
               <LabelChip key={l.id} label={l} size="sm" />
@@ -98,6 +102,12 @@ export const CardTile = memo(
               <span className="inline-flex items-center gap-1 text-[12px] text-muted">
                 <Clock3 size={12} />
                 {card.estimate_minutes < 60 ? `${card.estimate_minutes}m` : `${card.estimate_minutes / 60}h`}
+              </span>
+            )}
+            {hours > 0 && (
+              <span className={cx('inline-flex items-center gap-1 text-[12px] tabular-nums', card.estimate_minutes && hours > card.estimate_minutes ? 'text-[var(--tc-ambar)]' : 'text-muted')} title="Horas imputadas">
+                <Timer size={12} />
+                {fmtH(hours, hoursFormat)} h
               </span>
             )}
             {cl && (

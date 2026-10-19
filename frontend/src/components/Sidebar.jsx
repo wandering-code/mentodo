@@ -2,11 +2,12 @@ import { useMemo, useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router'
 import { motion } from 'motion/react'
 import { SortableList, SortableRow } from './Sortable'
-import { Archive, Bell, ChevronRight, CircleCheckBig, Inbox, NotebookText, Plus, Search, Settings, Shield, Sun, CalendarRange } from 'lucide-react'
+import { Archive, Bell, BookOpen, ChevronRight, CircleCheckBig, Clock, Inbox, NotebookText, Plus, Search, Settings, Shield, Sun, CalendarRange } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { Collapse, cx, IconButton, IS_MAC, Kbd, spring } from './ui'
 import { Logo, Wordmark } from './Logo'
 import { isInactive } from '../lib/cards'
+import { hoursOn } from '../lib/hours'
 
 export function useNav() {
   const cards = useStore((s) => s.cards)
@@ -108,6 +109,11 @@ export function Sidebar({ onSearch, onNewProject, onNotifications, onNavigate, t
         <NavItem touch={touch} to="/semana" icon={CalendarRange} onClick={onNavigate}>
           Semana
         </NavItem>
+        {hoursOn(user) && (
+          <NavItem touch={touch} to="/horas" icon={Clock} onClick={onNavigate}>
+            Horas
+          </NavItem>
+        )}
       </div>
 
       <div className="mt-5 flex items-center px-4 pb-1">
@@ -186,6 +192,9 @@ export function Sidebar({ onSearch, onNewProject, onNotifications, onNavigate, t
             Administración
           </NavItem>
         )}
+        <NavItem touch={touch} to="/guia" icon={BookOpen} onClick={onNavigate}>
+          Guía
+        </NavItem>
         <NavItem touch={touch} to="/ajustes" icon={Settings} onClick={onNavigate}>
           Ajustes
         </NavItem>

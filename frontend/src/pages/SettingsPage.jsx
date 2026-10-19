@@ -13,6 +13,9 @@ import { TemplatesManager } from '../components/Templates'
 import { lockVault, useVault, vaultSupported } from '../lib/vault'
 import { Button, cx, Input, spring, Toggle } from '../components/ui'
 import { SettingsSection } from './ProjectSettings'
+import { HoursSettings, ModulesSettings } from '../components/HoursSettings'
+import { hoursOn } from '../lib/hours'
+import { useLocation } from 'react-router'
 
 const THEMES = [
   { id: 'light', name: 'Claro', icon: Sun },
@@ -60,6 +63,14 @@ export function SettingsPage() {
   const [pushOn, setPushOn] = useState(false)
   const [busy, setBusy] = useState(false)
   const [pw, setPw] = useState({ current: '', new: '' })
+  const { hash } = useLocation()
+
+  // Enlaces a una sección concreta (#modulos, #horas…)
+  useEffect(() => {
+    if (!hash) return
+    const t = setTimeout(() => document.getElementById(hash.slice(1))?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 120)
+    return () => clearTimeout(t)
+  }, [hash])
 
   useEffect(() => {
     currentSubscription().then((sub) => setPushOn(!!sub)).catch(() => {})
@@ -141,6 +152,16 @@ export function SettingsPage() {
           <Toggle checked={user.prefs?.today_time !== false} onChange={(v) => s.updateMe({ prefs: { today_time: v } })} />
         </label>
       </SettingsSection>
+
+      <SettingsSection id="modulos" title="Módulos" description="Funciones opcionales. Vienen apagadas: actívalas solo si te sirven; apagarlas las esconde sin borrar nada.">
+        <ModulesSettings />
+      </SettingsSection>
+
+      {hoursOn(user) && (
+        <SettingsSection id="horas" title="Parte de horas" description="Tu horario, cómo se cuentan las horas y los avisos del parte. En cada proyecto puedes además activar imputar desde sus tarjetas (Ajustes del proyecto).">
+          <HoursSettings />
+        </SettingsSection>
+      )}
 
       <SettingsSection title="Avisos" description="Notificaciones en este dispositivo aunque Mentodo esté cerrado.">
         {!pushSupported() ? (

@@ -12,10 +12,13 @@ from ..models import (
 )
 from ..models import Field as CustomField
 from ..models import Attachment, CardLink, Note
+from ..hours import enabled as hours_enabled
+from ..models import TimeEntry, WorkDay
 from ..notify import create_notification
+from .hours import card_totals
 from ..ownership import own_project, own_rule
 from ..serialize import (
-    attachment_out, card_out, field_out, group_out, link_out, note_out, label_out, notification_out, project_out, rule_out, user_out, view_out,
+    attachment_out, card_out, entry_out, field_out, group_out, link_out, note_out, label_out, notification_out, project_out, rule_out, user_out, view_out, workday_out,
 )
 
 router = APIRouter(tags=["workspace"])
@@ -56,6 +59,8 @@ def bootstrap(user: User = Depends(current_user), db: Session = Depends(get_db))
         "rules": [rule_out(r) for r in rules],
         "notifications": [notification_out(n) for n in notifs],
         "vapid_public_key": settings.vapid_public_key or None,
+        # Parte de horas: solo el total por tarjeta (los días se piden por semanas)
+        "card_hours": card_totals(db, user.id) if hours_enabled(user) else {},
     }
 
 
@@ -70,6 +75,12 @@ def export_all(user: User = Depends(current_user), db: Session = Depends(get_db)
     data = bootstrap(user, db)
     data.pop("vapid_public_key", None)
     data["notifications"] = []
+    data.pop("card_hours", None)
+    days = db.scalars(select(WorkDay).where(WorkDay.user_id == user.id).order_by(WorkDay.day)).all()
+    entries = db.scalars(select(TimeEntry).where(TimeEntry.user_id == user.id).order_by(TimeEntry.day, TimeEntry.position)).all()
+    if days or entries:
+        data["work_days"] = [workday_out(d) for d in days]
+        data["time_entries"] = [entry_out(e) for e in entries]
     data["exported_at"] = datetime.now(timezone.utc).isoformat()
     data["format"] = "mentodo-export-1"
     stamp = datetime.now().strftime("%Y-%m-%d")

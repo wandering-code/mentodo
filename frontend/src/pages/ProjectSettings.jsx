@@ -10,11 +10,12 @@ import { defaultName, FIELD_KINDS, fieldIcon, hiddenInProject, projectProps } fr
 import { LABEL_COLORS, PROJECT_ICONS } from '../lib/palette'
 import { ColorPicker } from '../components/Pickers'
 import { RulesEditor } from '../components/RulesEditor'
-import { Button, cx, IconButton, Popover, spring, Toggle, usePopover } from '../components/ui'
+import { Button, cx, IconButton, Input, Popover, spring, Toggle, usePopover } from '../components/ui'
+import { hoursOn } from '../lib/hours'
 
-export function SettingsSection({ title, description, children }) {
+export function SettingsSection({ id, title, description, children }) {
   return (
-    <section className="border-t border-line py-8 first:border-t-0 first:pt-2">
+    <section id={id} className="scroll-mt-4 border-t border-line py-8 first:border-t-0 first:pt-2">
       <h2 className="text-[16px] font-semibold tracking-[-0.01em]">{title}</h2>
       {description && <p className="mt-1 max-w-xl text-[13.5px] text-muted">{description}</p>}
       <div className="mt-4">{children}</div>
@@ -317,6 +318,35 @@ function PropertiesSettings({ project }) {
   )
 }
 
+/* Parte de horas en este proyecto: solo si el módulo está encendido */
+function ProjectHours({ project }) {
+  const { updateProject } = useStore.getState()
+  const f = project.features || {}
+  const setF = (patch) => updateProject(project.id, { features: { ...f, ...patch } })
+  return (
+    <SettingsSection
+      title="Parte de horas"
+      description="Imputar horas desde las tarjetas de este proyecto: cada tarjeta muestra lo imputado junto a su estimación, y el parte se apunta con este cliente y el título de la tarjeta como tarea."
+    >
+      <label className="flex items-center gap-3 text-[14px]">
+        <span className="flex-1">Imputar horas desde las tarjetas</span>
+        <Toggle checked={!!f.hours} onChange={(v) => setF({ hours: v })} label="Imputar horas desde las tarjetas" />
+      </label>
+      <label className="mt-4 block max-w-md text-[13px] text-muted">
+        Cliente
+        <Input
+          className="mt-1"
+          key={f.client || ''}
+          defaultValue={f.client || ''}
+          placeholder={project.name}
+          onBlur={(e) => e.target.value.trim() !== (f.client || '') && setF({ client: e.target.value.trim() || null })}
+        />
+        <span className="mt-1 block text-[12px] text-faint">Vacío = el nombre del proyecto. Sale como sugerencia al escribir el cliente en Horas.</span>
+      </label>
+    </SettingsSection>
+  )
+}
+
 export function ProjectSettings() {
   const { projectId } = useParams()
   const id = Number(projectId)
@@ -380,6 +410,8 @@ export function ProjectSettings() {
       >
         <TemplatesManager projectId={id} />
       </SettingsSection>
+
+      {hoursOn(s.user) && <ProjectHours project={project} />}
 
       <SettingsSection title="Avisos de este proyecto" description="Además de los avisos generales (en Ajustes), estas reglas solo se aplican a las tarjetas de este proyecto.">
         <RulesEditor projectId={id} />

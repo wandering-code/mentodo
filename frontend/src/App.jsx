@@ -16,6 +16,8 @@ import { AdminPage } from './pages/AdminPage'
 import { NotesPage } from './pages/NotesPage'
 import { TodayPage } from './pages/TodayPage'
 import { WeekPage } from './pages/WeekPage'
+import { HoursPage } from './pages/HoursPage'
+import { GuidePage } from './pages/GuidePage'
 import { restoreVault } from './lib/vault'
 
 export default function App() {
@@ -50,6 +52,8 @@ export default function App() {
               <Route index element={<TodoPage />} />
               <Route path="hoy" element={<TodayPage />} />
               <Route path="semana" element={<WeekPage />} />
+              <Route path="horas" element={<HoursPage />} />
+              <Route path="guia" element={<GuidePage />} />
               <Route path="inbox" element={<InboxPage />} />
               <Route path="apuntes" element={<NotesPage />} />
               <Route path="p/:projectId" element={<ProjectPage />} />

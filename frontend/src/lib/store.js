@@ -2,7 +2,7 @@ import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { create } from 'zustand'
 import { toast } from 'sonner'
-import { ApiError, CLIENT_ID, del, get, patch, post } from './api'
+import { api, ApiError, CLIENT_ID, del, get, patch, post } from './api'
 import { applyLook } from './theme'
 
 const byId = (list) => Object.fromEntries(list.map((x) => [x.id, x]))
@@ -24,6 +24,7 @@ const KIND_KEY = {
   attachment: 'attachments',
   card: 'cards',
   rule: 'rules',
+  entry: 'entries',
 }
 
 function fail(e) {
@@ -47,6 +48,12 @@ export const useStore = create((set, getState) => ({
   rules: {},
   notifications: [],
   vapidKey: null,
+  // Parte de horas (módulo opcional): días por fecha «AAAA-MM-DD», partes por
+  // id y el total imputado de cada tarjeta. Los días y partes se piden por
+  // semanas (loadHours) y luego se mantienen por WebSocket.
+  workdays: {},
+  entries: {},
+  cardHours: {},
   // Tarjetas con borrado pendiente (el aviso de Deshacer sigue en pantalla)
   hidden: {},
 
@@ -70,7 +77,10 @@ export const useStore = create((set, getState) => ({
         rules: byId(d.rules),
         notifications: d.notifications,
         vapidKey: d.vapid_public_key,
+        cardHours: d.card_hours || {},
       })
+      // Al reconectar, lo de las semanas ya vistas se vuelve a pedir
+      reloadHours(getState)
     } catch (e) {
       if (e instanceof ApiError && e.status === 401) set({ status: 'anon', user: null })
       else if (getState().status === 'loading') setTimeout(() => getState().bootstrap(), 2000)
@@ -88,6 +98,8 @@ export const useStore = create((set, getState) => ({
           if (ev.k === 'user') {
             next.user = ev.d
             applyLook(ev.d)
+          } else if (ev.k === 'workday') {
+            next.workdays = { ...next.workdays, [ev.d.day]: ev.d }
           } else if (ev.k === 'notification') {
             if (!next.notifications.some((n) => n.id === ev.d.id)) next.notifications = [ev.d, ...next.notifications]
           } else if (KIND_KEY[ev.k]) {
@@ -100,6 +112,8 @@ export const useStore = create((set, getState) => ({
           next.notifications = next.notifications.map((n) => ({ ...n, read: true }))
         } else if (ev.t === 'notifications_cleared') {
           next.notifications = []
+        } else if (ev.t === 'card_hours') {
+          next.cardHours = { ...next.cardHours, [ev.d.card_id]: ev.d.minutes }
         }
       }
       return next
@@ -110,6 +124,8 @@ export const useStore = create((set, getState) => ({
   async updateMe(body) {
     const prev = getState().user
     const optimistic = { ...prev, ...body }
+    // Las preferencias se fusionan clave a clave, como en el servidor
+    if (body.prefs) optimistic.prefs = { ...prev.prefs, ...body.prefs }
     if (body.clear_todo_projects) optimistic.todo_projects = null
     set({ user: optimistic })
     applyLook(optimistic)
@@ -401,6 +417,77 @@ export const useStore = create((set, getState) => ({
   deleteRule(id) {
     deferDelete(set, getState, { kind: 'rule', id, path: `/rules/${id}`, message: 'Aviso eliminado' })
   },
+  // ── Parte de horas ──
+  async loadHours(start, end) {
+    loadedHourRanges.set(`${start}|${end}`, [start, end])
+    try {
+      const d = await get(`/hours?start=${start}&end=${end}`)
+      set((s) => {
+        // Lo del rango se sustituye entero (lo borrado en otro sitio, fuera)
+        const entries = Object.fromEntries(Object.entries(s.entries).filter(([, e]) => e.day < start || e.day > end || pendingDeletes.has(`entry:${e.id}`)))
+        for (const e of d.entries) if (!pendingDeletes.has(`entry:${e.id}`)) entries[e.id] = e
+        const workdays = { ...s.workdays }
+        for (const w of d.days) workdays[w.day] = w
+        return { entries, workdays }
+      })
+    } catch (e) {
+      fail(e)
+    }
+  },
+  mergeEntries(list) {
+    set((s) => ({ entries: { ...s.entries, ...Object.fromEntries(list.filter((e) => !pendingDeletes.has(`entry:${e.id}`)).map((e) => [e.id, e]) ) } }))
+  },
+  async saveDay(day, body) {
+    const prev = getState().workdays[day]
+    if (prev) set((s) => ({ workdays: { ...s.workdays, [day]: { ...prev, ...body } } }))
+    try {
+      const w = await api(`/hours/days/${day}`, { method: 'PUT', body })
+      set((s) => ({ workdays: { ...s.workdays, [day]: w } }))
+      return w
+    } catch (e) {
+      if (prev) set((s) => ({ workdays: { ...s.workdays, [day]: prev } }))
+      fail(e)
+    }
+  },
+  async resetDay(day) {
+    try {
+      const w = await del(`/hours/days/${day}`)
+      set((s) => ({ workdays: { ...s.workdays, [day]: w } }))
+    } catch (e) {
+      fail(e)
+    }
+  },
+  async addEntry(body) {
+    try {
+      const d = await post('/hours/entries', body)
+      set((s) => ({
+        entries: { ...s.entries, [d.entry.id]: d.entry },
+        workdays: { ...s.workdays, [d.day.day]: d.day },
+        cardHours: d.entry.card_id ? { ...s.cardHours, [d.entry.card_id]: (s.cardHours[d.entry.card_id] || 0) + d.entry.minutes } : s.cardHours,
+      }))
+      return d.entry
+    } catch (e) {
+      fail(e)
+    }
+  },
+  updateEntry(id, body) {
+    const e = getState().entries[id]
+    if (e?.card_id && body.minutes) set((s) => ({ cardHours: { ...s.cardHours, [e.card_id]: (s.cardHours[e.card_id] || 0) - e.minutes + body.minutes } }))
+    return optimisticPatch(set, getState, 'entries', `/hours/entries/${id}`, id, body)
+  },
+  deleteEntry(id) {
+    const e = getState().entries[id]
+    if (!e) return
+    if (e.card_id) set((s) => ({ cardHours: { ...s.cardHours, [e.card_id]: Math.max(0, (s.cardHours[e.card_id] || 0) - e.minutes) } }))
+    deferDelete(set, getState, {
+      kind: 'entry',
+      id,
+      path: `/hours/entries/${id}`,
+      message: 'Parte eliminado',
+      onUndo: () => e.card_id && set((s) => ({ cardHours: { ...s.cardHours, [e.card_id]: (s.cardHours[e.card_id] || 0) + e.minutes } })),
+    })
+  },
+
   async readAllNotifications() {
     set((s) => ({ notifications: s.notifications.map((n) => ({ ...n, read: true })) }))
     try {
@@ -418,13 +505,20 @@ export const useStore = create((set, getState) => ({
     try {
       await post('/auth/logout')
     } catch {}
-    set({ status: 'anon', user: null, projects: {}, cards: {}, groups: {}, labels: {}, views: {}, fields: {}, notes: {}, templates: {}, links: {}, attachments: {}, rules: {}, notifications: [] })
+    loadedHourRanges.clear()
+    set({ status: 'anon', user: null, projects: {}, cards: {}, groups: {}, labels: {}, views: {}, fields: {}, notes: {}, templates: {}, links: {}, attachments: {}, rules: {}, notifications: [], workdays: {}, entries: {}, cardHours: {} })
   },
 }))
 
 // Las peticiones de cada entidad salen en orden: si se escribe rápido en un
 // título, la respuesta de una petición vieja nunca pisa la de una más nueva.
 const seq = {}
+
+// Rangos del parte de horas ya pedidos (para volver a pedirlos al reconectar)
+const loadedHourRanges = new Map()
+function reloadHours(getState) {
+  for (const [start, end] of [...loadedHourRanges.values()].slice(-4)) getState().loadHours(start, end)
+}
 
 async function optimisticPatch(set, getState, key, url, id, body, local = body) {
   const prev = getState()[key][id]
@@ -466,7 +560,7 @@ function syncDoneLabels(s, card, done) {
 // recibe hasta que pasa el plazo; si se cierra la página antes, se envían
 // igualmente (keepalive).
 export const UNDO_MS = 8000
-const SLICES = ['projects', 'groups', 'labels', 'views', 'fields', 'notes', 'templates', 'links', 'attachments', 'cards', 'rules']
+const SLICES = ['projects', 'groups', 'labels', 'views', 'fields', 'notes', 'templates', 'links', 'attachments', 'cards', 'rules', 'entries']
 const pendingDeletes = new Map() // clave → ruta de la API
 
 if (typeof window !== 'undefined') {
@@ -508,7 +602,7 @@ function restoreSnapshot(set, snap) {
   })
 }
 
-function deferDelete(set, getState, { kind, id, path, message }) {
+function deferDelete(set, getState, { kind, id, path, message, onUndo }) {
   const state = getState()
   const snap = Object.fromEntries(SLICES.map((k) => [k, state[k]]))
   set((s) => {
@@ -532,6 +626,7 @@ function deferDelete(set, getState, { kind, id, path, message }) {
     pendingDeletes.delete(key)
     clearTimeout(timer)
     restoreSnapshot(set, snap)
+    onUndo?.()
   })
 }
 

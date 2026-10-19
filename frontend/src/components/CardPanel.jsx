@@ -10,6 +10,8 @@ import { ProjectPicker } from './Pickers'
 import { Properties } from './Properties'
 import { Relations } from './Relations'
 import { Attachments, useUploader } from './Attachments'
+import { CardHours } from './CardHours'
+import { hoursOn } from '../lib/hours'
 import { Checkbox, cx, Divider, IconButton, MenuItem, Popover, Scrim, useDragToClose, useIsMobile, usePopover } from './ui'
 import { ARRIVE, css, LEAVE, useLatest, usePresence } from '../lib/layers'
 
@@ -206,6 +208,7 @@ function CardBody({ card, onClose, mobile, wide, onToggleWide, dragHandlers }) {
           <Properties card={card} project={project} onMove={move.toggle} />
           {!isTemplate && <Relations card={card} />}
           {!isTemplate && <Attachments cardId={card.id} />}
+          {!isTemplate && hoursOn(s.user) && project?.features?.hours && <CardHours card={card} project={project} />}
 
           <div className="my-5 h-px bg-line" />
           <EditorBoundary key={card.id}>

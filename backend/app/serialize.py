@@ -1,4 +1,4 @@
-from .models import Attachment, Card, CardLink, Field, Label, Note, LabelGroup, Notification, NotificationRule, Project, User, View
+from .models import Attachment, Card, CardLink, Field, Label, Note, LabelGroup, Notification, NotificationRule, Project, TimeEntry, User, View, WorkDay
 
 
 def iso(dt):
@@ -20,6 +20,7 @@ def project_out(p: Project):
         "position": p.position, "archived": p.archived, "hidden_props": p.hidden_props or [],
         "prop_names": p.prop_names or {}, "prop_order": p.prop_order or [],
         "notes_tab_position": p.notes_tab_position, "deadline_key": p.deadline_key or "due",
+        "features": p.features or {},
         "created_at": iso(p.created_at), "updated_at": iso(p.updated_at),
     }
 
@@ -89,4 +90,19 @@ def attachment_out(a: Attachment):
     return {
         "id": a.id, "card_id": a.card_id, "note_id": a.note_id, "filename": a.filename,
         "mime": a.mime, "size": a.size, "created_at": iso(a.created_at),
+    }
+
+
+def workday_out(d: WorkDay):
+    return {
+        "id": d.id, "day": d.day.isoformat(), "start": d.start, "end": d.end,
+        "target_minutes": d.target_minutes, "lunch_minutes": d.lunch_minutes, "lunch_from": d.lunch_from,
+    }
+
+
+def entry_out(e: TimeEntry):
+    return {
+        "id": e.id, "day": e.day.isoformat(), "client": e.client, "task": e.task, "minutes": e.minutes,
+        "card_id": e.card_id, "project_id": e.project_id, "position": e.position,
+        "created_at": iso(e.created_at),
     }

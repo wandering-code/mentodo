@@ -6,6 +6,11 @@ que reúne lo marcado de todos los proyectos, bandeja de captura rápida (⌘K),
 por etiqueta (Web Push) y sincronización en tiempo real entre todos los dispositivos del perfil.
 Las cuentas nuevas necesitan aprobación del administrador.
 
+**Módulos opcionales** (apagados por defecto, por usuario en Ajustes → Módulos y por proyecto en
+sus ajustes): de momento, el **parte de horas** (fichaje, partes por cliente y tarea, salida
+prevista, balance semanal, CSV para Excel y avisos). Con un módulo apagado la app se comporta
+exactamente igual que sin él. La página **Guía** (`/guia`) explica todo lo que hace la app.
+
 **Stack**: FastAPI + Postgres + WebSockets (backend, Docker) · React 19 + Vite + Tailwind 4 +
 Motion + dnd-kit + TipTap (frontend, PWA estática servida por nginx).
 

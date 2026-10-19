@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -22,7 +22,7 @@ class MePatch(BaseModel):
     clear_todo_projects: bool = False
     vault_salt: str | None = Field(None, max_length=64)
     vault_check: str | None = Field(None, max_length=200)
-    prefs: dict[str, bool | int | str | None] | None = None  # se fusiona con las guardadas
+    prefs: dict[str, Any] | None = None  # se fusiona con las guardadas (clave a clave)
 
 
 class PasswordIn(BaseModel):
@@ -41,6 +41,8 @@ def patch_me(body: MePatch, em: Emitter = Depends(emitter), db: Session = Depend
         if val is not None:
             setattr(user, field, val)
     if body.prefs:
+        if len(str(body.prefs)) > 8000:
+            raise HTTPException(422, "Preferencias demasiado grandes")
         user.prefs = {k: v for k, v in {**(user.prefs or {}), **body.prefs}.items() if v is not None}
     if body.clear_todo_projects:
         user.todo_projects = None

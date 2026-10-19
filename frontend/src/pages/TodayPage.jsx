@@ -10,6 +10,7 @@ import { deadlineOf } from '../lib/deadline'
 import { CardRow } from '../components/CardRow'
 import { Block, cx } from '../components/ui'
 import { isInactive } from '../lib/cards'
+import { HoursToday } from '../components/HoursToday'
 
 const AVAIL = [2, 4, 6, 8]
 const QUICK = [10, 30, 60]
@@ -129,6 +130,8 @@ export function TodayPage() {
           ? 'Nada para hoy. Buen momento para adelantar algo o descansar.'
           : `${doneN} de ${totalN} hechas${planned ? ` · ${fmtMin(planned)} estimadas por delante` : ''}`}
       </p>
+
+      <HoursToday />
 
       {/* Tiempo disponible y «tengo X minutos» */}
       {timeOn && (
