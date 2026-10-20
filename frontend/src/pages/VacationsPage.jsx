@@ -611,11 +611,21 @@ export function VacationsPage() {
 
   if (!vacationsOn(user)) return <Navigate to="/ajustes#modulos" replace />
 
-  // Días gastados del año (confirmados y pedidos, como en «Te quedan»; las
-  // posibles aún no gastan nada). Sin días, no se enseña nada.
-  const spent = (list) => {
-    const n = list.filter((v) => v.status !== 'posible').reduce((a, v) => a + spentIn(v, holidays, year, v.user_id === user.id), 0)
-    return n ? plural(n, 'día', 'días') : null
+  // Días del año de cada estado, para el resumen bajo el título de cada persona
+  const summary = (list, color) => {
+    if (!list.length) return null
+    const n = Object.fromEntries(STATUSES.map((x) => [x.id, 0]))
+    for (const v of list) n[v.status] += spentIn(v, holidays, year, v.user_id === user.id)
+    return (
+      <div className="flex flex-wrap gap-x-4 gap-y-1 px-2.5 pb-1.5 pt-1 text-[12.5px] text-muted">
+        {STATUSES.map((x) => (
+          <span key={x.id} className="flex items-center gap-1.5">
+            <Swatch color={color} status={x.id} /> {x.id === 'posible' ? 'Posibles' : x.id === 'pedida' ? 'Pedidos' : 'Confirmados'}{' '}
+            <b className="font-medium text-ink tabular-nums">{n[x.id]}</b>
+          </span>
+        ))}
+      </div>
+    )
   }
   // Día con el que se abre «Añadir»: hoy, o el 1 de enero si se mira otro año
   const startDay = today < `${year}-01-01` || today > `${year}-12-31` ? `${year}-01-01` : today
@@ -764,7 +774,8 @@ export function VacationsPage() {
         </Block>
       )}
 
-      <Block title={`Tus vacaciones de ${year}`} count={spent(mine.filter(inYear))} className="mt-6">
+      <Block title={`Tus vacaciones de ${year}`} className="mt-6">
+        {summary(mine.filter(inYear), st.color)}
         {mine.filter(inYear).length ? (
           mine
             .filter(inYear)
@@ -786,7 +797,8 @@ export function VacationsPage() {
       {mates.map((p) => {
         const list = all.filter((v) => v.user_id === p.id && inYear(v)).sort((a, b) => a.start.localeCompare(b.start))
         return (
-          <Block key={p.id} title={p.name} count={spent(list)} className="mt-4" right={<span className="size-2.5 rounded-full" style={{ background: personHex(p.color) }} />}>
+          <Block key={p.id} title={p.name} className="mt-4" right={<span className="size-2.5 rounded-full" style={{ background: personHex(p.color) }} />}>
+            {summary(list, p.color)}
             {list.length ? (
               list.map((v) => <PeriodRow key={v.id} v={v} person={p} holidays={holidays} year={year} />)
             ) : (
