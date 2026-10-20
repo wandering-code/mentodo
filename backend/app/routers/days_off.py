@@ -17,7 +17,7 @@ from ..db import get_db
 from ..deps import Emitter, emitter
 from ..models import DayOff, Team, TeamMember, User
 from ..notify import create_notification
-from ..teams import active_team_ids, days_off_query, fmt_range, vacations_on
+from ..teams import active_team_ids, days_off_query, fmt_range, reload_vacations_for, vacations_on
 
 router = APIRouter(prefix="/days-off", tags=["days-off"])
 
@@ -111,6 +111,8 @@ def create_day_off(body: DayOffIn, em: Emitter = Depends(emitter), db: Session =
     em.to_users(_members(db, d.team_id), [{"t": "upsert", "k": "dayoff", "d": out}])
     if d.team_id is not None:
         _notify(em, db, d)
+    # Cambian los días que gastan las vacaciones ya puestas
+    reload_vacations_for(em, db, _members(db, d.team_id) | {em.user.id})
     return out
 
 
@@ -138,6 +140,7 @@ def patch_day_off(did: int, body: DayOffPatch, em: Emitter = Depends(emitter), d
     em.to_users(after, [{"t": "upsert", "k": "dayoff", "d": out}])
     # Quien estaba en el equipo de antes y ya no lo ve
     em.to_users(before - after, [{"t": "delete", "k": "dayoff", "id": d.id}])
+    reload_vacations_for(em, db, before | after | {em.user.id})
     return out
 
 
@@ -149,4 +152,5 @@ def delete_day_off(did: int, em: Emitter = Depends(emitter), db: Session = Depen
     db.commit()
     em.delete("dayoff", did)
     em.to_users(members, [{"t": "delete", "k": "dayoff", "id": did}])
+    reload_vacations_for(em, db, members | {em.user.id})
     return {"ok": True}

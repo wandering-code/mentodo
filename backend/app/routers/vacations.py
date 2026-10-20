@@ -17,7 +17,7 @@ from ..db import get_db
 from ..deps import Emitter, emitter
 from ..models import User, Vacation
 from ..notify import create_notification
-from ..teams import STATUS_NAMES, fmt_range, teammate_ids, vacations_on
+from ..teams import STATUS_NAMES, fmt_range, off_dates, teammate_ids, vacations_on, workdays_by_year
 
 router = APIRouter(prefix="/vacations", tags=["vacations"])
 
@@ -47,16 +47,26 @@ class VacationPatch(BaseModel):
     note: str | None = Field(None, max_length=200)
 
 
-def vacation_out(v: Vacation) -> dict:
+def vacation_out(v: Vacation, off: set | None = None, db: Session | None = None) -> dict:
+    """`days`: días laborables por año, contados con los festivos de su dueño
+    (los demás no los conocen todos: su comunidad, sus festivos propios)."""
+    if off is None and db is not None:
+        off = off_dates(db, db.get(User, v.user_id), set(range(v.start.year, v.end.year + 1)))
     return {"id": v.id, "user_id": v.user_id, "start": v.start.isoformat(), "end": v.end.isoformat(),
             "status": v.status, "note": v.note,
+            "days": workdays_by_year(v.start, v.end, off) if off is not None else None,
             "updated_at": v.updated_at.isoformat() if v.updated_at else None}
 
 
 def visible_vacations(db: Session, user_id: int) -> list[dict]:
     ids = teammate_ids(db, user_id) | {user_id}
     rows = db.scalars(select(Vacation).where(Vacation.user_id.in_(ids)).order_by(Vacation.start, Vacation.id)).all()
-    return [vacation_out(v) for v in rows]
+    # Los festivos de cada persona, una sola vez para todos sus periodos
+    off = {}
+    for uid in {v.user_id for v in rows}:
+        years = {y for v in rows if v.user_id == uid for y in range(v.start.year, v.end.year + 1)}
+        off[uid] = off_dates(db, db.get(User, uid), years)
+    return [vacation_out(v, off[v.user_id]) for v in rows]
 
 
 def _own(db: Session, user_id: int, vid: int) -> Vacation:
@@ -97,7 +107,7 @@ def create_vacation(body: VacationIn, em: Emitter = Depends(emitter), db: Sessio
     v = Vacation(user_id=em.user.id, start=body.start, end=body.end, status=body.status, note=body.note.strip())
     db.add(v)
     db.commit()
-    out = vacation_out(v)
+    out = vacation_out(v, db=db)
     em.upsert("vacation", out)
     who = em.user.display_name
     _share(em, db, [{"t": "upsert", "k": "vacation", "d": out}], f"vac-new:{v.id}",
@@ -118,7 +128,7 @@ def patch_vacation(vid: int, body: VacationPatch, em: Emitter = Depends(emitter)
     if v.end - v.start > MAX_SPAN:
         raise HTTPException(422, "Como mucho un año seguido")
     db.commit()
-    out = vacation_out(v)
+    out = vacation_out(v, db=db)
     em.upsert("vacation", out)
     # Solo avisa si cambia algo que importa a los demás (fechas o estado, no la nota)
     changed = before != (v.start, v.end, v.status)

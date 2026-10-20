@@ -7,7 +7,7 @@ import { fmt } from '../lib/dates'
 import { dateOf, dayKey, useFestivos, WEEKDAYS_SHORT } from '../lib/hours'
 import {
   activeTeams, allowanceFor, baseFor, carryInto, daysOf, daysOffByDay, dayOffScope, indexByDay, isWorkday, overlaps, peopleOf, personHex, STATUSES, statusName, vacationsOn,
-  vacSettings, withDaysOff, workdaysIn, yearCount,
+  spentIn, vacSettings, withDaysOff, workdaysIn, yearCount,
 } from '../lib/vacations'
 import { Block, Button, cx, IconButton, Input, Modal } from '../components/ui'
 
@@ -461,7 +461,8 @@ function Counter({ c, allowance, year, color, st, onCarry }) {
 }
 
 function PeriodRow({ v, person, holidays, year, onOpen }) {
-  const n = workdaysIn(v, holidays, year)
+  const total = spentIn(v, holidays, null, person.me)
+  const n = spentIn(v, holidays, year, person.me)
   const Tag = onOpen ? 'button' : 'div'
   return (
     <Tag {...(onOpen ? { type: 'button', onClick: onOpen } : {})} className={cx('flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left', onOpen && 'hover:bg-hover')}>
@@ -471,7 +472,11 @@ function PeriodRow({ v, person, holidays, year, onOpen }) {
         {v.note && <span className="ml-2 text-[13px] text-muted">{v.note}</span>}
       </span>
       <span className="shrink-0 text-[12px] text-muted">{statusName(v.status)}</span>
-      <span className="w-14 shrink-0 text-right text-[12.5px] tabular-nums text-faint">{plural(n, 'día', 'días')}</span>
+      <span className="flex min-w-14 shrink-0 flex-col items-end text-right text-[12.5px] leading-tight tabular-nums text-faint">
+        {plural(total, 'día', 'días')}
+        {/* Si cruza de año: cuántos son de este */}
+        {n !== total && <span className="text-[11px]">{n} en {year}</span>}
+      </span>
     </Tag>
   )
 }
@@ -577,7 +582,7 @@ export function VacationsPage() {
   // Días gastados del año (confirmados y pedidos, como en «Te quedan»; las
   // posibles aún no gastan nada). Sin días, no se enseña nada.
   const spent = (list) => {
-    const n = list.filter((v) => v.status !== 'posible').reduce((a, v) => a + workdaysIn(v, holidays, year), 0)
+    const n = list.filter((v) => v.status !== 'posible').reduce((a, v) => a + spentIn(v, holidays, year, v.user_id === user.id), 0)
     return n ? plural(n, 'día', 'días') : null
   }
   // Día con el que se abre «Añadir»: hoy, o el 1 de enero si se mira otro año

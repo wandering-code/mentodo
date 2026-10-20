@@ -49,10 +49,11 @@ def patch_me(body: MePatch, em: Emitter = Depends(emitter), db: Session = Depend
     db.commit()
     out = user_out(user)
     em.upsert("user", out)
-    if body.prefs and "vacations" in body.prefs:
-        # El color de cada persona sale en el calendario de sus compañeros
+    if body.prefs and ("vacations" in body.prefs or "hours" in body.prefs):
+        # El color de cada persona sale en el calendario de sus compañeros, y
+        # sus festivos (comunidad) cambian cuántos días gastan sus vacaciones
         from ..teams import teammate_ids
-        em.to_users(teammate_ids(db, user.id), [{"t": "reload_teams"}])
+        em.to_users(teammate_ids(db, user.id), [{"t": "reload_teams"}, {"t": "reload_vacations"}])
     return out
 
 

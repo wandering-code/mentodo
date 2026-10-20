@@ -85,6 +85,14 @@ export function workdaysIn(v, holidays, year) {
   return n
 }
 
+/* Días que gasta un periodo (en `year`, o en total sin él). Los tuyos se
+   cuentan aquí con tus festivos, al momento; los de los demás, con los
+   suyos, que cuenta el servidor (`v.days`, por año). */
+export function spentIn(v, holidays, year, mine) {
+  if (!mine && v.days) return year == null ? Object.values(v.days).reduce((a, n) => a + n, 0) : v.days[year] || 0
+  return workdaysIn(v, holidays, year)
+}
+
 /* El contador del año: disfrutados (confirmados ya pasados), confirmados por
    venir, pedidos y posibles. «Te quedan» descuenta confirmados y pedidos. */
 export function yearCount(mine, holidays, year, allowance, today = dayKey(new Date())) {
