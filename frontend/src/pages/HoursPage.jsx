@@ -187,7 +187,7 @@ function EntryRow({ entry, style, step, onOpenCard }) {
           aria-label="Tarea"
           className={cx(cell, 'block h-auto min-h-9 w-full resize-none overflow-hidden py-[7px] font-medium leading-[22px] text-ink placeholder:text-faint sm:order-2 sm:flex-1')}
         />
-        <div className="flex min-w-0 items-center sm:order-1 sm:w-[34%] sm:shrink-0">
+        <div className="flex min-w-0 items-center sm:order-1 sm:w-32 sm:shrink-0">
           {project && <span className="pl-2 text-[13px] leading-none">{project.icon}</span>}
           <input
             value={client}
@@ -196,7 +196,8 @@ function EntryRow({ entry, style, step, onOpenCard }) {
             onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
             placeholder="Sin cliente"
             aria-label="Cliente"
-            className={cx(cell, 'h-7 w-full text-[13px] text-muted placeholder:text-faint sm:h-9 sm:text-[14px]')}
+            title={client}
+            className={cx(cell, 'h-7 w-full text-ellipsis text-[13px] text-muted placeholder:text-faint sm:h-9 sm:text-[14px]')}
           />
         </div>
       </div>
