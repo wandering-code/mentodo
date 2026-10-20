@@ -135,7 +135,7 @@ function WeekStrip({ keys, viewKey, today, onPick, workdays, byDay, settings, ho
                 style={{ transform: `scaleX(${frac})`, background: over ? TONE.over : full ? TONE.full : 'var(--accent)', transition: 'transform .45s cubic-bezier(.32,.72,0,1)' }}
               />
             </span>
-            <span className="h-3.5 text-[10.5px] tabular-nums text-faint">{imp ? fmtH(imp, settings.format) : holidays.has(k) ? 'fest.' : ''}</span>
+            <span className="h-3.5 text-[10.5px] tabular-nums text-faint">{imp ? fmtH(imp, settings.format) : holidays.vac?.has(k) ? 'vac.' : holidays.has(k) ? 'fest.' : ''}</span>
             {k === today && <span className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-accent" />}
           </button>
         )
@@ -383,7 +383,10 @@ export function HoursPage() {
   // Centro del anillo
   let big = null
   let caption = null
-  if (st.worked == null) {
+  if (day.vacation && !st.imputed) {
+    big = <span className="text-[40px] leading-none">🌴</span>
+    caption = 'De vacaciones'
+  } else if (st.worked == null) {
     caption = 'Indica la entrada'
   } else if (st.pendNow < -0.5) {
     big = fmtH(-st.pendNow, style)
@@ -401,7 +404,16 @@ export function HoursPage() {
       <p className="entra text-[13px] font-medium text-faint first-letter:uppercase">
         {isToday ? 'Hoy · ' : ''}
         {fmt(dateOf(viewKey), "EEEE, d 'de' MMMM")}
-        {holidays.has(viewKey) && ' · festivo'}
+        {holidays.vac?.has(viewKey) ? (
+          <>
+            {' · '}
+            <Link to={`/vacaciones?d=${viewKey}`} className="underline-offset-4 hover:text-muted hover:underline">
+              🌴 de vacaciones
+            </Link>
+          </>
+        ) : (
+          holidays.has(viewKey) && ' · festivo'
+        )}
       </p>
       <div className="entra mt-1 flex items-center gap-2" style={{ '--entra-espera': '40ms' }}>
         <h1 className="flex flex-1 items-center gap-2.5 text-[30px] font-semibold tracking-[-0.03em]">

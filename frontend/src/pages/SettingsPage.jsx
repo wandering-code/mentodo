@@ -15,6 +15,8 @@ import { Button, cx, Input, spring, Toggle } from '../components/ui'
 import { SettingsSection } from './ProjectSettings'
 import { HoursSettings, ModulesSettings } from '../components/HoursSettings'
 import { hoursOn } from '../lib/hours'
+import { vacationsOn } from '../lib/vacations'
+import { TeamSettings, VacationSettings } from '../components/TeamSettings'
 import { useLocation } from 'react-router'
 
 const THEMES = [
@@ -162,6 +164,16 @@ export function SettingsPage() {
           <HoursSettings />
         </SettingsSection>
       )}
+
+      {vacationsOn(user) && (
+        <SettingsSection id="vacaciones" title="Vacaciones" description="Cuántos días tienes, qué festivos no cuentan y con qué color te ven los demás.">
+          <VacationSettings />
+        </SettingsSection>
+      )}
+
+      <SettingsSection id="equipo" title="Equipo" description="Gente con la que compartes cosas en Mentodo; de momento, las vacaciones. Invita por nombre de usuario: le llega un aviso y, cuando acepte, os veréis el uno al otro.">
+        <TeamSettings />
+      </SettingsSection>
 
       <SettingsSection title="Avisos" description="Notificaciones en este dispositivo aunque Mentodo esté cerrado.">
         {!pushSupported() ? (

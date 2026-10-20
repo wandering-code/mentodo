@@ -25,6 +25,7 @@ const KIND_KEY = {
   card: 'cards',
   rule: 'rules',
   entry: 'entries',
+  vacation: 'vacations',
 }
 
 function fail(e) {
@@ -54,6 +55,10 @@ export const useStore = create((set, getState) => ({
   workdays: {},
   entries: {},
   cardHours: {},
+  // Equipos (siempre: las invitaciones llegan sin módulos) y vacaciones
+  // propias y de los compañeros (solo con el módulo encendido)
+  teams: [],
+  vacations: {},
   // Tarjetas con borrado pendiente (el aviso de Deshacer sigue en pantalla)
   hidden: {},
 
@@ -78,6 +83,8 @@ export const useStore = create((set, getState) => ({
         notifications: d.notifications,
         vapidKey: d.vapid_public_key,
         cardHours: d.card_hours || {},
+        teams: d.teams || [],
+        vacations: byId(d.vacations || []),
       })
       // Al reconectar, lo de las semanas ya vistas se vuelve a pedir
       reloadHours(getState)
@@ -91,6 +98,8 @@ export const useStore = create((set, getState) => ({
 
   // ── Eventos que llegan por WebSocket ──
   applyEvents(events) {
+    if (events.some((ev) => ev.t === 'reload_teams')) getState().loadTeams()
+    if (events.some((ev) => ev.t === 'reload_vacations')) getState().loadVacations()
     set((s) => {
       const next = { ...s }
       for (const ev of events) {
@@ -417,6 +426,46 @@ export const useStore = create((set, getState) => ({
   deleteRule(id) {
     deferDelete(set, getState, { kind: 'rule', id, path: `/rules/${id}`, message: 'Aviso eliminado' })
   },
+  // ── Equipos ──
+  async loadTeams() {
+    try {
+      set({ teams: await get('/teams') })
+    } catch {}
+  },
+  async teamAction(method, path, body) {
+    try {
+      const out = await api(path, { method, body })
+      await getState().loadTeams()
+      if (path.includes('/accept') || path.includes('/leave') || path.includes('/members/')) getState().loadVacations()
+      return out ?? true
+    } catch (e) {
+      fail(e)
+      return null
+    }
+  },
+
+  // ── Vacaciones ──
+  async loadVacations() {
+    if (!getState().user?.prefs?.mod_vacations) return
+    try {
+      const list = await get('/vacations')
+      set({ vacations: byId(list.filter((v) => !pendingDeletes.has(`vacation:${v.id}`))) })
+    } catch {}
+  },
+  async createVacation(body) {
+    try {
+      const v = await post('/vacations', body)
+      set((s) => ({ vacations: { ...s.vacations, [v.id]: v } }))
+      return v
+    } catch (e) {
+      fail(e)
+    }
+  },
+  updateVacation: (id, body) => optimisticPatch(set, getState, 'vacations', `/vacations/${id}`, id, body),
+  deleteVacation(id) {
+    deferDelete(set, getState, { kind: 'vacation', id, path: `/vacations/${id}`, message: 'Vacaciones quitadas' })
+  },
+
   // ── Parte de horas ──
   async loadHours(start, end) {
     loadedHourRanges.set(`${start}|${end}`, [start, end])
@@ -506,7 +555,7 @@ export const useStore = create((set, getState) => ({
       await post('/auth/logout')
     } catch {}
     loadedHourRanges.clear()
-    set({ status: 'anon', user: null, projects: {}, cards: {}, groups: {}, labels: {}, views: {}, fields: {}, notes: {}, templates: {}, links: {}, attachments: {}, rules: {}, notifications: [], workdays: {}, entries: {}, cardHours: {} })
+    set({ status: 'anon', user: null, projects: {}, cards: {}, groups: {}, labels: {}, views: {}, fields: {}, notes: {}, templates: {}, links: {}, attachments: {}, rules: {}, notifications: [], workdays: {}, entries: {}, cardHours: {}, teams: [], vacations: {} })
   },
 }))
 
@@ -560,7 +609,7 @@ function syncDoneLabels(s, card, done) {
 // recibe hasta que pasa el plazo; si se cierra la página antes, se envían
 // igualmente (keepalive).
 export const UNDO_MS = 8000
-const SLICES = ['projects', 'groups', 'labels', 'views', 'fields', 'notes', 'templates', 'links', 'attachments', 'cards', 'rules', 'entries']
+const SLICES = ['projects', 'groups', 'labels', 'views', 'fields', 'notes', 'templates', 'links', 'attachments', 'cards', 'rules', 'entries', 'vacations']
 const pendingDeletes = new Map() // clave → ruta de la API
 
 if (typeof window !== 'undefined') {

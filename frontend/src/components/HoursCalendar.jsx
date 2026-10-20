@@ -107,7 +107,7 @@ export function HoursCalendar({ viewKey, style, settings, onPick }) {
           const off = day.target_minutes === 0 && !imputed
           const title = [
             fmt(dateOf(k), "EEEE d 'de' MMMM"),
-            holidays.has(k) ? 'festivo' : null,
+            holidays.vac?.has(k) ? 'vacaciones' : holidays.has(k) ? 'festivo' : null,
             imputed ? `imputado ${fmtH(imputed, style)} de ${fmtH(day.target_minutes, style)}` : null,
             balance != null ? `balance ${fmtH(balance, style, true)}` : null,
             extra ? `${fmtDelta(extra.minutes)} ${extra.minutes > 0 ? 'de más' : 'antes de hora'}` : null,
@@ -130,6 +130,7 @@ export function HoursCalendar({ viewKey, style, settings, onPick }) {
                 {Number(k.slice(8))}
               </span>
               <span className="mt-auto flex w-full flex-col gap-0.5">
+                {holidays.vac?.has(k) && balance == null && <span className="text-[11px] leading-none">🌴</span>}
                 {balance != null && (
                   <span
                     className="truncate text-[10.5px] font-medium tabular-nums leading-none sm:text-[11.5px]"

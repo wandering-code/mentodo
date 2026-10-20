@@ -31,6 +31,13 @@ class Emitter:
         self.events.append({"t": "delete", "k": kind, "id": id_})
         self._schedule()
 
+    def to_users(self, user_ids, events: list[dict]):
+        """Cambios para otras personas (compañeros de equipo): les llegan a
+        todos sus dispositivos cuando la respuesta ya ha salido."""
+        for uid in set(user_ids):
+            if uid != self.user.id and events:
+                self._bg.add_task(hub.publish, uid, list(events))
+
     def _schedule(self):
         if not self._scheduled:
             self._scheduled = True

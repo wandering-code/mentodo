@@ -64,10 +64,15 @@ def rule_out(r: NotificationRule):
     }
 
 
+# A dónde lleva un aviso sin tarjeta, según su tipo (el prefijo de su clave)
+NOTIF_URLS = {"team-": "/ajustes#equipo", "vac-": "/vacaciones", "hours-": "/horas", "signup:": "/admin"}
+
+
 def notification_out(n: Notification):
+    url = next((u for k, u in NOTIF_URLS.items() if (n.dedupe_key or "").startswith(k)), None)
     return {
         "id": n.id, "card_id": n.card_id, "project_id": n.project_id, "title": n.title,
-        "body": n.body, "read": n.read, "created_at": iso(n.created_at),
+        "body": n.body, "read": n.read, "created_at": iso(n.created_at), "url": url,
     }
 
 

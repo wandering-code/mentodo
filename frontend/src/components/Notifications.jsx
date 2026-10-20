@@ -26,6 +26,7 @@ export function NotificationsPanel({ open, onClose }) {
   const goTo = (n) => {
     const card = n.card_id ? useStore.getState().cards[n.card_id] : null
     if (card) nav(cardPath(card))
+    else if (n.url) nav(n.url)
     else if (n.title.startsWith('Nueva cuenta')) nav('/admin')
     else nav('/')
     onClose()

@@ -293,3 +293,39 @@ class TimeEntry(Base):
     position = Column(Float, nullable=False, default=0)
     created_at = Column(DateTime(timezone=True), default=now)
     updated_at = Column(DateTime(timezone=True), default=now, onupdate=now)
+
+
+class Team(Base):
+    """Un equipo: gente que comparte cosas entre sí (de momento, las
+    vacaciones). Es general, no depende de ningún módulo."""
+    __tablename__ = "teams"
+    id = Column(Integer, primary_key=True)
+    name = Column(String(80), nullable=False)
+    owner_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    created_at = Column(DateTime(timezone=True), default=now)
+
+
+class TeamMember(Base):
+    """invited → active al aceptar. Rechazar o salir borra la fila."""
+    __tablename__ = "team_members"
+    __table_args__ = (UniqueConstraint("team_id", "user_id"),)
+    id = Column(Integer, primary_key=True)
+    team_id = Column(Integer, ForeignKey("teams.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    status = Column(String(10), nullable=False, default="invited")
+    invited_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=now)
+
+
+class Vacation(Base):
+    """Un periodo de vacaciones (días enteros, ambos incluidos). Es de su
+    dueño; lo ve quien comparte un equipo activo con él."""
+    __tablename__ = "vacations"
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    start = Column(Date, nullable=False, index=True)
+    end = Column(Date, nullable=False, index=True)
+    status = Column(String(12), nullable=False, default="posible")  # posible | pedida | confirmada
+    note = Column(String(200), nullable=False, default="")
+    created_at = Column(DateTime(timezone=True), default=now)
+    updated_at = Column(DateTime(timezone=True), default=now, onupdate=now)

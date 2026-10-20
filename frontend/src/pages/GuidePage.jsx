@@ -2,10 +2,11 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation } from 'react-router'
 import {
   ArrowRight, Bell, BookOpen, CalendarRange, CircleCheckBig, Clock, Columns3, FileText, FolderKanban, GitBranch, Inbox, KeyRound, LayoutTemplate, Palette,
-  Paperclip, Search, ShieldCheck, Sparkles, Sun, Tags, Undo2, X, Zap, SlidersHorizontal,
+  Paperclip, Search, ShieldCheck, Sparkles, Sun, Tags, Undo2, X, Zap, SlidersHorizontal, TreePalm,
 } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { hoursOn } from '../lib/hours'
+import { vacationsOn } from '../lib/vacations'
 import { Button, Checkbox, cx, IS_MAC, Kbd, LabelChip } from '../components/ui'
 
 /* Guía de uso: todo lo que hace Mentodo, consultable en cualquier momento.
@@ -326,7 +327,7 @@ const SECTIONS = [
     id: 'horas',
     icon: Clock,
     title: 'Parte de horas',
-    module: true,
+    module: 'hours',
     intro: 'Un módulo opcional para quien imputa horas a clientes: fichas la entrada, apuntas partes (cliente, tarea y horas) y Mentodo te dice cuándo sales, qué te queda por imputar y cómo va tu semana. Se activa en Ajustes → Módulos y, sin activarlo, no aparece en ninguna parte.',
     items: [
       ['Fichar', 'Pon la hora de entrada (o «Fichar ahora»). Se redondea a la precisión elegida: con cuartos, 08:17 se guarda 08:15.'],
@@ -352,6 +353,25 @@ const SECTIONS = [
       </>
     ),
     to: '/horas',
+  },
+  {
+    id: 'vacaciones',
+    icon: TreePalm,
+    title: 'Vacaciones y equipo',
+    module: 'vacations',
+    intro: 'Un módulo opcional para apuntar tus vacaciones del año y ver las de tu equipo en el mismo calendario. Se activa en Ajustes → Módulos. Los equipos son aparte y generales: se crean en Ajustes → Equipo y la invitación llega aunque la otra persona no use el módulo.',
+    items: [
+      ['Equipo', 'Crea un equipo en Ajustes → Equipo e invita por nombre de usuario. A la otra persona le llega un aviso; cuando acepta, os veis las vacaciones el uno al otro. Puedes salir cuando quieras.'],
+      ['Marcar unas vacaciones', 'Toca el primer día en el calendario y luego el último (o «Añadir»). Elige el estado y, si quieres, una nota.'],
+      ['Tres estados', 'Posible (solo el contorno): te lo estás planteando. Pedida (a rayas): pedida a la empresa, sin respuesta. Confirmada (sólida): aprobada.'],
+      ['Te quedan', 'Arriba, los días que te quedan del año: se descuentan las confirmadas y las pedidas; aparte, cuántos te quedarían si confirmaras las posibles. Solo cuentan los días laborables (sin fines de semana ni festivos). Los días de cada año y los festivos, en Ajustes → Vacaciones.'],
+      ['Coincidencias', 'Los días en que estáis fuera más de uno salen recuadrados, y en la lista «Coincidencias». Al añadir unas vacaciones ves si coinciden con alguien.'],
+      ['Cada persona, su color', 'Toca a alguien en la leyenda para ocultarlo o volver a verlo. Tu color se elige en Ajustes → Vacaciones.'],
+      ['En Horas', 'Si usas el parte de horas, los días de vacaciones confirmadas cuentan con jornada 0: no restan en el balance ni piden horas.'],
+      ['Avisos', 'Cuando alguien de tu equipo añade, cambia o quita unas vacaciones, te llega un aviso (si usas el módulo).'],
+      ['Cambiar o quitar', 'Toca uno de tus días de vacaciones para abrirlo; «Quitar» lo borra, con Deshacer.'],
+    ],
+    to: '/vacaciones',
   },
   {
     id: 'datos',
@@ -430,7 +450,8 @@ function Section({ sec, on, index }) {
 }
 
 export function GuidePage() {
-  const on = useStore((s) => hoursOn(s.user))
+  const user = useStore((s) => s.user)
+  const onOf = (sec) => (sec.module === 'vacations' ? vacationsOn(user) : hoursOn(user))
   const [q, setQ] = useState('')
   const { hash } = useLocation()
   const shown = useMemo(() => {
@@ -480,7 +501,7 @@ export function GuidePage() {
               <button key={s.id} onClick={() => go(s.id)} className="flex items-center gap-2 rounded-xl border border-transparent px-2.5 py-2 text-left text-[13.5px] text-muted transition-colors hover:border-line hover:bg-surface hover:text-ink">
                 <Icon size={15} className="shrink-0 text-faint" />
                 <span className="truncate">{s.title}</span>
-                {s.module && <span className="ml-auto size-1.5 shrink-0 rounded-full" style={{ background: on ? 'var(--accent)' : 'var(--faint)' }} />}
+                {s.module && <span className="ml-auto size-1.5 shrink-0 rounded-full" style={{ background: onOf(s) ? 'var(--accent)' : 'var(--faint)' }} />}
               </button>
             )
           })}
@@ -489,7 +510,7 @@ export function GuidePage() {
 
       <div className="mt-6 flex flex-col gap-4">
         {shown.map((sec, i) => (
-          <Section key={sec.id} sec={sec} on={on} index={i} />
+          <Section key={sec.id} sec={sec} on={onOf(sec)} index={i} />
         ))}
         {shown.length === 0 && <p className="py-12 text-center text-[14px] text-faint">Nada en la guía con «{q}».</p>}
       </div>

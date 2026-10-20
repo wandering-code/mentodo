@@ -223,7 +223,7 @@ def _hours_checks(db, user: User, local_now: datetime, emit):
         return
     today = local_now.date()
     day = db.scalar(select(WorkDay).where(WorkDay.user_id == user.id, WorkDay.day == today))
-    if not day or not day.start or day.target_minutes <= 0:
+    if not day or not day.start or day.target_minutes <= 0 or hours.on_vacation(db, user, today):
         return
     now_m = local_now.hour * 60 + local_now.minute
     start = hours.to_min(day.start)

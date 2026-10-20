@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Clock } from 'lucide-react'
+import { Clock, TreePalm } from 'lucide-react'
 import { get } from '../lib/api'
 import { useStore } from '../lib/store'
 import { DEFAULT_SCHEDULE, fmtH, hoursOn, hoursSettings, parseDuration, quantize, WEEKDAYS } from '../lib/hours'
 import { cx, Toggle } from './ui'
+import { vacationsOn } from '../lib/vacations'
 import { TimeField } from './HoursParts'
 
 /* Ajustes → Módulos y Ajustes → Parte de horas. Todo va en user.prefs: el
@@ -25,6 +26,22 @@ export function ModulesSettings() {
           </span>
         </span>
         <Toggle checked={on} onChange={(v) => s.updateMe({ prefs: { mod_hours: v } })} label="Parte de horas" />
+      </label>
+      <label className="flex items-start gap-3 rounded-2xl border border-line bg-surface p-3.5 text-[14px] shadow-soft">
+        <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-accent-soft text-accent">
+          <TreePalm size={18} />
+        </span>
+        <span className="flex-1">
+          <span className="font-medium">Vacaciones</span>
+          <span className="block text-[12.5px] text-muted">
+            Apunta tus vacaciones del año (posibles, pedidas o confirmadas), mira cuántos días te quedan y ve las de tu equipo en un mismo calendario. Las confirmadas cuentan en Horas como días libres.
+          </span>
+        </span>
+        <Toggle
+          checked={vacationsOn(s.user)}
+          onChange={(v) => s.updateMe({ prefs: { mod_vacations: v } }).then(() => v && s.loadVacations())}
+          label="Vacaciones"
+        />
       </label>
     </div>
   )

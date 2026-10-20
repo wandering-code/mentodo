@@ -66,7 +66,7 @@ def _ensure_day(db: Session, user, day: date) -> tuple[WorkDay, bool]:
     d = db.scalar(select(WorkDay).where(WorkDay.user_id == user.id, WorkDay.day == day))
     if d:
         return d, False
-    d = WorkDay(user_id=user.id, day=day, **day_defaults(user, day))
+    d = WorkDay(user_id=user.id, day=day, **day_defaults(user, day, db))
     db.add(d)
     db.flush()
     return d, True
@@ -126,7 +126,7 @@ def put_day(day: date, body: DayPatch, em: Emitter = Depends(emitter), db: Sessi
 def reset_day(day: date, em: Emitter = Depends(emitter), db: Session = Depends(get_db)):
     """Vuelve a poner el horario de la semana (no toca los partes)."""
     d, _ = _ensure_day(db, em.user, day)
-    for k, v in day_defaults(em.user, day).items():
+    for k, v in day_defaults(em.user, day, db).items():
         setattr(d, k, v)
     db.commit()
     out = workday_out(d)

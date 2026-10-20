@@ -2,12 +2,13 @@ import { useMemo, useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router'
 import { motion } from 'motion/react'
 import { SortableList, SortableRow } from './Sortable'
-import { Archive, Bell, BookOpen, ChevronRight, CircleCheckBig, Clock, Inbox, NotebookText, Plus, Search, Settings, Shield, Sun, CalendarRange } from 'lucide-react'
+import { Archive, Bell, BookOpen, ChevronRight, CircleCheckBig, Clock, Inbox, NotebookText, Plus, Search, Settings, Shield, Sun, CalendarRange, TreePalm } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { Collapse, cx, IconButton, IS_MAC, Kbd, spring } from './ui'
 import { Logo, Wordmark } from './Logo'
 import { isInactive } from '../lib/cards'
 import { hoursOn } from '../lib/hours'
+import { vacationsOn } from '../lib/vacations'
 
 export function useNav() {
   const cards = useStore((s) => s.cards)
@@ -112,6 +113,11 @@ export function Sidebar({ onSearch, onNewProject, onNotifications, onNavigate, t
         {hoursOn(user) && (
           <NavItem touch={touch} to="/horas" icon={Clock} onClick={onNavigate}>
             Horas
+          </NavItem>
+        )}
+        {vacationsOn(user) && (
+          <NavItem touch={touch} to="/vacaciones" icon={TreePalm} onClick={onNavigate}>
+            Vacaciones
           </NavItem>
         )}
       </div>

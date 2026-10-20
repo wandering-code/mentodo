@@ -202,7 +202,7 @@ function useTitle() {
       </span>
     ) : ''
   }
-  return { '/hoy': 'Hoy', '/': 'To Do', '/inbox': 'Bandeja', '/apuntes': 'Apuntes', '/semana': 'Semana', '/horas': 'Horas', '/guia': 'Guía', '/ajustes': 'Ajustes', '/admin': 'Administración' }[loc.pathname] || ''
+  return { '/hoy': 'Hoy', '/': 'To Do', '/inbox': 'Bandeja', '/apuntes': 'Apuntes', '/semana': 'Semana', '/horas': 'Horas', '/vacaciones': 'Vacaciones', '/guia': 'Guía', '/ajustes': 'Ajustes', '/admin': 'Administración' }[loc.pathname] || ''
 }
 
 function TopBar({ onMenu, onNotifs }) {

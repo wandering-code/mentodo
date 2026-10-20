@@ -39,6 +39,11 @@ def settings_of(user) -> dict:
     return out
 
 
+def on_vacation(db, user, day: date) -> bool:
+    from .teams import is_vacation, vacations_on
+    return vacations_on(user) and is_vacation(db, user.id, day)
+
+
 def is_holiday(day: date, region) -> bool:
     if region is None:
         return False
@@ -49,11 +54,13 @@ def is_holiday(day: date, region) -> bool:
         return False
 
 
-def day_defaults(user, day: date) -> dict:
-    """Lo que copia un día al nacer: su horario de la semana (0 si es festivo)."""
+def day_defaults(user, day: date, db=None) -> dict:
+    """Lo que copia un día al nacer: su horario de la semana (0 si es festivo
+    o si cae en unas vacaciones confirmadas)."""
     st = settings_of(user)
     d = st["schedule"][day.weekday()]
-    target = 0 if is_holiday(day, st["region"]) else int(d["target"])
+    off = is_holiday(day, st["region"]) or (db is not None and on_vacation(db, user, day))
+    target = 0 if off else int(d["target"])
     return {"target_minutes": target, "lunch_minutes": int(d["lunch"]), "lunch_from": d["lunch_from"]}
 
 
