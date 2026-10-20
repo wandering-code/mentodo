@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, Navigate, useSearchParams } from 'react-router'
-import { addDays, endOfMonth, startOfWeek } from 'date-fns'
+import { addDays, addMonths, endOfMonth, startOfMonth, startOfWeek } from 'date-fns'
 import { ChevronLeft, ChevronRight, Plus, Trash2, TreePalm, Users } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { fmt } from '../lib/dates'
@@ -40,10 +40,16 @@ export function shortRange(a, b) {
   return `${fmt(s, 'd MMM')} – ${fmt(e, a.slice(0, 4) === b.slice(0, 4) ? 'd MMM' : 'd MMM yyyy')}`
 }
 
+const VIEWS = [
+  { id: 'year', name: 'Año' },
+  { id: '3m', name: '3 meses' },
+  { id: '1m', name: 'Mes' },
+]
+const VIEW_KEY = 'mentodo:vacaciones-vista'
+
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`
 
-function Month({ year, month, byDay, people, holidays, today, sel, onDay, onHover, focus }) {
-  const first = new Date(year, month, 1)
+function Month({ first, byDay, people, holidays, today, sel, onDay, onHover, focus, big, onTitle }) {
   const last = dayKey(endOfMonth(first))
   const firstKey = dayKey(first)
   const cells = []
@@ -56,10 +62,18 @@ function Month({ year, month, byDay, people, holidays, today, sel, onDay, onHove
   const byId = Object.fromEntries(people.map((p) => [p.id, p]))
   return (
     <section id={`mes-${firstKey.slice(0, 7)}`} className="scroll-mt-20 rounded-2xl border border-line bg-surface p-2.5 shadow-soft sm:p-3">
-      <h3 className="mb-1.5 px-1 text-[14px] font-semibold capitalize tracking-[-0.01em]">{fmt(first, 'MMMM')}</h3>
+      <h3 className="mb-1.5 px-1">
+        {big ? (
+          <span className="text-[16px] font-semibold capitalize tracking-[-0.01em]">{fmt(first, 'MMMM yyyy')}</span>
+        ) : (
+          <button type="button" onClick={onTitle} title="Ver solo este mes" className="-mx-1 rounded-md px-1 text-[14px] font-semibold capitalize tracking-[-0.01em] hover:bg-hover">
+            {fmt(first, 'MMMM')}
+          </button>
+        )}
+      </h3>
       <div className="grid grid-cols-7 gap-0.5">
         {WEEKDAYS_SHORT.map((w) => (
-          <div key={w} className="pb-1 text-center text-[10.5px] font-medium text-faint">
+          <div key={w} className={cx('pb-1 text-center font-medium text-faint', big ? 'text-[12px]' : 'text-[10.5px]')}>
             {w}
           </div>
         ))}
@@ -87,7 +101,7 @@ function Month({ year, month, byDay, people, holidays, today, sel, onDay, onHove
               onClick={() => onDay(k)}
               onMouseEnter={() => onHover(k)}
               className={cx(
-                'relative flex h-11 flex-col items-center justify-start gap-1 rounded-lg pt-1.5 transition-colors',
+                'relative flex flex-col items-center justify-start gap-1 rounded-lg pt-1.5 transition-colors', big ? 'h-16 sm:h-20' : 'h-11',
                 picked ? 'bg-accent-soft' : 'hover:bg-hover',
                 focus === k && 'ring-2 ring-accent',
               )}
@@ -95,16 +109,16 @@ function Month({ year, month, byDay, people, holidays, today, sel, onDay, onHove
             >
               <span
                 className={cx(
-                  'text-[12.5px] tabular-nums leading-none',
+                  big ? 'text-[15px] tabular-nums leading-none' : 'text-[12.5px] tabular-nums leading-none',
                   k === today ? 'grid size-5 place-items-center rounded-full bg-accent font-semibold text-accent-ink' : weekend || fest ? 'text-faint' : 'text-ink',
                   fest && k !== today && 'underline decoration-dotted underline-offset-2',
                 )}
               >
                 {Number(k.slice(8))}
               </span>
-              <span className="flex w-full flex-col gap-[2px] px-1">
+              <span className={cx('flex w-full flex-col gap-[2px]', big ? 'px-1.5 sm:px-2.5' : 'px-1')}>
                 {list.slice(0, 3).map((v) => (
-                  <span key={v.id} className="block h-[5px] rounded-full" style={statusStyle(byId[v.user_id].color, v.status)} />
+                  <span key={v.id} className={cx('block rounded-full', big ? 'h-[7px]' : 'h-[5px]')} style={statusStyle(byId[v.user_id].color, v.status)} />
                 ))}
               </span>
             </button>
@@ -287,7 +301,35 @@ export function VacationsPage() {
   const user = s.user
   const [params, setParams] = useSearchParams()
   const focusKey = params.get('d')
-  const [year, setYear] = useState(() => (focusKey ? Number(focusKey.slice(0, 4)) : new Date().getFullYear()))
+  // Vista del calendario (se recuerda en este dispositivo) y el mes desde el que se mira
+  const [view, setViewState] = useState(() => {
+    try {
+      return VIEWS.some((v) => v.id === localStorage.getItem(VIEW_KEY)) ? localStorage.getItem(VIEW_KEY) : 'year'
+    } catch {
+      return 'year'
+    }
+  })
+  const setView = (v) => {
+    setViewState(v)
+    try {
+      localStorage.setItem(VIEW_KEY, v)
+    } catch {}
+  }
+  const [anchor, setAnchor] = useState(() => startOfMonth(focusKey ? dateOf(focusKey) : new Date()))
+  const year = anchor.getFullYear()
+  const months = view === 'year' ? Array.from({ length: 12 }, (_, m) => new Date(year, m, 1)) : Array.from({ length: view === '3m' ? 3 : 1 }, (_, i) => addMonths(anchor, i))
+  const step = (dir) => setAnchor(addMonths(anchor, dir * (view === 'year' ? 12 : 1)))
+  const thisMonth = startOfMonth(new Date())
+  const atNow = view === 'year' ? year === thisMonth.getFullYear() : +anchor === +thisMonth
+  const label =
+    view === 'year'
+      ? String(year)
+      : view === '1m'
+        ? fmt(anchor, 'MMMM yyyy')
+        : (() => {
+            const end = addMonths(anchor, 2)
+            return end.getFullYear() === year ? `${fmt(anchor, 'MMM')} – ${fmt(end, 'MMM yyyy')}` : `${fmt(anchor, 'MMM yyyy')} – ${fmt(end, 'MMM yyyy')}`
+          })()
   const [sel, setSel] = useState(null) // { start, end } mientras se marca un periodo
   const [draft, setDraft] = useState(null)
   const [hiddenPeople, setHiddenPeople] = useState(() => new Set())
@@ -329,6 +371,12 @@ export function VacationsPage() {
 
   if (!vacationsOn(user)) return <Navigate to="/ajustes#modulos" replace />
 
+  // Días gastados del año (confirmados y pedidos, como en «Te quedan»; las
+  // posibles aún no gastan nada). Sin días, no se enseña nada.
+  const spent = (list) => {
+    const n = list.filter((v) => v.status !== 'posible').reduce((a, v) => a + workdaysIn(v, holidays, year), 0)
+    return n ? plural(n, 'día', 'días') : null
+  }
   const ownAt = (k) => (allByDay[k] || []).find((v) => v.user_id === user.id)
   const onDay = (k) => {
     if (sel) {
@@ -354,20 +402,39 @@ export function VacationsPage() {
         <h1 className="flex flex-1 items-center gap-2.5 text-[30px] font-semibold tracking-[-0.03em]">
           <TreePalm size={26} className="text-accent" /> Vacaciones
         </h1>
-        <div className="flex items-center gap-1">
-          <IconButton label="Año anterior" onClick={() => setYear(year - 1)}>
-            <ChevronLeft size={18} />
-          </IconButton>
-          <button onClick={() => setYear(new Date().getFullYear())} className="min-w-[3.5rem] rounded-lg px-1 text-[16px] font-semibold tabular-nums hover:bg-hover" title="Volver a este año">
-            {year}
-          </button>
-          <IconButton label="Año siguiente" onClick={() => setYear(year + 1)}>
-            <ChevronRight size={18} />
-          </IconButton>
-        </div>
         <Button variant="primary" onClick={() => setDraft({ start: today < `${year}-01-01` || today > `${year}-12-31` ? `${year}-01-01` : today, end: today < `${year}-01-01` || today > `${year}-12-31` ? `${year}-01-01` : today, status: 'posible', note: '' })}>
           <Plus size={16} /> Añadir
         </Button>
+      </div>
+
+      {/* Vista del calendario y navegación */}
+      <div className="entra mt-4 flex flex-wrap items-center gap-2" style={{ '--entra-espera': '40ms' }}>
+        <div className="inline-flex rounded-xl bg-sunken p-1">
+          {VIEWS.map((v) => (
+            <button
+              key={v.id}
+              onClick={() => setView(v.id)}
+              className={cx('h-8 rounded-lg px-3 text-[13px] transition-colors', view === v.id ? 'bg-surface font-medium text-ink shadow-soft' : 'text-muted hover:text-ink')}
+            >
+              {v.name}
+            </button>
+          ))}
+        </div>
+        <span className="flex-1" />
+        <div className="flex items-center gap-1">
+          <IconButton label={view === 'year' ? 'Año anterior' : 'Mes anterior'} onClick={() => step(-1)}>
+            <ChevronLeft size={18} />
+          </IconButton>
+          <span className="min-w-[3.5rem] text-center text-[15px] font-semibold capitalize tabular-nums">{label}</span>
+          <IconButton label={view === 'year' ? 'Año siguiente' : 'Mes siguiente'} onClick={() => step(1)}>
+            <ChevronRight size={18} />
+          </IconButton>
+          {!atNow && (
+            <Button size="sm" variant="ghost" onClick={() => setAnchor(thisMonth)}>
+              Hoy
+            </Button>
+          )}
+        </div>
       </div>
 
       <Counter c={count} allowance={allowanceFor(st, year)} year={year} color={st.color} />
@@ -405,12 +472,20 @@ export function VacationsPage() {
         </span>
       </div>
 
-      <div className="entra mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3" style={{ '--entra-espera': '140ms' }} onMouseLeave={() => sel && setSel({ ...sel, end: sel.start })}>
-        {Array.from({ length: 12 }, (_, m) => (
+      <div
+        className={cx('entra mt-4 grid gap-3', view === 'year' ? 'sm:grid-cols-2 lg:grid-cols-3' : view === '3m' ? 'md:grid-cols-3' : 'mx-auto max-w-2xl')}
+        style={{ '--entra-espera': '140ms' }}
+        onMouseLeave={() => sel && setSel({ ...sel, end: sel.start })}
+      >
+        {months.map((first) => (
           <Month
-            key={`${year}-${m}`}
-            year={year}
-            month={m}
+            key={dayKey(first)}
+            first={first}
+            big={view === '1m'}
+            onTitle={() => {
+              setAnchor(first)
+              setView('1m')
+            }}
             byDay={byDay}
             people={visiblePeople}
             holidays={holidays}
@@ -435,7 +510,7 @@ export function VacationsPage() {
         </Block>
       )}
 
-      <Block title={`Tus vacaciones de ${year}`} count={mine.filter(inYear).length} className="mt-6">
+      <Block title={`Tus vacaciones de ${year}`} count={spent(mine.filter(inYear))} className="mt-6">
         {mine.filter(inYear).length ? (
           mine
             .filter(inYear)
@@ -449,7 +524,7 @@ export function VacationsPage() {
       {mates.map((p) => {
         const list = all.filter((v) => v.user_id === p.id && inYear(v)).sort((a, b) => a.start.localeCompare(b.start))
         return (
-          <Block key={p.id} title={p.name} count={list.length} className="mt-4" right={<span className="size-2.5 rounded-full" style={{ background: personHex(p.color) }} />}>
+          <Block key={p.id} title={p.name} count={spent(list)} className="mt-4" right={<span className="size-2.5 rounded-full" style={{ background: personHex(p.color) }} />}>
             {list.length ? (
               list.map((v) => <PeriodRow key={v.id} v={v} person={p} holidays={holidays} year={year} />)
             ) : (
