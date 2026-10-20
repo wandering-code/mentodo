@@ -26,6 +26,7 @@ const KIND_KEY = {
   rule: 'rules',
   entry: 'entries',
   vacation: 'vacations',
+  dayoff: 'daysOff',
 }
 
 function fail(e) {
@@ -59,6 +60,8 @@ export const useStore = create((set, getState) => ({
   // propias y de los compañeros (solo con el módulo encendido)
   teams: [],
   vacations: {},
+  // Festivos propios: solo míos o de un equipo (van con las vacaciones)
+  daysOff: {},
   // Tarjetas con borrado pendiente (el aviso de Deshacer sigue en pantalla)
   hidden: {},
 
@@ -85,6 +88,7 @@ export const useStore = create((set, getState) => ({
         cardHours: d.card_hours || {},
         teams: d.teams || [],
         vacations: byId(d.vacations || []),
+        daysOff: byId(d.days_off || []),
       })
       // Al reconectar, lo de las semanas ya vistas se vuelve a pedir
       reloadHours(getState)
@@ -448,8 +452,11 @@ export const useStore = create((set, getState) => ({
   async loadVacations() {
     if (!getState().user?.prefs?.mod_vacations) return
     try {
-      const list = await get('/vacations')
-      set({ vacations: byId(list.filter((v) => !pendingDeletes.has(`vacation:${v.id}`))) })
+      const [list, off] = await Promise.all([get('/vacations'), get('/days-off')])
+      set({
+        vacations: byId(list.filter((v) => !pendingDeletes.has(`vacation:${v.id}`))),
+        daysOff: byId(off.filter((d) => !pendingDeletes.has(`dayoff:${d.id}`))),
+      })
     } catch {}
   },
   async createVacation(body) {
@@ -464,6 +471,19 @@ export const useStore = create((set, getState) => ({
   updateVacation: (id, body) => optimisticPatch(set, getState, 'vacations', `/vacations/${id}`, id, body),
   deleteVacation(id) {
     deferDelete(set, getState, { kind: 'vacation', id, path: `/vacations/${id}`, message: 'Vacaciones quitadas' })
+  },
+  async createDayOff(body) {
+    try {
+      const d = await post('/days-off', body)
+      set((s) => ({ daysOff: { ...s.daysOff, [d.id]: d } }))
+      return d
+    } catch (e) {
+      fail(e)
+    }
+  },
+  updateDayOff: (id, body) => optimisticPatch(set, getState, 'daysOff', `/days-off/${id}`, id, body),
+  deleteDayOff(id) {
+    deferDelete(set, getState, { kind: 'dayoff', id, path: `/days-off/${id}`, message: 'Festivo quitado' })
   },
 
   // ── Parte de horas ──
@@ -555,7 +575,7 @@ export const useStore = create((set, getState) => ({
       await post('/auth/logout')
     } catch {}
     loadedHourRanges.clear()
-    set({ status: 'anon', user: null, projects: {}, cards: {}, groups: {}, labels: {}, views: {}, fields: {}, notes: {}, templates: {}, links: {}, attachments: {}, rules: {}, notifications: [], workdays: {}, entries: {}, cardHours: {}, teams: [], vacations: {} })
+    set({ status: 'anon', user: null, projects: {}, cards: {}, groups: {}, labels: {}, views: {}, fields: {}, notes: {}, templates: {}, links: {}, attachments: {}, rules: {}, notifications: [], workdays: {}, entries: {}, cardHours: {}, teams: [], vacations: {}, daysOff: {} })
   },
 }))
 
@@ -609,7 +629,7 @@ function syncDoneLabels(s, card, done) {
 // recibe hasta que pasa el plazo; si se cierra la página antes, se envían
 // igualmente (keepalive).
 export const UNDO_MS = 8000
-const SLICES = ['projects', 'groups', 'labels', 'views', 'fields', 'notes', 'templates', 'links', 'attachments', 'cards', 'rules', 'entries', 'vacations']
+const SLICES = ['projects', 'groups', 'labels', 'views', 'fields', 'notes', 'templates', 'links', 'attachments', 'cards', 'rules', 'entries', 'vacations', 'daysOff']
 const pendingDeletes = new Map() // clave → ruta de la API
 
 if (typeof window !== 'undefined') {

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useStore } from './store'
-import { confirmedDays, vacationsOn } from './vacations'
+import { confirmedDays, vacationsOn, withDaysOff } from './vacations'
 import { addDays, format, startOfWeek } from 'date-fns'
 import { get } from './api'
 
@@ -89,10 +89,10 @@ export function parseDuration(text) {
 
 /* Un día con todo resuelto: lo guardado o, si aún no existe, su horario */
 export function dayOf(workdays, key, settings, holidays) {
-  // Vacaciones confirmadas: jornada 0 aunque el día ya existiera
+  // Vacaciones confirmadas y festivos propios: jornada 0 aunque el día ya existiera
   const vacation = !!holidays?.vac?.has(key)
   const saved = workdays[key]
-  if (saved) return { ...saved, exists: true, vacation, ...(vacation && { target_minutes: 0 }) }
+  if (saved) return { ...saved, exists: true, vacation, ...((vacation || holidays?.off?.has(key)) && { target_minutes: 0 }) }
   const d = settings.schedule[weekdayIdx(dateOf(key))]
   const holiday = holidays?.has(key)
   return { day: key, start: null, end: null, target_minutes: holiday ? 0 : d.target, lunch_minutes: d.lunch, lunch_from: d.lunch_from, exists: false, vacation }
@@ -190,19 +190,23 @@ export function weekBalance(keys, workdays, byDay, settings, holidays) {
   return bal
 }
 
-/* Festivos de la comunidad elegida (null = sin festivos) más tus vacaciones
-   confirmadas, que cuentan igual (jornada 0). Las vacaciones van también
-   aparte en `.vac`, para poder distinguirlas. */
+/* Festivos de la comunidad elegida (null = sin festivos), los propios (tuyos
+   o de tu equipo, en Vacaciones) y tus vacaciones confirmadas: todo cuenta
+   igual (jornada 0). Las vacaciones van también aparte en `.vac` y los
+   festivos propios en `.off`, para poder distinguirlos. */
 const holidayCache = {}
 export function useHolidays(region, years) {
   const fest = useFestivos(region, years)
   const vacations = useStore((s) => s.vacations)
+  const daysOff = useStore((s) => s.daysOff)
   const user = useStore((s) => s.user)
   return useMemo(() => {
-    const vac = vacationsOn(user) ? confirmedDays(Object.values(vacations), user.id) : new Set()
-    if (!vac.size) return Object.assign(new Set(fest), { vac })
-    return Object.assign(new Set([...fest, ...vac]), { vac })
-  }, [fest, vacations, user])
+    const on = vacationsOn(user)
+    const vac = on ? confirmedDays(Object.values(vacations), user.id) : new Set()
+    const all = withDaysOff(fest, on ? Object.values(daysOff) : [])
+    for (const k of vac) all.add(k)
+    return Object.assign(all, { vac })
+  }, [fest, vacations, daysOff, user])
 }
 
 export function useFestivos(region, years) {

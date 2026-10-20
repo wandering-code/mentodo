@@ -329,3 +329,19 @@ class Vacation(Base):
     note = Column(String(200), nullable=False, default="")
     created_at = Column(DateTime(timezone=True), default=now)
     updated_at = Column(DateTime(timezone=True), default=now, onupdate=now)
+
+
+class DayOff(Base):
+    """Un festivo propio (días enteros, ambos incluidos), p. ej. los que da
+    la empresa a final de año. Sin equipo es solo de quien lo crea; con
+    equipo vale para todos sus miembros activos, y cualquiera de ellos puede
+    cambiarlo o quitarlo."""
+    __tablename__ = "days_off"
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    team_id = Column(Integer, ForeignKey("teams.id", ondelete="CASCADE"), nullable=True, index=True)
+    start = Column(Date, nullable=False, index=True)
+    end = Column(Date, nullable=False, index=True)
+    name = Column(String(120), nullable=False, default="")
+    created_at = Column(DateTime(timezone=True), default=now)
+    updated_at = Column(DateTime(timezone=True), default=now, onupdate=now)

@@ -1,18 +1,21 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, Navigate, useSearchParams } from 'react-router'
 import { addDays, addMonths, endOfMonth, startOfMonth, startOfWeek } from 'date-fns'
-import { ChevronLeft, ChevronRight, Plus, Trash2, TreePalm, Users } from 'lucide-react'
+import { CalendarOff, ChevronLeft, ChevronRight, Plus, Trash2, TreePalm, User, Users } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { fmt } from '../lib/dates'
 import { dateOf, dayKey, useFestivos, WEEKDAYS_SHORT } from '../lib/hours'
 import {
-  allowanceFor, daysOf, indexByDay, isWorkday, overlaps, peopleOf, personHex, STATUSES, statusName, vacationsOn, vacSettings, workdaysIn, yearCount,
+  activeTeams, allowanceFor, daysOf, daysOffByDay, dayOffScope, indexByDay, isWorkday, overlaps, peopleOf, personHex, STATUSES, statusName, vacationsOn,
+  vacSettings, withDaysOff, workdaysIn, yearCount,
 } from '../lib/vacations'
 import { Block, Button, cx, IconButton, Input, Modal } from '../components/ui'
 
 /* Vacaciones: el año entero de un vistazo, con las tuyas y las de tu equipo.
    Tocar un día libre empieza a marcar un periodo (el segundo toque lo
-   cierra); tocar uno de tus periodos lo abre para cambiarlo. */
+   cierra); tocar uno de tus periodos o un festivo propio lo abre para
+   cambiarlo. Los festivos propios (p. ej. los que da la empresa) pueden ser
+   solo tuyos o de un equipo, y cuentan igual que los de la comunidad. */
 
 const RED = 'var(--tc-rojo)'
 // Coincidencias: un contorno neutro, que no se confunda con el color de nadie
@@ -49,7 +52,7 @@ const VIEW_KEY = 'mentodo:vacaciones-vista'
 
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`
 
-function Month({ first, byDay, people, holidays, today, sel, onDay, onHover, focus, big, onTitle }) {
+function Month({ first, byDay, people, holidays, offByDay, today, sel, onDay, onHover, focus, big, onTitle }) {
   const last = dayKey(endOfMonth(first))
   const firstKey = dayKey(first)
   const cells = []
@@ -85,10 +88,11 @@ function Month({ first, byDay, people, holidays, today, sel, onDay, onHover, foc
           const clash = users.size > 1
           const weekend = !isWorkday(k, new Set()) // sábado o domingo
           const fest = holidays.has(k)
+          const own = offByDay[k] || []
           const picked = inSel(k)
           const title = [
             fmt(dateOf(k), "EEEE d 'de' MMMM"),
-            fest ? 'festivo' : null,
+            own.length ? own.map((d) => `festivo${d.name ? `: ${d.name}` : ''}`).join(', ') : fest ? 'festivo' : null,
             ...list.map((v) => `${byId[v.user_id].me ? 'Tú' : byId[v.user_id].name}: ${statusName(v.status).toLowerCase()}${v.note ? ` (${v.note})` : ''}`),
           ]
             .filter(Boolean)
@@ -102,7 +106,7 @@ function Month({ first, byDay, people, holidays, today, sel, onDay, onHover, foc
               onMouseEnter={() => onHover(k)}
               className={cx(
                 'relative flex flex-col items-center justify-start gap-1 rounded-lg pt-1.5 transition-colors', big ? 'h-16 sm:h-20' : 'h-11',
-                picked ? 'bg-accent-soft' : 'hover:bg-hover',
+                picked ? 'bg-accent-soft' : own.length ? 'bg-sunken hover:bg-hover' : 'hover:bg-hover',
                 focus === k && 'ring-2 ring-accent',
               )}
               style={clash && !picked ? { boxShadow: `inset 0 0 0 1.5px ${CLASH}` } : undefined}
@@ -136,8 +140,14 @@ function Editor({ open, onClose, draft, people, byDay, holidays }) {
   useEffect(() => {
     if (draft) setForm(draft)
   }, [draft])
+  // Evita crear dos veces con un doble toque
+  const busy = useRef(false)
+  useEffect(() => {
+    if (draft) busy.current = false
+  }, [draft])
   if (!form) return null
   const editing = !!form.id
+  const isOff = form.kind === 'festivo'
   const start = form.start <= form.end ? form.start : form.end
   const end = form.start <= form.end ? form.end : form.start
   const n = workdaysIn({ start, end }, holidays)
@@ -149,18 +159,49 @@ function Editor({ open, onClose, draft, people, byDay, holidays }) {
   const name = (id) => people.find((p) => p.id === id)?.name || 'Alguien'
 
   const save = async () => {
+    if (busy.current) return
+    busy.current = true
+    if (isOff) {
+      const body = { start, end, name: form.name.trim(), team_id: form.team_id ?? null }
+      if (editing) s.updateDayOff(form.id, body)
+      else await s.createDayOff(body)
+      return onClose()
+    }
     const body = { start, end, status: form.status, note: form.note.trim() }
     if (editing) s.updateVacation(form.id, body)
     else await s.createVacation(body)
     onClose()
   }
+  // Al cambiar entre vacaciones y festivo se quedan las fechas
+  const setKind = (kind) =>
+    setForm(kind === 'festivo' ? { kind, start: form.start, end: form.end, name: form.note || '', team_id: null } : { start: form.start, end: form.end, status: 'posible', note: form.name || '' })
+  const teams = activeTeams(s.user, s.teams)
+  const scopes = [{ id: null, name: 'Solo para mí', icon: User }, ...teams.map((t) => ({ id: t.id, name: t.name, icon: Users }))]
   const field = 'mt-1 h-10 w-full rounded-lg border border-line bg-surface px-2.5 text-[14.5px] outline-none focus:border-[color-mix(in_oklab,var(--accent)_55%,var(--line))]'
 
   return (
     <Modal open={open} onClose={onClose}>
       <h2 className="flex items-center gap-2 text-[17px] font-semibold tracking-[-0.01em]">
-        <TreePalm size={18} className="text-accent" /> {editing ? 'Tus vacaciones' : 'Nuevas vacaciones'}
+        {isOff ? <CalendarOff size={18} className="text-accent" /> : <TreePalm size={18} className="text-accent" />}
+        {isOff ? (editing ? 'Festivo' : 'Nuevo festivo') : editing ? 'Tus vacaciones' : 'Nuevas vacaciones'}
       </h2>
+      {!editing && (
+        <div className="mt-3 inline-flex rounded-xl bg-sunken p-1">
+          {[
+            { id: 'vacaciones', name: 'Vacaciones' },
+            { id: 'festivo', name: 'Festivo' },
+          ].map((k) => (
+            <button
+              key={k.id}
+              type="button"
+              onClick={() => (k.id === 'festivo') !== isOff && setKind(k.id)}
+              className={cx('h-8 rounded-lg px-3 text-[13px] transition-colors', (k.id === 'festivo') === isOff ? 'bg-surface font-medium text-ink shadow-soft' : 'text-muted hover:text-ink')}
+            >
+              {k.name}
+            </button>
+          ))}
+        </div>
+      )}
       <div className="mt-4 grid grid-cols-2 gap-3">
         <label className="text-[13px] text-muted">
           Desde
@@ -171,10 +212,52 @@ function Editor({ open, onClose, draft, people, byDay, holidays }) {
           <input type="date" value={form.end} onChange={(e) => e.target.value && setForm({ ...form, end: e.target.value })} className={field} />
         </label>
       </div>
-      <p className="mt-2 text-[12.5px] text-muted">
-        {plural(n, 'día laborable', 'días laborables')}
-        {total !== n && <span className="text-faint"> · {plural(total, 'día', 'días')} en total</span>}
-      </p>
+      {isOff ? (
+        <p className="mt-2 text-[12.5px] text-muted">
+          {plural(total, 'día', 'días')} · no gastan vacaciones y en Horas tienen jornada 0
+        </p>
+      ) : (
+        <p className="mt-2 text-[12.5px] text-muted">
+          {plural(n, 'día laborable', 'días laborables')}
+          {total !== n && <span className="text-faint"> · {plural(total, 'día', 'días')} en total</span>}
+        </p>
+      )}
+      {isOff ? (
+        <>
+          <label className="mt-4 block text-[13px] text-muted">
+            Nombre <span className="text-faint">(opcional)</span>
+            <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} onKeyDown={(e) => e.key === 'Enter' && save()} placeholder="Cierre de Navidad, día de la empresa…" maxLength={120} className="mt-1" />
+          </label>
+          <div className="mt-4 text-[13px] text-muted">Para quién</div>
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
+            {scopes.map((sc) => (
+              <button
+                key={sc.id ?? 'yo'}
+                type="button"
+                onClick={() => setForm({ ...form, team_id: sc.id })}
+                className={cx(
+                  'flex items-center gap-2 rounded-xl border px-3 py-2 text-[14px] transition-colors',
+                  (form.team_id ?? null) === sc.id ? 'border-[color-mix(in_oklab,var(--accent)_50%,var(--line))] bg-accent-soft font-medium' : 'border-line hover:bg-hover',
+                )}
+              >
+                <sc.icon size={15} className="text-muted" /> {sc.id == null ? sc.name : `Equipo «${sc.name}»`}
+              </button>
+            ))}
+          </div>
+          <p className="mt-1.5 text-[12px] text-faint">
+            {form.team_id != null ? 'Lo verán todos los del equipo (con un aviso) y cualquiera podrá cambiarlo.' : teams.length ? 'Solo lo ves tú.' : (
+              <>
+                Solo lo ves tú.{' '}
+                <Link to="/ajustes#equipo" className="underline underline-offset-4 hover:text-muted">
+                  Crea un equipo
+                </Link>{' '}
+                para ponerlo a todos.
+              </>
+            )}
+          </p>
+        </>
+      ) : (
+        <>
       {mates.size > 0 && (
         <p className="mt-1 text-[12.5px]" style={{ color: RED }}>
           Coincide con {[...mates].map(([id, d]) => `${name(id)} (${plural(d, 'día', 'días')})`).join(', ')}
@@ -205,13 +288,15 @@ function Editor({ open, onClose, draft, people, byDay, holidays }) {
         Nota <span className="text-faint">(opcional)</span>
         <Input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} onKeyDown={(e) => e.key === 'Enter' && save()} placeholder="Japón, puente, boda de…" maxLength={200} className="mt-1" />
       </label>
+        </>
+      )}
 
       <div className="mt-5 flex items-center gap-2">
         {editing && (
           <Button
             variant="danger"
             onClick={() => {
-              s.deleteVacation(form.id)
+              isOff ? s.deleteDayOff(form.id) : s.deleteVacation(form.id)
               onClose()
             }}
           >
@@ -296,6 +381,24 @@ function PeriodRow({ v, person, holidays, year, onOpen }) {
   )
 }
 
+function DayOffRow({ d, teams, holidays, year, onOpen }) {
+  // Laborables que no son festivo de la comunidad (los que de verdad «regala»)
+  const n = daysOf(d).filter((k) => k.startsWith(String(year)) && isWorkday(k, holidays.base)).length
+  return (
+    <button type="button" onClick={onOpen} className="flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left hover:bg-hover">
+      <span className="inline-block h-2.5 w-4 shrink-0 rounded-[3px] bg-sunken ring-1 ring-inset ring-line" />
+      <span className="min-w-0 flex-1">
+        <span className="text-[14.5px] font-medium">{shortRange(d.start, d.end)}</span>
+        {d.name && <span className="ml-2 text-[13px] text-muted">{d.name}</span>}
+      </span>
+      <span className="flex shrink-0 items-center gap-1 text-[12px] text-muted">
+        {d.team_id == null ? <User size={12} /> : <Users size={12} />} {dayOffScope(d, teams)}
+      </span>
+      <span className="w-14 shrink-0 text-right text-[12.5px] tabular-nums text-faint">{plural(n, 'día', 'días')}</span>
+    </button>
+  )
+}
+
 export function VacationsPage() {
   const s = useStore()
   const user = s.user
@@ -335,7 +438,11 @@ export function VacationsPage() {
   const [hiddenPeople, setHiddenPeople] = useState(() => new Set())
   const today = dayKey(new Date())
   const st = vacSettings(user)
-  const holidays = useFestivos(st.region, [year - 1, year, year + 1])
+  const fest = useFestivos(st.region, [year - 1, year, year + 1])
+  const daysOff = useMemo(() => Object.values(s.daysOff), [s.daysOff])
+  const offByDay = useMemo(() => daysOffByDay(daysOff), [daysOff])
+  // Los de la comunidad y los propios, juntos (y los de la comunidad aparte)
+  const holidays = useMemo(() => Object.assign(withDaysOff(fest, daysOff), { base: fest }), [fest, daysOff])
   const scrolled = useRef(false)
 
   useEffect(() => {
@@ -377,6 +484,9 @@ export function VacationsPage() {
     const n = list.filter((v) => v.status !== 'posible').reduce((a, v) => a + workdaysIn(v, holidays, year), 0)
     return n ? plural(n, 'día', 'días') : null
   }
+  // Día con el que se abre «Añadir»: hoy, o el 1 de enero si se mira otro año
+  const startDay = today < `${year}-01-01` || today > `${year}-12-31` ? `${year}-01-01` : today
+  const offInYear = daysOff.filter((d) => d.start.slice(0, 4) <= String(year) && d.end.slice(0, 4) >= String(year)).sort((a, b) => a.start.localeCompare(b.start))
   const ownAt = (k) => (allByDay[k] || []).find((v) => v.user_id === user.id)
   const onDay = (k) => {
     if (sel) {
@@ -387,6 +497,8 @@ export function VacationsPage() {
     }
     const own = ownAt(k)
     if (own) return setDraft({ ...own })
+    const off = offByDay[k]?.[0]
+    if (off) return setDraft({ ...off, kind: 'festivo' })
     setSel({ start: k, end: k })
   }
   const togglePerson = (id) =>
@@ -402,7 +514,10 @@ export function VacationsPage() {
         <h1 className="flex flex-1 items-center gap-2.5 text-[30px] font-semibold tracking-[-0.03em]">
           <TreePalm size={26} className="text-accent" /> Vacaciones
         </h1>
-        <Button variant="primary" onClick={() => setDraft({ start: today < `${year}-01-01` || today > `${year}-12-31` ? `${year}-01-01` : today, end: today < `${year}-01-01` || today > `${year}-12-31` ? `${year}-01-01` : today, status: 'posible', note: '' })}>
+        <Button variant="ghost" onClick={() => setDraft({ kind: 'festivo', start: startDay, end: startDay, name: '', team_id: null })}>
+          <CalendarOff size={16} /> Festivo
+        </Button>
+        <Button variant="primary" onClick={() => setDraft({ start: startDay, end: startDay, status: 'posible', note: '' })}>
           <Plus size={16} /> Añadir
         </Button>
       </div>
@@ -469,6 +584,11 @@ export function VacationsPage() {
               <span className="size-3 rounded-[4px]" style={{ boxShadow: `inset 0 0 0 1.5px ${CLASH}` }} /> Coincidís
             </span>
           )}
+          {offInYear.length > 0 && (
+            <span className="flex items-center gap-1.5">
+              <span className="size-3 rounded-[4px] bg-sunken ring-1 ring-inset ring-line" /> Festivo propio
+            </span>
+          )}
         </span>
       </div>
 
@@ -489,6 +609,7 @@ export function VacationsPage() {
             byDay={byDay}
             people={visiblePeople}
             holidays={holidays}
+            offByDay={offByDay}
             today={today}
             sel={sel}
             focus={focusKey}
@@ -520,6 +641,14 @@ export function VacationsPage() {
           <p className="px-2.5 py-3 text-[13.5px] text-muted">Toca el primer día en el calendario y luego el último, o pulsa «Añadir».</p>
         )}
       </Block>
+
+      {offInYear.length > 0 && (
+        <Block title={`Festivos propios de ${year}`} count={offInYear.length} className="mt-4">
+          {offInYear.map((d) => (
+            <DayOffRow key={d.id} d={d} teams={s.teams} holidays={holidays} year={year} onOpen={() => setDraft({ ...d, kind: 'festivo' })} />
+          ))}
+        </Block>
+      )}
 
       {mates.map((p) => {
         const list = all.filter((v) => v.user_id === p.id && inYear(v)).sort((a, b) => a.start.localeCompare(b.start))

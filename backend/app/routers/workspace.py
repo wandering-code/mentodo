@@ -18,6 +18,7 @@ from ..notify import create_notification
 from .hours import card_totals
 from .teams import teams_of
 from .vacations import visible_vacations
+from .days_off import visible_days_off
 from ..teams import vacations_on
 from ..ownership import own_project, own_rule
 from ..serialize import (
@@ -67,6 +68,7 @@ def bootstrap(user: User = Depends(current_user), db: Session = Depends(get_db))
         # Equipos siempre (las invitaciones llegan aunque no uses vacaciones)
         "teams": teams_of(db, user.id),
         "vacations": visible_vacations(db, user.id) if vacations_on(user) else [],
+        "days_off": visible_days_off(db, user.id) if vacations_on(user) else [],
     }
 
 
@@ -83,6 +85,7 @@ def export_all(user: User = Depends(current_user), db: Session = Depends(get_db)
     data["notifications"] = []
     data.pop("card_hours", None)
     data.pop("teams", None)
+    data["days_off"] = [d for d in data.get("days_off", []) if d["team_id"] is None]
     data["vacations"] = [v for v in visible_vacations(db, user.id) if v["user_id"] == user.id]
     days = db.scalars(select(WorkDay).where(WorkDay.user_id == user.id).order_by(WorkDay.day)).all()
     entries = db.scalars(select(TimeEntry).where(TimeEntry.user_id == user.id).order_by(TimeEntry.day, TimeEntry.position)).all()

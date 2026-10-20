@@ -5,10 +5,10 @@ llegan siempre. Lo que se comparte de momento son las vacaciones.
 """
 from datetime import date
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from .models import TeamMember, User, Vacation
+from .models import DayOff, TeamMember, User, Vacation
 
 # Colores para distinguir a cada persona en el calendario (mismos ids que las
 # etiquetas). Cada uno elige el suyo; si no, se le da uno según su id.
@@ -45,6 +45,22 @@ def is_vacation(db: Session, user_id: int, day: date) -> bool:
     return db.scalar(select(Vacation.id).where(
         Vacation.user_id == user_id, Vacation.status == "confirmada",
         Vacation.start <= day, Vacation.end >= day).limit(1)) is not None
+
+
+def days_off_query(db: Session, user_id: int):
+    """Festivos propios que valen para mí: los míos sin equipo y los de mis
+    equipos activos."""
+    tids = active_team_ids(db, user_id)
+    cond = (DayOff.team_id.is_(None)) & (DayOff.user_id == user_id)
+    if tids:
+        cond = or_(cond, DayOff.team_id.in_(tids))
+    return select(DayOff).where(cond)
+
+
+def is_day_off(db: Session, user_id: int, day: date) -> bool:
+    """¿Ese día es un festivo propio (mío o de mi equipo)? (para el parte de horas)"""
+    q = days_off_query(db, user_id).where(DayOff.start <= day, DayOff.end >= day).limit(1)
+    return db.scalars(q).first() is not None
 
 
 def fmt_range(start: date, end: date) -> str:

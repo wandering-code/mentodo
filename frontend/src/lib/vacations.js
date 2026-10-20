@@ -114,3 +114,23 @@ export function confirmedDays(vacations, userId) {
   for (const v of vacations) if (v.user_id === userId && v.status === 'confirmada') for (const k of daysOf(v)) out.add(k)
   return out
 }
+
+/* Festivos propios por día: { 'AAAA-MM-DD': [festivo, …] } */
+export function daysOffByDay(daysOff) {
+  const out = {}
+  for (const d of daysOff) for (const k of daysOf(d)) (out[k] ||= []).push(d)
+  return out
+}
+
+/* Los festivos de la comunidad más los propios (los tuyos y los de tus
+   equipos), todos en un mismo Set. Los propios van también aparte en `.off`. */
+export function withDaysOff(fest, daysOff) {
+  const off = new Set(Object.keys(daysOffByDay(daysOff)))
+  return Object.assign(new Set([...fest, ...off]), { off })
+}
+
+/* «Solo para ti» o el nombre del equipo */
+export const dayOffScope = (d, teams) => (d.team_id == null ? 'Solo para ti' : teams.find((t) => t.id === d.team_id)?.name || 'Equipo')
+
+/* Equipos en los que estás activo (a los que puedes poner un festivo) */
+export const activeTeams = (user, teams) => teams.filter((t) => t.members.find((m) => m.user_id === user.id)?.status === 'active')

@@ -40,8 +40,9 @@ def settings_of(user) -> dict:
 
 
 def on_vacation(db, user, day: date) -> bool:
-    from .teams import is_vacation, vacations_on
-    return vacations_on(user) and is_vacation(db, user.id, day)
+    """Vacaciones confirmadas o festivo propio (mío o de mi equipo)."""
+    from .teams import is_day_off, is_vacation, vacations_on
+    return vacations_on(user) and (is_vacation(db, user.id, day) or is_day_off(db, user.id, day))
 
 
 def is_holiday(day: date, region) -> bool:
