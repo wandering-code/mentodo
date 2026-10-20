@@ -26,12 +26,20 @@ export function vacSettings(user) {
     days: Number.isFinite(raw.days) ? raw.days : 22,
     // Días de un año concreto (p. ej. con los que te sobraron del anterior)
     days_by_year: raw.days_by_year || {},
+    // Días arrastrados: carry[año] = los que pasan del año anterior a ese
+    carry: raw.carry || {},
     // Festivos: los mismos que en Horas si no se elige otra cosa
     region: raw.region !== undefined ? raw.region : hoursRegion !== undefined && hoursRegion !== null ? hoursRegion : '',
     color: PERSON_COLORS.includes(raw.color) ? raw.color : PERSON_COLORS[(user?.id || 0) % PERSON_COLORS.length],
   }
 }
-export const allowanceFor = (st, year) => (Number.isFinite(st.days_by_year[year]) ? st.days_by_year[year] : st.days)
+// Días que da el año en sí (sin contar los arrastrados)
+export const baseFor = (st, year) => (Number.isFinite(st.days_by_year[year]) ? st.days_by_year[year] : st.days)
+// Días que pasan del año anterior a `year`
+export const carryInto = (st, year) => (Number.isFinite(st.carry[year]) ? st.carry[year] : 0)
+/* Días con los que cuenta el año: los suyos, más los que le llegan del
+   anterior, menos los que pasa al siguiente (así no cuentan dos veces). */
+export const allowanceFor = (st, year) => baseFor(st, year) + carryInto(st, year) - carryInto(st, year + 1)
 
 /* Gente que sale en el calendario: tú primero y luego tus compañeros de
    equipos activos (sin repetir aunque coincidáis en varios). */

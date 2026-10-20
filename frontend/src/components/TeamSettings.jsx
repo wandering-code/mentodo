@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Check, Crown, LogOut, UserPlus, Users, X } from 'lucide-react'
 import { get } from '../lib/api'
 import { useStore } from '../lib/store'
-import { allowanceFor, PERSON_COLORS, personHex, vacSettings } from '../lib/vacations'
+import { baseFor, PERSON_COLORS, personHex, vacSettings } from '../lib/vacations'
 import { Button, cx, IconButton, Input } from './ui'
 
 /* Ajustes → Equipo. Es general (no depende de ningún módulo): crear un
@@ -170,14 +170,14 @@ export function VacationSettings() {
   }
   const yearDays = (y) => (
     <input
-      key={`${y}-${allowanceFor(st, y)}`}
+      key={`${y}-${baseFor(st, y)}`}
       inputMode="numeric"
-      defaultValue={allowanceFor(st, y)}
+      defaultValue={baseFor(st, y)}
       onFocus={(e) => e.target.select()}
       onBlur={(e) => {
         const n = num(e.target.value)
-        if (n == null) return (e.target.value = allowanceFor(st, y))
-        if (n !== allowanceFor(st, y)) save({ days_by_year: { ...st.days_by_year, [y]: n } })
+        if (n == null) return (e.target.value = baseFor(st, y))
+        if (n !== baseFor(st, y)) save({ days_by_year: { ...st.days_by_year, [y]: n } })
       }}
       onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
       aria-label={`Días de vacaciones en ${y}`}
@@ -189,7 +189,7 @@ export function VacationSettings() {
     <div className="flex flex-col gap-7">
       <div>
         <div className={sub}>Días al año</div>
-        <p className="mt-0.5 text-[12.5px] text-faint">Días laborables (sin fines de semana ni festivos). Cada año puede ser distinto, p. ej. si te sobraron días del anterior.</p>
+        <p className="mt-0.5 text-[12.5px] text-faint">Días laborables (sin fines de semana ni festivos). Cada año puede ser distinto. Los que pasas de un año a otro se apuntan en Vacaciones → «Arrastrar días».</p>
         <div className="mt-2 flex flex-wrap gap-4">
           {[year, year + 1].map((y) => (
             <label key={y} className="flex items-center gap-2 text-[14px]">

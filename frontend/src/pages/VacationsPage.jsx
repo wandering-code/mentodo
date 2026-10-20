@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, Navigate, useSearchParams } from 'react-router'
 import { addDays, addMonths, endOfMonth, startOfMonth, startOfWeek } from 'date-fns'
-import { CalendarOff, ChevronLeft, ChevronRight, Plus, Trash2, TreePalm, User, Users } from 'lucide-react'
+import { ArrowRightLeft, CalendarOff, ChevronLeft, ChevronRight, Plus, Trash2, TreePalm, User, Users } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { fmt } from '../lib/dates'
 import { dateOf, dayKey, useFestivos, WEEKDAYS_SHORT } from '../lib/hours'
 import {
-  activeTeams, allowanceFor, daysOf, daysOffByDay, dayOffScope, indexByDay, isWorkday, overlaps, peopleOf, personHex, STATUSES, statusName, vacationsOn,
+  activeTeams, allowanceFor, baseFor, carryInto, daysOf, daysOffByDay, dayOffScope, indexByDay, isWorkday, overlaps, peopleOf, personHex, STATUSES, statusName, vacationsOn,
   vacSettings, withDaysOff, workdaysIn, yearCount,
 } from '../lib/vacations'
 import { Block, Button, cx, IconButton, Input, Modal } from '../components/ui'
@@ -315,7 +315,87 @@ function Editor({ open, onClose, draft, people, byDay, holidays }) {
   )
 }
 
-function Counter({ c, allowance, year, color }) {
+/* Pasar días de un año a otro: los que te sobraron del anterior a este, y
+   de este al siguiente. `left(y)` = los que quedan en `y` sin contar los que
+   ya salen hacia el siguiente. */
+function CarryEditor({ open, onClose, year, st, left }) {
+  const s = useStore()
+  const [vals, setVals] = useState({})
+  useEffect(() => {
+    if (open) setVals({ [year]: String(carryInto(st, year)), [year + 1]: String(carryInto(st, year + 1)) })
+  }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
+  const num = (v) => {
+    const n = Number(String(v).replace(',', '.'))
+    return Number.isFinite(n) && n >= 0 && n <= 365 ? Math.round(n) : null
+  }
+  const ok = num(vals[year]) != null && num(vals[year + 1]) != null
+  const save = () => {
+    if (!ok) return
+    const carry = { ...st.carry, [year]: num(vals[year]), [year + 1]: num(vals[year + 1]) }
+    for (const k of Object.keys(carry)) if (!carry[k]) delete carry[k]
+    s.updateMe({ prefs: { vacations: { ...(s.user.prefs?.vacations || {}), carry } } })
+    onClose()
+  }
+  const row = (to) => {
+    const from = to - 1
+    // Lo que entra en `from` según lo que pone ahora la fila de arriba
+    const avail = left(from, from === year ? (num(vals[year]) ?? carryInto(st, year)) : undefined)
+    return (
+      <div className="rounded-xl border border-line p-3">
+        <div className="flex items-center gap-3">
+          <span className="flex-1 text-[14.5px] font-medium tabular-nums">
+            De {from} a {to}
+          </span>
+          <input
+            inputMode="numeric"
+            value={vals[to] ?? ''}
+            onChange={(e) => setVals({ ...vals, [to]: e.target.value })}
+            onFocus={(e) => e.target.select()}
+            onKeyDown={(e) => e.key === 'Enter' && save()}
+            aria-label={`Días que pasan de ${from} a ${to}`}
+            className={cx(
+              'h-9 w-16 rounded-lg border bg-surface px-2 text-right text-[14.5px] tabular-nums outline-none focus:border-[color-mix(in_oklab,var(--accent)_55%,var(--line))]',
+              num(vals[to]) == null ? 'border-[var(--tc-rojo)]' : 'border-line',
+            )}
+          />
+          <span className="text-[13px] text-faint">días</span>
+        </div>
+        <div className="mt-1.5 flex flex-wrap items-center gap-x-2 text-[12.5px] text-muted">
+          {avail > 0 ? `En ${from} te ${avail === 1 ? 'queda' : 'quedan'} ${plural(avail, 'día', 'días')} sin gastar` : `En ${from} no te queda ningún día sin gastar`}
+          {avail > 0 && num(vals[to]) !== avail && (
+            <button type="button" onClick={() => setVals({ ...vals, [to]: String(avail) })} className="font-medium text-accent underline-offset-4 hover:underline">
+              {avail === 1 ? 'Pasarlo' : `Pasar los ${avail}`}
+            </button>
+          )}
+        </div>
+      </div>
+    )
+  }
+  return (
+    <Modal open={open} onClose={onClose}>
+      <h2 className="flex items-center gap-2 text-[17px] font-semibold tracking-[-0.01em]">
+        <ArrowRightLeft size={18} className="text-accent" /> Arrastrar días
+      </h2>
+      <p className="mt-1 text-[13px] text-muted">Los días que pasas se suman al año al que van y se restan del que salen.</p>
+      <div className="mt-4 flex flex-col gap-2.5">
+        {row(year)}
+        {row(year + 1)}
+      </div>
+      <div className="mt-5 flex items-center justify-end gap-2">
+        <Button variant="ghost" onClick={onClose}>
+          Cancelar
+        </Button>
+        <Button variant="primary" onClick={save} disabled={!ok}>
+          Guardar
+        </Button>
+      </div>
+    </Modal>
+  )
+}
+
+function Counter({ c, allowance, year, color, st, onCarry }) {
+  const cin = carryInto(st, year)
+  const cout = carryInto(st, year + 1)
   const used = c.enjoyed + c.confirmed + c.requested
   const scale = Math.max(allowance, used + c.possible, 1)
   const seg = (n, status, extra) => n > 0 && <span className={cx('block h-full', extra)} style={{ width: `${(n / scale) * 100}%`, ...statusStyle(color, status) }} />
@@ -329,10 +409,23 @@ function Counter({ c, allowance, year, color }) {
             {Math.abs(c.left)} <span className="text-[16px] font-medium text-muted">{Math.abs(c.left) === 1 ? 'día' : 'días'}</span>
           </div>
           <div className="mt-1 text-[12.5px] text-faint">
-            de {allowance} en {year} ·{' '}
+            de {allowance} en {year}
+            {(cin > 0 || cout > 0) && (
+              <span>
+                {' '}
+                ({baseFor(st, year)}
+                {cin > 0 && ` + ${cin} de ${year - 1}`}
+                {cout > 0 && ` − ${cout} a ${year + 1}`})
+              </span>
+            )}{' '}
+            ·{' '}
             <Link to="/ajustes#vacaciones" className="underline-offset-4 hover:text-muted hover:underline">
               cambiar
-            </Link>
+            </Link>{' '}
+            ·{' '}
+            <button type="button" onClick={onCarry} className="underline-offset-4 hover:text-muted hover:underline">
+              arrastrar días
+            </button>
           </div>
         </div>
         {c.possible > 0 && (
@@ -435,6 +528,7 @@ export function VacationsPage() {
           })()
   const [sel, setSel] = useState(null) // { start, end } mientras se marca un periodo
   const [draft, setDraft] = useState(null)
+  const [carrying, setCarrying] = useState(false)
   const [hiddenPeople, setHiddenPeople] = useState(() => new Set())
   const today = dayKey(new Date())
   const st = vacSettings(user)
@@ -552,7 +646,7 @@ export function VacationsPage() {
         </div>
       </div>
 
-      <Counter c={count} allowance={allowanceFor(st, year)} year={year} color={st.color} />
+      <Counter c={count} allowance={allowanceFor(st, year)} year={year} color={st.color} st={st} onCarry={() => setCarrying(true)} />
 
       {/* Leyenda: personas (tocar para ocultar) y estados */}
       <div className="entra mt-4 flex flex-wrap items-center gap-2" style={{ '--entra-espera': '100ms' }}>
@@ -676,6 +770,18 @@ export function VacationsPage() {
           </div>
         </div>
       )}
+
+      <CarryEditor
+        open={carrying}
+        onClose={() => setCarrying(false)}
+        year={year}
+        st={st}
+        left={(y, cin = carryInto(st, y)) => {
+          // Lo que queda en `y` sin restar lo que ya sale hacia el siguiente
+          const list = mine.filter((v) => v.start.slice(0, 4) <= String(y) && v.end.slice(0, 4) >= String(y))
+          return yearCount(list, holidays, y, baseFor(st, y) + cin, today).left
+        }}
+      />
 
       <Editor
         open={!!draft}
