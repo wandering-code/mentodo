@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link, Navigate } from 'react-router'
 import { addDays } from 'date-fns'
 import { ArrowRight, Check, ChevronDown, ChevronLeft, ChevronRight, Clock, Download, LogIn, Plus, RotateCcw, SlidersHorizontal, Trash2, Utensils, Wand2 } from 'lucide-react'
@@ -153,18 +153,39 @@ function EntryRow({ entry, style, step, onOpenCard }) {
   useEffect(() => setClient(entry.client), [entry.client])
   useEffect(() => setTask(entry.task), [entry.task])
   const save = (k, v) => v.trim() !== entry[k] && s.updateEntry(entry.id, { [k]: v.trim() })
+  const taskRef = useRef(null)
+  useLayoutEffect(() => {
+    const el = taskRef.current
+    if (!el) return
+    const fit = () => {
+      el.style.height = 'auto'
+      el.style.height = el.scrollHeight + 'px'
+    }
+    fit()
+    const ro = new ResizeObserver(fit)
+    ro.observe(el.parentElement)
+    return () => ro.disconnect()
+  }, [task])
   const cell = 'h-9 min-w-0 rounded-lg bg-transparent px-2 text-[14.5px] outline-none transition-colors hover:bg-hover focus:bg-hover'
   return (
     <div className="group flex items-center gap-1 rounded-xl px-1 py-1 sm:gap-2">
-      <div className="flex min-w-0 flex-1 flex-col sm:flex-row sm:items-center sm:gap-1">
-        <input
+      <div className="flex min-w-0 flex-1 flex-col sm:flex-row sm:items-start sm:gap-1">
+        {/* Textarea que crece: un input de una línea cortaba las tareas largas */}
+        <textarea
+          ref={taskRef}
+          rows={1}
           value={task}
-          onChange={(e) => setTask(e.target.value)}
+          onChange={(e) => setTask(e.target.value.replace(/\n/g, ' '))}
           onBlur={() => save('task', task)}
-          onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              e.currentTarget.blur()
+            }
+          }}
           placeholder="Sin tarea"
           aria-label="Tarea"
-          className={cx(cell, 'w-full font-medium text-ink placeholder:text-faint sm:order-2 sm:flex-1')}
+          className={cx(cell, 'block h-auto min-h-9 w-full resize-none overflow-hidden py-[7px] font-medium leading-[22px] text-ink placeholder:text-faint sm:order-2 sm:flex-1')}
         />
         <div className="flex min-w-0 items-center sm:order-1 sm:w-[34%] sm:shrink-0">
           {project && <span className="pl-2 text-[13px] leading-none">{project.icon}</span>}
