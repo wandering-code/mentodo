@@ -102,13 +102,21 @@ export function yearCount(mine, holidays, year, allowance, today = dayKey(new Da
   return c
 }
 
-/* Días en que coincide más de una persona fuera, agrupados en tramos seguidos */
-export function overlaps(byDay) {
-  const keys = Object.keys(byDay).filter((k) => new Set(byDay[k].map((v) => v.user_id)).size > 1).sort()
+/* Días laborables en que coincide más de una persona fuera, agrupados en
+   tramos (un tramo sigue aunque en medio haya un fin de semana o festivo) */
+export function overlaps(byDay, holidays = new Set()) {
+  const keys = Object.keys(byDay)
+    .filter((k) => isWorkday(k, holidays) && new Set(byDay[k].map((v) => v.user_id)).size > 1)
+    .sort()
+  // ¿Entre el final del tramo y `k` solo hay días no laborables?
+  const follows = (end, k) => {
+    for (let d = addDays(dateOf(end), 1); dayKey(d) < k; d = addDays(d, 1)) if (isWorkday(dayKey(d), holidays)) return false
+    return true
+  }
   const out = []
   for (const k of keys) {
     const last = out[out.length - 1]
-    if (last && dayKey(addDays(dateOf(last.end), 1)) === k) {
+    if (last && follows(last.end, k)) {
       last.end = k
       for (const id of byDay[k].map((v) => v.user_id)) last.users.add(id)
     } else out.push({ start: k, end: k, users: new Set(byDay[k].map((v) => v.user_id)) })

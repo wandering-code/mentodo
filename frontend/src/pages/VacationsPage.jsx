@@ -84,10 +84,12 @@ function Month({ first, byDay, people, holidays, offByDay, today, sel, onDay, on
           const inMonth = k >= firstKey && k <= last
           if (!inMonth) return <div key={k} />
           const list = (byDay[k] || []).filter((v) => byId[v.user_id])
-          const users = new Set(list.map((v) => v.user_id))
-          const clash = users.size > 1
           const weekend = !isWorkday(k, new Set()) // sábado o domingo
           const fest = holidays.has(k)
+          // En fines de semana y festivos no se pinta nada: no gastan días
+          // aunque caigan dentro de unas vacaciones (el título sí lo dice)
+          const shown = weekend || fest ? [] : list
+          const clash = new Set(shown.map((v) => v.user_id)).size > 1
           const own = offByDay[k] || []
           const picked = inSel(k)
           const title = [
@@ -121,7 +123,7 @@ function Month({ first, byDay, people, holidays, offByDay, today, sel, onDay, on
                 {Number(k.slice(8))}
               </span>
               <span className={cx('flex w-full flex-col gap-[2px]', big ? 'px-1.5 sm:px-2.5' : 'px-1')}>
-                {list.slice(0, 3).map((v) => (
+                {shown.slice(0, 3).map((v) => (
                   <span key={v.id} className={cx('block rounded-full', big ? 'h-[7px]' : 'h-[5px]')} style={statusStyle(byId[v.user_id].color, v.status)} />
                 ))}
               </span>
@@ -567,7 +569,7 @@ export function VacationsPage() {
   const inYear = (v) => v.start.slice(0, 4) <= String(year) && v.end.slice(0, 4) >= String(year)
   const mine = all.filter((v) => v.user_id === user.id)
   const count = yearCount(mine.filter(inYear), holidays, year, allowanceFor(st, year), today)
-  const clashes = overlaps(Object.fromEntries(Object.entries(allByDay).filter(([k]) => k.startsWith(String(year))))).filter((o) => [...o.users].every((id) => visiblePeople.some((p) => p.id === id)))
+  const clashes = overlaps(Object.fromEntries(Object.entries(allByDay).filter(([k]) => k.startsWith(String(year)))), holidays).filter((o) => [...o.users].every((id) => visiblePeople.some((p) => p.id === id)))
   const mates = people.filter((p) => !p.me)
 
   if (!vacationsOn(user)) return <Navigate to="/ajustes#modulos" replace />
