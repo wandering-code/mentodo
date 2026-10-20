@@ -85,12 +85,35 @@ export function workdaysIn(v, holidays, year) {
   return n
 }
 
-/* Días que gasta un periodo (en `year`, o en total sin él). Los tuyos se
+/* De qué año se gasta un día: el suyo, salvo que el periodo diga que los
+   del año en que acaba salen del anterior (arrastre). */
+const endYear = (v) => Number(v.end.slice(0, 4))
+export function chargeYear(v, k) {
+  const y = Number(k.slice(0, 4))
+  return v.prev_year && y === endYear(v) ? y - 1 : y
+}
+
+/* ¿El periodo sale en `year`? Por fechas, o porque gasta días de ese año */
+export const touchesYear = (v, year) =>
+  (v.start.slice(0, 4) <= String(year) && v.end.slice(0, 4) >= String(year)) || (v.prev_year && endYear(v) - 1 === year)
+
+/* Días que gasta un periodo de `year` (o en total, sin él). Los tuyos se
    cuentan aquí con tus festivos, al momento; los de los demás, con los
-   suyos, que cuenta el servidor (`v.days`, por año). */
+   suyos, que cuenta el servidor (`v.days`, por año de calendario). */
 export function spentIn(v, holidays, year, mine) {
-  if (!mine && v.days) return year == null ? Object.values(v.days).reduce((a, n) => a + n, 0) : v.days[year] || 0
-  return workdaysIn(v, holidays, year)
+  let byYear
+  if (!mine && v.days) byYear = { ...v.days }
+  else {
+    byYear = {}
+    for (const k of daysOf(v)) if (isWorkday(k, holidays)) byYear[k.slice(0, 4)] = (byYear[k.slice(0, 4)] || 0) + 1
+  }
+  if (year == null) return Object.values(byYear).reduce((a, n) => a + n, 0)
+  if (v.prev_year) {
+    const e = endYear(v)
+    byYear[e - 1] = (byYear[e - 1] || 0) + (byYear[e] || 0)
+    byYear[e] = 0
+  }
+  return byYear[year] || 0
 }
 
 /* El contador del año: disfrutados (confirmados ya pasados), confirmados por
@@ -99,7 +122,7 @@ export function yearCount(mine, holidays, year, allowance, today = dayKey(new Da
   const c = { enjoyed: 0, confirmed: 0, requested: 0, possible: 0 }
   for (const v of mine) {
     for (const k of daysOf(v)) {
-      if (!k.startsWith(String(year)) || !isWorkday(k, holidays)) continue
+      if (chargeYear(v, k) !== year || !isWorkday(k, holidays)) continue
       if (v.status === 'confirmada') c[k < today ? 'enjoyed' : 'confirmed']++
       else if (v.status === 'pedida') c.requested++
       else c.possible++

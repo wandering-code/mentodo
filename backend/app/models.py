@@ -327,6 +327,9 @@ class Vacation(Base):
     end = Column(Date, nullable=False, index=True)
     status = Column(String(12), nullable=False, default="posible")  # posible | pedida | confirmada
     note = Column(String(200), nullable=False, default="")
+    # Los días que caen en el año en que acaba se gastan del año anterior
+    # (arrastre), no de ese año
+    prev_year = Column(Boolean, nullable=False, default=False, server_default="false")
     created_at = Column(DateTime(timezone=True), default=now)
     updated_at = Column(DateTime(timezone=True), default=now, onupdate=now)
 

@@ -7,7 +7,7 @@ import { fmt } from '../lib/dates'
 import { dateOf, dayKey, useFestivos, WEEKDAYS_SHORT } from '../lib/hours'
 import {
   activeTeams, allowanceFor, baseFor, carryInto, daysOf, daysOffByDay, dayOffScope, indexByDay, isWorkday, overlaps, peopleOf, personHex, STATUSES, statusName, vacationsOn,
-  spentIn, vacSettings, withDaysOff, workdaysIn, yearCount,
+  spentIn, touchesYear, vacSettings, withDaysOff, workdaysIn, yearCount,
 } from '../lib/vacations'
 import { Block, Button, cx, IconButton, Input, Modal } from '../components/ui'
 
@@ -169,7 +169,7 @@ function Editor({ open, onClose, draft, people, byDay, holidays }) {
       else await s.createDayOff(body)
       return onClose()
     }
-    const body = { start, end, status: form.status, note: form.note.trim() }
+    const body = { start, end, status: form.status, note: form.note.trim(), prev_year: !!form.prev_year }
     if (editing) s.updateVacation(form.id, body)
     else await s.createVacation(body)
     onClose()
@@ -285,6 +285,34 @@ function Editor({ open, onClose, draft, people, byDay, holidays }) {
           </button>
         ))}
       </div>
+
+      {(() => {
+        const e = Number(end.slice(0, 4))
+        const inEnd = workdaysIn({ start, end }, holidays, e)
+        return (
+          <>
+            <div className="mt-4 text-[13px] text-muted">
+              {start.slice(0, 4) === end.slice(0, 4) ? 'Se gastan de' : `Los días de ${e} se gastan de`}
+            </div>
+            <div className="mt-1.5 inline-flex rounded-xl bg-sunken p-1">
+              {[
+                { v: false, name: String(e) },
+                { v: true, name: `${e - 1} (arrastre)` },
+              ].map((o) => (
+                <button
+                  key={o.name}
+                  type="button"
+                  onClick={() => setForm({ ...form, prev_year: o.v })}
+                  className={cx('h-8 rounded-lg px-3 text-[13px] tabular-nums transition-colors', !!form.prev_year === o.v ? 'bg-surface font-medium text-ink shadow-soft' : 'text-muted hover:text-ink')}
+                >
+                  {o.name}
+                </button>
+              ))}
+            </div>
+            {form.prev_year && <p className="mt-1.5 text-[12px] text-faint">{plural(inEnd, 'día', 'días')} de {e} cuentan como días de {e - 1}, no de {e}.</p>}
+          </>
+        )
+      })()}
 
       <label className="mt-4 block text-[13px] text-muted">
         Nota <span className="text-faint">(opcional)</span>
@@ -474,8 +502,12 @@ function PeriodRow({ v, person, holidays, year, onOpen }) {
       <span className="shrink-0 text-[12px] text-muted">{statusName(v.status)}</span>
       <span className="flex min-w-14 shrink-0 flex-col items-end text-right text-[12.5px] leading-tight tabular-nums text-faint">
         {plural(total, 'día', 'días')}
-        {/* Si cruza de año: cuántos son de este */}
-        {n !== total && <span className="text-[11px]">{n} en {year}</span>}
+        {/* De dónde salen: arrastre del año anterior, o la parte de este año */}
+        {v.prev_year && Number(v.end.slice(0, 4)) === year ? (
+          <span className="text-[11px]">{n ? `${total - n} de ${year - 1}` : `de ${year - 1}`}</span>
+        ) : (
+          n !== total && <span className="text-[11px]">{n} de {year}</span>
+        )}
       </span>
     </Tag>
   )
@@ -571,7 +603,7 @@ export function VacationsPage() {
   const hiddenKey = [...hiddenPeople].join(',')
   const byDay = useMemo(() => indexByDay(all.filter((v) => !hiddenPeople.has(v.user_id))), [all, hiddenKey]) // eslint-disable-line react-hooks/exhaustive-deps
   const allByDay = useMemo(() => indexByDay(all), [all])
-  const inYear = (v) => v.start.slice(0, 4) <= String(year) && v.end.slice(0, 4) >= String(year)
+  const inYear = (v) => touchesYear(v, year)
   const mine = all.filter((v) => v.user_id === user.id)
   const count = yearCount(mine.filter(inYear), holidays, year, allowanceFor(st, year), today)
   const clashes = overlaps(Object.fromEntries(Object.entries(allByDay).filter(([k]) => k.startsWith(String(year)))), holidays).filter((o) => [...o.users].every((id) => visiblePeople.some((p) => p.id === id)))
@@ -785,7 +817,7 @@ export function VacationsPage() {
         st={st}
         left={(y, cin = carryInto(st, y)) => {
           // Lo que queda en `y` sin restar lo que ya sale hacia el siguiente
-          const list = mine.filter((v) => v.start.slice(0, 4) <= String(y) && v.end.slice(0, 4) >= String(y))
+          const list = mine.filter((v) => touchesYear(v, y))
           return yearCount(list, holidays, y, baseFor(st, y) + cin, today).left
         }}
       />

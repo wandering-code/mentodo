@@ -30,6 +30,7 @@ class VacationIn(BaseModel):
     end: date
     status: Status = "posible"
     note: str = Field("", max_length=200)
+    prev_year: bool = False
 
     @model_validator(mode="after")
     def _check(self):
@@ -45,6 +46,7 @@ class VacationPatch(BaseModel):
     end: date | None = None
     status: Status | None = None
     note: str | None = Field(None, max_length=200)
+    prev_year: bool | None = None
 
 
 def vacation_out(v: Vacation, off: set | None = None, db: Session | None = None) -> dict:
@@ -53,7 +55,7 @@ def vacation_out(v: Vacation, off: set | None = None, db: Session | None = None)
     if off is None and db is not None:
         off = off_dates(db, db.get(User, v.user_id), set(range(v.start.year, v.end.year + 1)))
     return {"id": v.id, "user_id": v.user_id, "start": v.start.isoformat(), "end": v.end.isoformat(),
-            "status": v.status, "note": v.note,
+            "status": v.status, "note": v.note, "prev_year": bool(v.prev_year),
             "days": workdays_by_year(v.start, v.end, off) if off is not None else None,
             "updated_at": v.updated_at.isoformat() if v.updated_at else None}
 
@@ -104,7 +106,8 @@ def list_vacations(em: Emitter = Depends(emitter), db: Session = Depends(get_db)
 
 @router.post("", status_code=201)
 def create_vacation(body: VacationIn, em: Emitter = Depends(emitter), db: Session = Depends(get_db)):
-    v = Vacation(user_id=em.user.id, start=body.start, end=body.end, status=body.status, note=body.note.strip())
+    v = Vacation(user_id=em.user.id, start=body.start, end=body.end, status=body.status, note=body.note.strip(),
+                 prev_year=body.prev_year)
     db.add(v)
     db.commit()
     out = vacation_out(v, db=db)
