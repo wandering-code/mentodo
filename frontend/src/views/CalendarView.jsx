@@ -7,7 +7,7 @@ import { useStore } from '../lib/store'
 import { haptic } from '../lib/layers'
 import { allDayIso, fmt } from '../lib/dates'
 import { dateInfo, deadlineKey, deadlineOf, readDate, useDeadlineKey } from '../lib/deadline'
-import { Button, cx, IconButton, useIsMobile } from '../components/ui'
+import { Button, cx, IconButton, LabelChip, useIsMobile } from '../components/ui'
 import { CardRow } from '../components/CardRow'
 import { upcoming } from '../lib/recurrence'
 import { cardMenu } from '../components/CardMenu'
@@ -18,19 +18,37 @@ const key = (d) => fmt(d, 'yyyy-MM-dd')
    de fecha propia («f:<id>»), según elija la vista */
 export { readDate }
 
+/* La propiedad que da color a las tarjetas del calendario: la que elija la
+   vista (`color_by`: id del grupo, o 'none'), o «Tipo» si el proyecto la tiene */
+export function colorGroup(s, projectId, cfg) {
+  const groups = Object.values(s.groups).filter((g) => g.project_id === projectId)
+  if (cfg?.color_by === 'none') return null
+  if (cfg?.color_by != null) return groups.find((g) => g.id === cfg.color_by) || null
+  return groups.find((g) => g.name.trim().toLowerCase() === 'tipo') || null
+}
+
+// Color de la tarjeta según su etiqueta de esa propiedad (la primera, si hay varias)
+function colorOf(card, group, labels) {
+  if (!group) return null
+  const l = card.label_ids.map((id) => labels[id]).filter((x) => x && x.group_id === group.id).sort((a, b) => a.position - b.position)[0]
+  return l || null
+}
+
 export function dateBody(dateKey, at, allDay) {
   if (!dateKey || dateKey === 'due') return { due_at: at, due_all_day: allDay }
   return { values: { [dateKey.slice(2)]: { at, all_day: allDay } } }
 }
 
-function Chip({ card, onOpen, overlay, dateKey }) {
+function Chip({ card, onOpen, overlay, dateKey, group }) {
   const dt = readDate(card, dateKey)
   // En rojo solo si lo que se pasó es la entrega (no un inicio, por ejemplo)
   const late = useDeadlineKey(card.project_id) === dateKey && dateInfo(dt, card.done)?.overdue
+  const label = colorOf(card, group, useStore((s) => s.labels))
   const { setNodeRef, attributes, listeners, isDragging } = useDraggable({ id: card.id, disabled: overlay })
   return (
     <button
-      data-c="rojo"
+      data-c={label ? label.color : 'rojo'}
+      title={[card.title || 'Sin título', label?.name, late && 'atrasada'].filter(Boolean).join(' · ')}
       ref={overlay ? undefined : setNodeRef}
       {...(overlay ? {} : attributes)}
       {...(overlay ? {} : listeners)}
@@ -38,12 +56,14 @@ function Chip({ card, onOpen, overlay, dateKey }) {
       onContextMenu={overlay ? undefined : cardMenu(card)}
       className={cx(
         'touch-drag flex w-full items-center gap-1.5 truncate rounded-md px-1.5 py-[3px] text-left text-[12px] leading-tight transition-colors [touch-action:manipulation]',
-        card.done ? 'text-faint line-through' : late ? 'lbl text-danger' : 'bg-accent-soft text-ink hover:brightness-95',
+        // Con color: el de su etiqueta (si está atrasada, un punto rojo delante)
+        card.done ? (label ? 'lbl line-through opacity-50' : 'text-faint line-through') : label ? 'lbl hover:brightness-95' : late ? 'lbl text-danger' : 'bg-accent-soft text-ink hover:brightness-95',
         isDragging && 'opacity-30',
         overlay && 'shadow-float bg-surface',
       )}
     >
-      {dt && !dt.allDay && <span className="shrink-0 tabular-nums text-muted">{fmt(new Date(dt.at), 'HH:mm')}</span>}
+      {label && late && !card.done && <span className="size-1.5 shrink-0 rounded-full bg-danger" />}
+      {dt && !dt.allDay && <span className={cx('shrink-0 tabular-nums', label ? 'opacity-70' : 'text-muted')}>{fmt(new Date(dt.at), 'HH:mm')}</span>}
       <span className="truncate">{card.title || 'Sin título'}</span>
     </button>
   )
@@ -64,7 +84,8 @@ function Ghost({ card, onOpen }) {
   )
 }
 
-function Day({ day, month, cards, ghosts = [], onOpen, onAdd, compact, selected, onSelect, dateKey }) {
+function Day({ day, month, cards, ghosts = [], onOpen, onAdd, compact, selected, onSelect, dateKey, group }) {
+  const labels = useStore((s) => s.labels)
   const { setNodeRef, isOver } = useDroppable({ id: key(day) })
   const today = isSameDay(day, new Date())
   return (
@@ -97,7 +118,11 @@ function Day({ day, month, cards, ghosts = [], onOpen, onAdd, compact, selected,
       {compact && cards.length + ghosts.length > 0 && (
         <div className="flex gap-[3px]">
           {cards.slice(0, 3).map((c) => (
-            <span key={c.id} className={cx('size-[5px] rounded-full', c.done ? 'bg-line' : dateInfo(deadlineOf(useStore.getState(), c), c.done)?.overdue ? 'bg-danger' : 'bg-accent')} />
+            <span
+              key={c.id}
+              data-c={colorOf(c, group, labels)?.color}
+              className={cx('size-[5px] rounded-full', c.done ? 'bg-line' : dateInfo(deadlineOf(useStore.getState(), c), c.done)?.overdue ? 'bg-danger' : colorOf(c, group, labels) ? 'lbl-dot' : 'bg-accent')}
+            />
           ))}
           {ghosts.slice(0, Math.max(0, 3 - cards.length)).map((c) => (
             <span key={`g${c.id}`} className="size-[5px] rounded-full border border-faint" />
@@ -105,7 +130,7 @@ function Day({ day, month, cards, ghosts = [], onOpen, onAdd, compact, selected,
         </div>
       )}
       {!compact && cards.slice(0, 4).map((c) => (
-        <Chip key={c.id} card={c} onOpen={onOpen} dateKey={dateKey} />
+        <Chip key={c.id} card={c} onOpen={onOpen} dateKey={dateKey} group={group} />
       ))}
       {!compact && ghosts.slice(0, Math.max(0, 4 - cards.length)).map((c) => (
         <Ghost key={`g${c.id}`} card={c} onOpen={onOpen} />
@@ -118,6 +143,8 @@ function Day({ day, month, cards, ghosts = [], onOpen, onAdd, compact, selected,
 export function CalendarView({ project, view, cards, onOpen }) {
   const s = useStore()
   const dateKey = view?.config?.date_key || deadlineKey(s, project.id)
+  const group = colorGroup(s, project.id, view?.config)
+  const legend = group ? Object.values(s.labels).filter((l) => l.group_id === group.id).sort((a, b) => a.position - b.position) : []
   const [month, setMonth] = useState(() => startOfMonth(new Date()))
   // En el móvil no caben los títulos en cada día: puntos en la rejilla y,
   // debajo, la agenda del día elegido (como el calendario del sistema)
@@ -233,6 +260,7 @@ export function CalendarView({ project, view, cards, onOpen }) {
                   onAdd={add}
                   compact={compact}
                   dateKey={dateKey}
+                  group={group}
                   selected={isSameDay(d, selected)}
                   onSelect={setSelected}
                 />
@@ -240,6 +268,15 @@ export function CalendarView({ project, view, cards, onOpen }) {
             </motion.div>
           </AnimatePresence>
         </div>
+        {/* Qué color es cada etiqueta */}
+        {legend.length > 0 && (
+          <div className="mt-3 flex flex-wrap items-center gap-1.5 px-1">
+            <span className="mr-1 text-[12px] text-faint">{group.name}:</span>
+            {legend.map((l) => (
+              <LabelChip key={l.id} label={l} size="sm" />
+            ))}
+          </div>
+        )}
         {compact && (
           <div key={key(selected)} className="entra mt-5" style={{ '--entra-dura': '220ms' }}>
             <div className="mb-1 flex items-center px-1">
@@ -261,7 +298,7 @@ export function CalendarView({ project, view, cards, onOpen }) {
             {!(byDay[key(selected)] || []).length && !(ghostsByDay[key(selected)] || []).length && <p className="px-1 py-3 text-[14px] text-faint">Nada para este día.</p>}
           </div>
         )}
-        <DragOverlay dropAnimation={null}>{active ? <div className="w-36"><Chip card={s.cards[active]} overlay dateKey={dateKey} /></div> : null}</DragOverlay>
+        <DragOverlay dropAnimation={null}>{active ? <div className="w-36"><Chip card={s.cards[active]} overlay dateKey={dateKey} group={group} /></div> : null}</DragOverlay>
       </DndContext>
     </div>
   )

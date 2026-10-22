@@ -223,7 +223,7 @@ const SECTIONS = [
     items: [
       ['Tablero', 'Columnas por un grupo de etiquetas. Arrastra tarjetas entre columnas; pliega las que no necesites ver.'],
       ['Tabla y Lista', 'Todas las propiedades en columnas, o una lista por bloques para repasar rápido.'],
-      ['Calendario', 'Las tarjetas en su día; eliges qué fecha se usa. Las repeticiones futuras también salen.'],
+      ['Calendario', 'Las tarjetas en su día; eliges qué fecha se usa. Las repeticiones futuras también salen. Cada tarjeta lleva el color de su etiqueta de «Tipo» (o de la propiedad que elijas en «Color»), con la leyenda debajo; las atrasadas, con un punto rojo. Al añadir una, Enter guarda el título y la cierra.'],
       ['Informe de jornadas', 'Días laborables por mes entre dos fechas de cada tarjeta, con festivos por comunidad y ajuste a mano. Se descarga en CSV.'],
       ['Ordenar, filtrar y agrupar', 'Desde la bandeja de herramientas de cada vista: por cualquier propiedad (fechas, casillas, texto, número, etiquetas) y ocultar lo terminado.'],
     ],

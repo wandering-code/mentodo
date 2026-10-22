@@ -51,8 +51,9 @@ function Column({ id, label, group, cards, onOpen, onAdd, manual, projectId, col
     const t = text.trim()
     if (!t) return setAdding(false)
     setText('')
+    // Enter crea esta tarjeta y ya: no deja el campo abierto para otra
+    setAdding(false)
     await onAdd(t, id)
-    inputRef.current?.focus()
   }
 
   const name = label ? label.name : `Sin ${group.name.toLowerCase()}`

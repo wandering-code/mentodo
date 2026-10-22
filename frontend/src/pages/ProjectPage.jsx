@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router'
 import { AnimatePresence, motion } from 'motion/react'
 import {
-  ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Calendar, ChartNoAxesColumn, Columns3, NotebookText, Eye, EyeOff, Filter, Layers, List, Plus, Search, Settings2, SortAsc, Table2, Trash2, X,
+  ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Calendar, Palette, ChartNoAxesColumn, Columns3, NotebookText, Eye, EyeOff, Filter, Layers, List, Plus, Search, Settings2, SortAsc, Table2, Trash2, X,
 } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { useCardNav } from '../lib/nav'
@@ -12,7 +12,7 @@ import { DATE_FILTERS, SORT_FIELDS, VALUE_FILTERS, YESNO_FILTERS, applyFilter, f
 import { BoardView } from '../views/BoardView'
 import { TableView } from '../views/TableView'
 import { ListView } from '../views/ListView'
-import { CalendarView } from '../views/CalendarView'
+import { CalendarView, colorGroup } from '../views/CalendarView'
 import { ReportView } from '../views/ReportView'
 import { NotesBoard } from '../components/Notes'
 import { SortableList, SortableRow } from '../components/Sortable'
@@ -373,6 +373,7 @@ function Toolbar({ project, view }) {
   const sort = usePopover()
   const filter = usePopover()
   const dateSel = usePopover()
+  const colorSel = usePopover()
   const cfg = view.config
   const dateProps = projectProps(s, project.id).filter((p) => p.key === 'due' || p.field?.kind === 'date')
   const setCfg = (patch) => s.updateView(view.id, { config: { ...cfg, ...patch } })
@@ -426,6 +427,12 @@ function Toolbar({ project, view }) {
           <span><span className="max-sm:hidden">Fecha: </span>{dateProps.find((p) => p.key === (cfg.date_key || deadlineKey(s, project.id)))?.name || 'Fecha'}</span>
         </button>
       )}
+      {view.kind === 'calendar' && (
+        <button onClick={colorSel.toggle} className={pill(false)}>
+          <Palette size={14} />
+          <span><span className="max-sm:hidden">Color: </span>{colorGroup(s, project.id, cfg)?.name || 'Sin color'}</span>
+        </button>
+      )}
       <button onClick={filter.toggle} className={pill(nFilters)}>
         <Filter size={14} />
         Filtrar{nFilters ? ` · ${nFilters}` : ''}
@@ -445,6 +452,17 @@ function Toolbar({ project, view }) {
           </MenuItem>
         ))}
         {dateProps.length < 2 && <p className="px-3 pb-2 pt-1 text-[12.5px] text-faint">Añade otra propiedad de tipo Fecha desde una tarjeta para poder elegirla aquí.</p>}
+      </Popover>
+      <Popover open={colorSel.open} anchor={colorSel.anchor} onClose={colorSel.close} width={240}>
+        <MenuLabel>Color de las tarjetas según</MenuLabel>
+        {groups.map((g) => (
+          <MenuItem key={g.id} active={colorGroup(s, project.id, cfg)?.id === g.id} onClick={() => (setCfg({ color_by: g.id }), colorSel.close())}>
+            {g.name}
+          </MenuItem>
+        ))}
+        <MenuItem active={!colorGroup(s, project.id, cfg)} onClick={() => (setCfg({ color_by: 'none' }), colorSel.close())}>
+          Sin color
+        </MenuItem>
       </Popover>
       <Popover open={group.open} anchor={group.anchor} onClose={group.close} width={220}>
         <MenuLabel>Agrupar por</MenuLabel>

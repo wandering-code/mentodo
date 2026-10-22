@@ -137,7 +137,9 @@ function CardBody({ card, onClose, mobile, wide, onToggleWide, dragHandlers }) {
   }, [title])
 
   // Tarjeta recién creada: el cursor va directo al título
+  const fresh = useRef(false)
   useEffect(() => {
+    fresh.current = !card.title
     if (!card.title) setTimeout(() => titleRef.current?.focus(), 250)
   }, [card.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -195,6 +197,12 @@ function CardBody({ card, onClose, mobile, wide, onToggleWide, dragHandlers }) {
                 if (e.key === 'Enter') {
                   e.preventDefault()
                   e.currentTarget.blur()
+                  // Recién creada (p. ej. desde el calendario): Enter la deja
+                  // hecha y cierra, como al añadir en el tablero
+                  if (fresh.current && title.trim()) {
+                    fresh.current = false
+                    onClose?.()
+                  }
                 }
               }}
               placeholder={isTemplate ? 'Título con el que nacen las tarjetas (opcional)' : 'Sin título'}
