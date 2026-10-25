@@ -10,7 +10,7 @@ import { get } from './api'
 
 const DAY = { target: 480, lunch: 45, lunch_from: '14:30' }
 export const DEFAULT_SCHEDULE = [DAY, DAY, DAY, DAY, { target: 480, lunch: 0, lunch_from: '14:30' }, { target: 0, lunch: 0, lunch_from: '14:30' }, { target: 0, lunch: 0, lunch_from: '14:30' }]
-export const DEFAULTS = { schedule: DEFAULT_SCHEDULE, step: 15, format: 'dec', region: null, notify_exit: null, notify_close: null, today_widget: true, csv_extra: false, today_extra: false }
+export const DEFAULTS = { schedule: DEFAULT_SCHEDULE, step: 15, format: 'dec', region: null, notify_exit: null, notify_close: null, today_widget: true, csv_extra: false, today_extra: false, ranking: true }
 export const WEEKDAYS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
 export const WEEKDAYS_SHORT = ['L', 'M', 'X', 'J', 'V', 'S', 'D']
 

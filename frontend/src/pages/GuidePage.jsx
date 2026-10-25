@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation } from 'react-router'
 import {
   ArrowRight, Bell, BookOpen, CalendarRange, CircleCheckBig, Clock, Columns3, FileText, FolderKanban, GitBranch, Inbox, KeyRound, LayoutTemplate, Palette,
-  Paperclip, Search, ShieldCheck, Sparkles, Sun, Tags, Undo2, X, Zap, SlidersHorizontal, TreePalm,
+  Paperclip, Search, ShieldCheck, Sparkles, Sun, Tags, Undo2, X, Zap, SlidersHorizontal, TreePalm, Trophy,
 } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { hoursOn } from '../lib/hours'
@@ -375,6 +375,20 @@ const SECTIONS = [
       ['Cambiar o quitar', 'Toca uno de tus días de vacaciones para abrirlo; «Quitar» lo borra, con Deshacer.'],
     ],
     to: '/vacaciones',
+  },
+  {
+    id: 'ranking',
+    icon: Trophy,
+    title: 'Ranking de horas',
+    intro: 'Las horas de más y el balance de la gente de tus equipos, de mayor a menor. Lo ve cualquiera que esté en un equipo, use o no el parte de horas; solo salen quienes lo usan. Aparece en el menú en cuanto estás en un equipo.',
+    items: [
+      ['Dos clasificaciones', 'Horas de más: salida real − salida prevista, en los días con salida real (hoy cuenta cuando pones la salida, no en vivo). Balance: imputado − jornada, solo en los días con partes.'],
+      ['Frases', 'En Horas de más, cada persona lleva una frase sobre en qué se podría haber ido ese tiempo (capítulos de series de DC, partidas de Delta Force, pasos…), con la cuenta hecha de verdad. Cambian cada vez que abres la página.'],
+      ['Periodo', 'Semana, mes o año, con flechas para ver los anteriores. Si estás en varios equipos, puedes ver uno solo.'],
+      ['En tiempo real', 'Cuando alguien de tu equipo cambia su entrada, su salida o sus partes, el ranking se reordena solo.'],
+      ['No salir', 'En Ajustes → Parte de horas, «Salir en el ranking». Apagado, nadie ve tus cifras, pero tú sigues viendo las de los demás.'],
+    ],
+    to: '/ranking',
   },
   {
     id: 'datos',

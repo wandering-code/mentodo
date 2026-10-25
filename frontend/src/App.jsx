@@ -18,6 +18,7 @@ import { TodayPage } from './pages/TodayPage'
 import { WeekPage } from './pages/WeekPage'
 import { HoursPage } from './pages/HoursPage'
 import { VacationsPage } from './pages/VacationsPage'
+import { RankingPage } from './pages/RankingPage'
 import { GuidePage } from './pages/GuidePage'
 import { restoreVault } from './lib/vault'
 
@@ -55,6 +56,7 @@ export default function App() {
               <Route path="semana" element={<WeekPage />} />
               <Route path="horas" element={<HoursPage />} />
               <Route path="vacaciones" element={<VacationsPage />} />
+              <Route path="ranking" element={<RankingPage />} />
               <Route path="guia" element={<GuidePage />} />
               <Route path="inbox" element={<InboxPage />} />
               <Route path="apuntes" element={<NotesPage />} />

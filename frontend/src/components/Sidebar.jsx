@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router'
 import { motion } from 'motion/react'
 import { SortableList, SortableRow } from './Sortable'
-import { Archive, Bell, BookOpen, ChevronRight, CircleCheckBig, Clock, Inbox, NotebookText, Plus, Search, Settings, Shield, Sun, CalendarRange, TreePalm } from 'lucide-react'
+import { Archive, Bell, BookOpen, ChevronRight, CircleCheckBig, Clock, Inbox, NotebookText, Plus, Search, Settings, Shield, Sun, CalendarRange, TreePalm, Trophy } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { Collapse, cx, IconButton, IS_MAC, Kbd, spring } from './ui'
 import { Logo, Wordmark } from './Logo'
@@ -51,6 +51,8 @@ function NavItem({ to, icon: Icon, children, count, onClick, end, touch }) {
 
 export function Sidebar({ onSearch, onNewProject, onNotifications, onNavigate, touch }) {
   const user = useStore((s) => s.user)
+  // Ranking: para cualquiera que esté en un equipo, use o no el parte de horas
+  const inTeam = useStore((s) => s.teams.some((t) => t.members.some((m) => m.user_id === s.user?.id && m.status === 'active')))
   const projectsMap = useStore((s) => s.projects)
   const notifications = useStore((s) => s.notifications)
   const updateProject = useStore((s) => s.updateProject)
@@ -118,6 +120,11 @@ export function Sidebar({ onSearch, onNewProject, onNotifications, onNavigate, t
         {vacationsOn(user) && (
           <NavItem touch={touch} to="/vacaciones" icon={TreePalm} onClick={onNavigate}>
             Vacaciones
+          </NavItem>
+        )}
+        {inTeam && (
+          <NavItem touch={touch} to="/ranking" icon={Trophy} onClick={onNavigate}>
+            Ranking
           </NavItem>
         )}
       </div>

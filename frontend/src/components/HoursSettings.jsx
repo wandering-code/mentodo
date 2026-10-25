@@ -209,6 +209,13 @@ export function HoursSettings() {
           </span>
           <Toggle checked={!!st.today_extra} onChange={(v) => save({ today_extra: v })} />
         </label>
+        <label className="flex items-center gap-3 text-[14px]">
+          <span className="flex-1">
+            Salir en el ranking
+            <span className="block text-[12.5px] text-faint">La gente de tus equipos ve tus horas de más y tu balance en Ranking. Apagado, no apareces (pero tú sigues viendo a los demás)</span>
+          </span>
+          <Toggle checked={st.ranking !== false} onChange={(v) => save({ ranking: v })} />
+        </label>
       </div>
     </div>
   )

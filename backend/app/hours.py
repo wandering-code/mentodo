@@ -24,6 +24,7 @@ DEFAULTS = {
     "today_widget": True,
     "csv_extra": False,  # columnas «Salida real» y «De más» al final del CSV
     "today_extra": False,  # horas de más en el recuadro de Hoy
+    "ranking": True,  # salir en el ranking de mis equipos
 }
 
 

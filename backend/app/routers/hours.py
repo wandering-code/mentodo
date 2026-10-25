@@ -18,6 +18,7 @@ from ..hours import day_defaults
 from ..models import TimeEntry, WorkDay
 from ..ownership import own_card, own_project
 from ..serialize import entry_out, workday_out
+from .ranking import notify_ranking
 
 router = APIRouter(prefix="/hours", tags=["hours"])
 
@@ -119,6 +120,7 @@ def put_day(day: date, body: DayPatch, em: Emitter = Depends(emitter), db: Sessi
     db.commit()
     out = workday_out(d)
     em.upsert("workday", out)
+    notify_ranking(em, db)
     return out
 
 
@@ -131,6 +133,7 @@ def reset_day(day: date, em: Emitter = Depends(emitter), db: Session = Depends(g
     db.commit()
     out = workday_out(d)
     em.upsert("workday", out)
+    notify_ranking(em, db)
     return out
 
 
@@ -154,6 +157,7 @@ def create_entry(body: EntryIn, em: Emitter = Depends(emitter), db: Session = De
     out = entry_out(e)
     em.upsert("entry", out)
     _emit_card_total(em, db, e.card_id)
+    notify_ranking(em, db)
     return {"entry": out, "day": workday_out(d)}
 
 
@@ -170,6 +174,7 @@ def patch_entry(entry_id: int, body: EntryPatch, em: Emitter = Depends(emitter),
     out = entry_out(e)
     em.upsert("entry", out)
     _emit_card_total(em, db, e.card_id)
+    notify_ranking(em, db)
     return out
 
 
@@ -181,6 +186,7 @@ def delete_entry(entry_id: int, em: Emitter = Depends(emitter), db: Session = De
     db.commit()
     em.delete("entry", entry_id)
     _emit_card_total(em, db, card_id)
+    notify_ranking(em, db)
     return {"ok": True}
 
 

@@ -54,6 +54,10 @@ def patch_me(body: MePatch, em: Emitter = Depends(emitter), db: Session = Depend
         # sus festivos (comunidad) cambian cuántos días gastan sus vacaciones
         from ..teams import teammate_ids
         em.to_users(teammate_ids(db, user.id), [{"t": "reload_teams"}, {"t": "reload_vacations"}])
+    if body.display_name is not None or (body.prefs and ("mod_hours" in body.prefs or "hours" in body.prefs)):
+        # Sale (o deja de salir, o con otro nombre) en el ranking de sus compañeros
+        from .ranking import notify_ranking
+        notify_ranking(em, db)
     return out
 
 

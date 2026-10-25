@@ -104,6 +104,8 @@ export const useStore = create((set, getState) => ({
   applyEvents(events) {
     if (events.some((ev) => ev.t === 'reload_teams')) getState().loadTeams()
     if (events.some((ev) => ev.t === 'reload_vacations')) getState().loadVacations()
+    // El ranking no vive en el store: la página lo vuelve a pedir
+    if (events.some((ev) => ev.t === 'reload_ranking' || ev.t === 'reload_teams')) window.dispatchEvent(new Event('mentodo:ranking'))
     set((s) => {
       const next = { ...s }
       for (const ev of events) {
