@@ -158,7 +158,7 @@ select:focus-visible,
 .lbl[data-c='rojo'], .lbl-dot[data-c='rojo'] { --c: #c4513f; }
 
 /* Editor de contenido de tarjeta (TipTap) */
-.prose-m { font-size: 15px; line-height: 1.65; }
+.prose-m { font-size: 15px; line-height: 1.65; tab-size: 4; }
 .prose-m:focus { outline: none; }
 .prose-m > * + * { margin-top: 0.5em; }
 .prose-m h1 { font-size: 1.5em; font-weight: 650; letter-spacing: -0.02em; margin-top: 1em; }

@@ -191,6 +191,29 @@ const SlashCommand = Extension.create({
   },
 })
 
+/* ── Tab escribe una tabulación ──────────────────────────────────────────────
+   Va con prioridad baja: las listas (sangrar/quitar sangría) y el bloque de
+   código (sangrar con espacios) se quedan antes con la tecla. Si nadie la
+   usa, en vez de saltar al siguiente campo se escribe una tabulación. */
+const TabKey = Extension.create({
+  name: 'tabKey',
+  priority: 50,
+  addKeyboardShortcuts() {
+    const inText = () => this.editor.state.selection.$from.parent.inlineContent
+    return {
+      Tab: () => inText() && this.editor.commands.insertContent('\t'),
+      'Shift-Tab': () => {
+        const { $from, empty } = this.editor.state.selection
+        if (!inText()) return false
+        // Borra la tabulación justo antes del cursor, si la hay
+        if (empty && $from.parent.textBetween(Math.max(0, $from.parentOffset - 1), $from.parentOffset) === '\t')
+          this.editor.commands.deleteRange({ from: $from.pos - 1, to: $from.pos })
+        return true
+      },
+    }
+  },
+})
+
 /* ── Barra flotante al seleccionar texto ──────────────────────────────────── */
 
 function Btn({ active, onClick, label, children }) {
@@ -376,7 +399,7 @@ export function Editor({ cardId, content, onSave, placeholder }) {
     {
       extensions: [
         StarterKit.configure({ link: { openOnClick: true, autolink: true }, codeBlock: false }),
-        CodeBlockWithCopy,
+        CodeBlockWithCopy.configure({ enableTabIndentation: true, tabSize: 4 }),
         SecretNode,
         TaskList,
         TaskItem.configure({ nested: true }),
@@ -385,6 +408,7 @@ export function Editor({ cardId, content, onSave, placeholder }) {
         Highlight.configure({ multicolor: true }),
         Placeholder.configure({ placeholder: placeholder || 'Escribe notas, o pulsa «/» para títulos, listas, casillas…' }),
         SlashCommand,
+        TabKey,
       ],
       content: content || '',
       editorProps: { attributes: { class: 'prose-m min-h-[160px] pb-24' } },
