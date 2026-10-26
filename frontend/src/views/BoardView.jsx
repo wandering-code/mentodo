@@ -7,7 +7,7 @@ import {
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { AnimatePresence, motion } from 'motion/react'
-import { ChevronRight, MoreHorizontal, Plus } from 'lucide-react'
+import { ChevronRight, Layers, MoreHorizontal, Plus } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { between, groupLabels, sortCards } from '../lib/cards'
 import { LABEL_COLORS } from '../lib/palette'
@@ -18,7 +18,28 @@ import { cx, Divider, IconButton, MenuItem, Popover, Toggle, useIsMobile, usePop
 
 const NONE = 'none'
 
-function SortableCard({ card, groupId, onOpen, disabled }) {
+/* Tarjetas repetidas (p. ej. una tarea que se repite cada día): las que
+   tienen el mismo título dentro de una columna se apilan en el sitio de la
+   primera. Da igual mayúsculas y espacios de más. */
+const titleKey = (c) => (c.title || '').trim().replace(/\s+/g, ' ').toLowerCase()
+
+function stackItems(cards) {
+  const byKey = {}
+  for (const c of cards) {
+    const k = titleKey(c)
+    if (k) (byKey[k] ||= []).push(c)
+  }
+  const out = []
+  for (const c of cards) {
+    const k = titleKey(c)
+    const same = k && byKey[k]
+    if (!same || same.length < 2) out.push({ card: c })
+    else if (same[0] === c) out.push({ key: k, cards: same })
+  }
+  return out
+}
+
+function SortableCard({ card, groupId, onOpen, disabled, stackCount, onStack }) {
   const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({
     id: card.id,
     data: { type: 'card' },
@@ -31,6 +52,8 @@ function SortableCard({ card, groupId, onOpen, disabled }) {
       hideGroupId={groupId}
       onOpen={onOpen}
       dragging={isDragging}
+      stackCount={stackCount}
+      onStack={onStack}
       style={{ transform: CSS.Translate.toString(transform), transition }}
       {...attributes}
       {...listeners}
@@ -38,7 +61,7 @@ function SortableCard({ card, groupId, onOpen, disabled }) {
   )
 }
 
-function Column({ id, label, group, cards, onOpen, onAdd, manual, projectId, collapsed, onToggle }) {
+function Column({ id, label, group, cards, onOpen, onAdd, manual, projectId, collapsed, onToggle, stack }) {
   const { setNodeRef, isOver } = useDroppable({ id: `col:${id}`, data: { type: 'column', col: id } })
   const [adding, setAdding] = useState(false)
   const [text, setText] = useState('')
@@ -46,6 +69,16 @@ function Column({ id, label, group, cards, onOpen, onAdd, manual, projectId, col
   const color = usePopover()
   const { updateLabel, deleteLabel } = useStore.getState()
   const inputRef = useRef(null)
+  // Pilas abiertas en esta columna (por título); al recargar vuelven a apilarse
+  const [open, setOpen] = useState(() => new Set())
+  const flip = (k) => setOpen((prev) => {
+    const next = new Set(prev)
+    next.has(k) ? next.delete(k) : next.add(k)
+    return next
+  })
+  const items = stack ? stackItems(cards) : cards.map((card) => ({ card }))
+  // Solo se ordenan las tarjetas que se ven: de una pila cerrada, la de arriba
+  const visible = items.flatMap((it) => (it.card ? [it.card.id] : open.has(it.key) ? it.cards.map((c) => c.id) : [it.cards[0].id]))
 
   const submit = async () => {
     const t = text.trim()
@@ -105,10 +138,33 @@ function Column({ id, label, group, cards, onOpen, onAdd, manual, projectId, col
           isOver ? 'bg-accent-soft' : 'bg-[color-mix(in_oklab,var(--sunken)_70%,transparent)]',
         )}
       >
-        <SortableContext items={cards.map((c) => c.id)} strategy={verticalListSortingStrategy}>
-          {cards.map((c) => (
-            <SortableCard key={c.id} card={c} groupId={group.id} onOpen={onOpen} disabled={!manual && false} />
-          ))}
+        <SortableContext items={visible} strategy={verticalListSortingStrategy}>
+          {items.map((it) =>
+            it.card ? (
+              <SortableCard key={it.card.id} card={it.card} groupId={group.id} onOpen={onOpen} disabled={!manual && false} />
+            ) : open.has(it.key) ? (
+              <div key={`stack:${it.key}`} className="flex flex-col gap-2 rounded-[14px] bg-[color-mix(in_oklab,var(--ink)_4%,transparent)] p-1">
+                <button
+                  onClick={() => flip(it.key)}
+                  className="flex h-7 items-center gap-1.5 rounded-lg px-2 text-left text-[12.5px] text-muted transition-colors hover:bg-hover hover:text-ink"
+                >
+                  <Layers size={13} />
+                  <span className="min-w-0 flex-1 truncate">{it.cards.length} iguales</span>
+                  <span className="text-faint">Apilar</span>
+                </button>
+                {it.cards.map((c) => (
+                  <SortableCard key={c.id} card={c} groupId={group.id} onOpen={onOpen} />
+                ))}
+              </div>
+            ) : (
+              // Cerrada: la de arriba, con las demás asomando por debajo
+              <div key={`stack:${it.key}`} className="relative pb-[9px]">
+                <span aria-hidden className="absolute inset-x-3.5 bottom-0 top-3 rounded-xl border border-line bg-[color-mix(in_oklab,var(--surface)_70%,var(--sunken))] shadow-[0_1px_1.5px_rgb(0_0_0/0.04)]" />
+                <span aria-hidden className="absolute inset-x-[7px] bottom-[4.5px] top-2 rounded-xl border border-line bg-surface shadow-[0_1px_1.5px_rgb(0_0_0/0.04)]" />
+                <SortableCard card={it.cards[0]} groupId={group.id} onOpen={onOpen} stackCount={it.cards.length} onStack={() => flip(it.key)} />
+              </div>
+            ),
+          )}
         </SortableContext>
         <AnimatePresence initial={false}>
           {adding ? (
@@ -385,6 +441,7 @@ export function BoardView({ project, view, cards, onOpen }) {
             projectId={project.id}
             collapsed={collapsed.includes(String(col))}
             onToggle={() => toggleCollapsed(col)}
+            stack={view.config.stack !== false}
           />
         ))}
         <NewColumn group={group} count={labels.length} />

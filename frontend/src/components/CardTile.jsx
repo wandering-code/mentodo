@@ -1,5 +1,5 @@
 import { forwardRef, memo } from 'react'
-import { AlarmClock, CalendarClock, Timer, ListTree, Lock, Paperclip, Repeat, CalendarDays, Clock3, FileText, ListTodo } from 'lucide-react'
+import { AlarmClock, CalendarClock, Timer, Layers, ListTree, Lock, Paperclip, Repeat, CalendarDays, Clock3, FileText, ListTodo } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { dateInfo, readDate, useDeadlineKey } from '../lib/deadline'
 import { humanDate } from '../lib/dates'
@@ -49,7 +49,7 @@ export function DueBadge({ card, className }) {
 
 /* Tarjeta tal como se ve en el tablero */
 export const CardTile = memo(
-  forwardRef(function CardTile({ card, hideGroupId, onOpen, dragging, overlay, style, ...rest }, ref) {
+  forwardRef(function CardTile({ card, hideGroupId, onOpen, dragging, overlay, stackCount, onStack, style, ...rest }, ref) {
     const labels = useStore((s) => s.labels)
     const meta = useCardMeta(card)
     // Horas imputadas (solo con el parte de horas activo en el proyecto)
@@ -82,6 +82,21 @@ export const CardTile = memo(
           <div className={cx('min-w-0 flex-1 text-[14px] leading-[1.4]', card.done ? 'text-faint line-through decoration-[var(--faint)]' : 'text-ink')}>
             {card.title || <span className="text-faint">Sin título</span>}
           </div>
+          {stackCount > 1 && (
+            // Pila de tarjetas iguales: el número la despliega (no abre la tarjeta ni la arrastra)
+            <button
+              title={`${stackCount} tarjetas iguales: ver todas`}
+              aria-label={`Ver las ${stackCount} tarjetas iguales`}
+              onPointerDown={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+              onTouchStart={(e) => e.stopPropagation()}
+              onClick={(e) => (e.stopPropagation(), onStack?.())}
+              className="-my-0.5 -mr-1 inline-flex h-6 shrink-0 items-center gap-1 rounded-md bg-sunken px-1.5 text-[12px] tabular-nums text-muted transition-colors hover:bg-hover hover:text-ink"
+            >
+              <Layers size={12} />
+              {stackCount}
+            </button>
+          )}
         </div>
         {(chips.length > 0 || hours > 0 || card.due_at || Object.keys(card.values || {}).length > 0 || files > 0 || card.recurrence || badges.blocked || badges.subtasks || meta.dates.length > 0 || meta.checks.length > 0 || cl || card.in_todo || card.estimate_minutes || card.remind_at || hasContent(card)) && (
           <div className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1.5 pl-[26px]">

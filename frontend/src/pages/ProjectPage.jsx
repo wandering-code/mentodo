@@ -476,6 +476,15 @@ function Toolbar({ project, view }) {
             {g.name}
           </MenuItem>
         ))}
+        {view.kind === 'board' && (
+          <>
+            <Divider />
+            <div className="flex items-center gap-2 px-2.5 py-1.5 text-[14px]">
+              <span className="flex-1">Apilar las que se llaman igual</span>
+              <Toggle checked={cfg.stack !== false} onChange={(v) => setCfg({ stack: v })} />
+            </div>
+          </>
+        )}
       </Popover>
 
       <Popover open={sort.open} anchor={sort.anchor} onClose={sort.close} width={300}>
