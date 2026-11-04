@@ -20,6 +20,25 @@ export class ApiError extends Error {
   }
 }
 
+/* Mensaje para una respuesta fallida. El backend siempre contesta en JSON con
+   «detail»; si no viene JSON, la respuesta es de algo que hay por el camino
+   (proxy o cortafuegos de una red de empresa, Cloudflare, nginx) y se dice
+   así, con el código, para no confundirlo con un fallo de Mentodo. */
+export async function errorMessage(res, fallback = 'Algo ha fallado') {
+  if ((res.headers.get('content-type') || '').includes('application/json')) {
+    try {
+      const data = await res.json()
+      const msg = typeof data.detail === 'string' ? data.detail : data.detail?.[0]?.msg
+      if (msg) return msg
+    } catch {}
+    return `${fallback} (${res.status})`
+  }
+  if (res.status === 403 || res.status === 407) return `La red ha bloqueado la petición (${res.status})`
+  if (res.status === 413) return `Demasiado grande para enviarlo (${res.status})`
+  if (res.status >= 500) return `El servidor no responde (${res.status})`
+  return `${fallback} (${res.status})`
+}
+
 export async function api(path, { method = 'GET', body } = {}) {
   const res = await fetch(`/api${path}`, {
     method,
@@ -27,14 +46,7 @@ export async function api(path, { method = 'GET', body } = {}) {
     headers: { 'content-type': 'application/json', 'x-client-id': CLIENT_ID },
     body: body === undefined ? undefined : JSON.stringify(body),
   })
-  if (!res.ok) {
-    let msg = 'Algo ha fallado'
-    try {
-      const data = await res.json()
-      msg = typeof data.detail === 'string' ? data.detail : data.detail?.[0]?.msg || msg
-    } catch {}
-    throw new ApiError(res.status, msg)
-  }
+  if (!res.ok) throw new ApiError(res.status, await errorMessage(res))
   return res.status === 204 ? null : res.json()
 }
 

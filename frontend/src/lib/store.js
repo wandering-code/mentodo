@@ -2,7 +2,7 @@ import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { create } from 'zustand'
 import { toast } from 'sonner'
-import { api, ApiError, CLIENT_ID, del, get, patch, post } from './api'
+import { api, ApiError, CLIENT_ID, del, errorMessage, get, patch, post } from './api'
 import { applyLook } from './theme'
 
 const byId = (list) => Object.fromEntries(list.map((x) => [x.id, x]))
@@ -298,13 +298,7 @@ export const useStore = create((set, getState) => ({
     if (target.note_id) form.append('note_id', target.note_id)
     try {
       const res = await fetch('/api/attachments', { method: 'POST', body: form, credentials: 'include', headers: { 'x-client-id': CLIENT_ID } })
-      if (!res.ok) {
-        let msg = 'No se pudo subir el archivo'
-        try {
-          msg = (await res.json()).detail || msg
-        } catch {}
-        throw new ApiError(res.status, msg)
-      }
+      if (!res.ok) throw new ApiError(res.status, await errorMessage(res, 'No se pudo subir el archivo'))
       const a = await res.json()
       set((s) => ({ attachments: { ...s.attachments, [a.id]: a } }))
       return a
