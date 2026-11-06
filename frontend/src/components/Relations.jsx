@@ -14,6 +14,9 @@ const KINDS = [
   { id: 'relates', name: 'Relacionada', hint: 'Solo un enlace, sin orden' },
 ]
 
+// La ✕ de quitar sale al pasar el ratón; en pantallas táctiles (sin ratón) siempre
+const REMOVE_CX = 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100'
+
 /* Relaciones de una tarjeta: subtareas, «parte de», bloqueos y relacionadas */
 export function Relations({ card }) {
   const s = useStore()
@@ -58,7 +61,7 @@ export function Relations({ card }) {
         <span className="hidden max-w-32 truncate text-[12px] text-faint sm:inline">{c.project_id ? s.projects[c.project_id]?.name : 'Bandeja'}</span>
       )}
       {link && (
-        <IconButton size="sm" label="Quitar relación" onClick={() => s.deleteLink(link.id)} className="opacity-0 group-hover:opacity-100 max-sm:opacity-100">
+        <IconButton size="sm" label="Quitar relación" onClick={() => s.deleteLink(link.id)} className={REMOVE_CX}>
           <X size={14} />
         </IconButton>
       )}
@@ -77,10 +80,15 @@ export function Relations({ card }) {
   return (
     <div className="mt-5">
       {r.parent && (
-        <button onClick={() => open(r.parent)} className="mb-1 flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[13.5px] text-muted hover:bg-hover">
-          <ArrowUpRight size={14} className="text-faint" />
-          Parte de <b className="truncate font-medium text-ink">{r.parent.title || 'Sin título'}</b>
-        </button>
+        <div className="group mb-1 flex items-center gap-1 rounded-lg pr-1 hover:bg-hover">
+          <button onClick={() => open(r.parent)} className="flex min-w-0 flex-1 items-center gap-2 px-2 py-1.5 text-left text-[13.5px] text-muted">
+            <ArrowUpRight size={14} className="shrink-0 text-faint" />
+            <span className="shrink-0">Parte de</span> <b className="truncate font-medium text-ink">{r.parent.title || 'Sin título'}</b>
+          </button>
+          <IconButton size="sm" label="Quitar relación" onClick={() => s.deleteLink(r.parentLink.id)} className={REMOVE_CX}>
+            <X size={14} />
+          </IconButton>
+        </div>
       )}
       {r.blockedBy.length > 0 && (
         section(Lock, 'Bloqueada por', r.blockedBy.map((x) => row(x.card, x.link)), r.blockedBy.some((x) => !x.card.done) ? 'text-danger' : 'text-muted')
