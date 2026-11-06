@@ -16,6 +16,9 @@ import { ColorPicker } from '../components/Pickers'
 import { TemplateButton } from '../components/Templates'
 import { cx, Divider, IconButton, MenuItem, Popover, Toggle, useIsMobile, usePopover } from '../components/ui'
 
+// Botones de la cabecera: salen al pasar el ratón por la columna; en táctil, siempre
+const COL_BTN = 'opacity-0 group-hover/col:opacity-100 focus-visible:opacity-100 max-sm:opacity-100 [@media(hover:none)]:opacity-100'
+
 const NONE = 'none'
 
 /* Tarjetas repetidas (p. ej. una tarea que se repite cada día): las que
@@ -92,8 +95,8 @@ function Column({ id, label, group, cards, onOpen, onAdd, manual, projectId, col
   const name = label ? label.name : `Sin ${group.name.toLowerCase()}`
 
   return (
-    <div className="flex w-[84vw] max-w-[300px] shrink-0 flex-col sm:w-[300px]">
-      <div className="group/col mb-2 flex h-8 items-center gap-2 px-1.5">
+    <div className="group/col flex w-[84vw] max-w-[300px] shrink-0 flex-col sm:w-[300px]">
+      <div className="mb-2 flex h-8 items-center gap-2 px-1.5">
         <IconButton size="sm" label={collapsed ? `Desplegar «${name}»` : `Plegar «${name}»`} onClick={onToggle} className="-ml-1 -mr-1.5">
           <ChevronRight size={15} className="text-faint" style={{ transform: `rotate(${collapsed ? 0 : 90}deg)`, transition: 'transform .25s cubic-bezier(.32,.72,0,1)' }} />
         </IconButton>
@@ -106,12 +109,12 @@ function Column({ id, label, group, cards, onOpen, onAdd, manual, projectId, col
         )}
         <span className="text-[12.5px] tabular-nums text-faint">{cards.length}</span>
         <span className="flex-1" />
-        <TemplateButton projectId={projectId} labelIds={id === NONE ? [] : [Number(id)]} className="opacity-0 group-hover/col:opacity-100 max-sm:opacity-100" />
-        <IconButton size="sm" label="Añadir tarjeta" onClick={() => setAdding(true)} className="opacity-0 group-hover/col:opacity-100 max-sm:opacity-100">
+        <TemplateButton projectId={projectId} labelIds={id === NONE ? [] : [Number(id)]} className={COL_BTN} />
+        <IconButton size="sm" label="Añadir tarjeta" onClick={() => setAdding(true)} className={COL_BTN}>
           <Plus size={15} />
         </IconButton>
         {label && (
-          <IconButton size="sm" label="Opciones de columna" onClick={menu.toggle} className="opacity-0 group-hover/col:opacity-100 max-sm:opacity-100">
+          <IconButton size="sm" label="Opciones de columna" onClick={menu.toggle} className={COL_BTN}>
             <MoreHorizontal size={15} />
           </IconButton>
         )}
