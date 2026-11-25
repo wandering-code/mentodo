@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ChevronRight } from 'lucide-react'
-import { endOfMonth, startOfMonth } from 'date-fns'
+import { endOfMonth, endOfYear, startOfMonth, startOfYear } from 'date-fns'
 import { useStore } from '../lib/store'
 import { dateOf, dayKey, fmtH } from '../lib/hours'
 import { clientOfProject } from './HoursParts'
@@ -45,7 +45,7 @@ export function HoursBreakdown({ keys, viewKey, style, settings, onPick }) {
 }
 
 /* Desglose de lo imputado por proyecto (o por cliente, si el parte no va
-   unido a ningún proyecto), de la semana vista o de su mes. El balance en sí
+   unido a ningún proyecto), de la semana vista, de su mes o de su año. El balance en sí
    no se reparte: la jornada es del día, no de un proyecto. */
 function ProjectBreakdown({ keys, viewKey, style }) {
   const s = useStore()
@@ -54,11 +54,12 @@ function ProjectBreakdown({ keys, viewKey, style }) {
   const range = useMemo(() => {
     if (period === 'week') return { start: keys[0], end: keys[6] }
     const d = dateOf(viewKey)
+    if (period === 'year') return { start: dayKey(startOfYear(d)), end: dayKey(endOfYear(d)) }
     return { start: dayKey(startOfMonth(d)), end: dayKey(endOfMonth(d)) }
   }, [period, keys, viewKey])
 
   useEffect(() => {
-    if (period === 'month') s.loadHours(range.start, range.end)
+    if (period !== 'week') s.loadHours(range.start, range.end)
   }, [period, range.start]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const groups = useMemo(() => {
@@ -88,10 +89,13 @@ function ProjectBreakdown({ keys, viewKey, style }) {
           <button onClick={() => setPeriod('month')} className={seg(period === 'month')}>
             Mes
           </button>
+          <button onClick={() => setPeriod('year')} className={seg(period === 'year')}>
+            Año
+          </button>
         </div>
       </div>
       {groups.length === 0 ? (
-        <p className="py-4 text-center text-[13px] text-faint">Nada imputado {period === 'week' ? 'esta semana' : 'este mes'}.</p>
+        <p className="py-4 text-center text-[13px] text-faint">Nada imputado {period === 'week' ? 'esta semana' : period === 'month' ? 'este mes' : 'este año'}.</p>
       ) : (
         <div className="mt-2">
           {groups.map((g) => {
