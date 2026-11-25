@@ -2,19 +2,20 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router'
 import { AnimatePresence, motion } from 'motion/react'
 import {
-  ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Calendar, Palette, ChartNoAxesColumn, Columns3, NotebookText, Eye, EyeOff, Filter, Layers, List, Plus, Search, Settings2, SortAsc, Table2, Trash2, X,
+  ArrowLeft, ArrowRight, Calendar, Palette, ChartNoAxesColumn, Columns3, NotebookText, Eye, EyeOff, Filter, Layers, List, Plus, Search, Settings2, SortAsc, Table2, Trash2, X,
 } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { useCardNav } from '../lib/nav'
-import { fieldIcon, projectProps } from '../lib/props'
+import { projectProps } from '../lib/props'
 import { deadlineKey } from '../lib/deadline'
-import { DATE_FILTERS, SORT_FIELDS, VALUE_FILTERS, YESNO_FILTERS, applyFilter, filterCount, filterKind, groupLabels, projectGroups, projectViews, visibleCards } from '../lib/cards'
+import { DATE_FILTERS, VALUE_FILTERS, YESNO_FILTERS, applyFilter, filterCount, filterKind, groupLabels, projectGroups, projectViews, visibleCards } from '../lib/cards'
 import { BoardView } from '../views/BoardView'
 import { TableView } from '../views/TableView'
 import { ListView } from '../views/ListView'
 import { CalendarView, colorGroup } from '../views/CalendarView'
 import { ReportView } from '../views/ReportView'
 import { NotesBoard } from '../components/Notes'
+import { SortEditor, sortName as sortNameOf } from '../components/SortEditor'
 import { SortableList, SortableRow } from '../components/Sortable'
 import { arrayMove } from '@dnd-kit/sortable'
 import { Button, cx, Divider, IconButton, LabelChip, MenuItem, MenuLabel, Popover, spring, Toggle, usePopover } from '../components/ui'
@@ -387,12 +388,7 @@ function Toolbar({ project, view }) {
     else next[key] = val
     setCfg({ filter: { ...cfg.filter, props: next } })
   }
-  const sortName = (f) =>
-    (f.startsWith('group:')
-      ? s.groups[Number(f.slice(6))]?.name
-      : f.startsWith('f:')
-        ? s.fields[Number(f.slice(2))]?.name
-        : (f === 'due_at' && project.prop_names?.due) || SORT_FIELDS.find((x) => x.id === f)?.name) || f
+  const sortName = (f) => sortNameOf(s, project, f)
 
   // Chips de la bandeja: los que cambian lo que se ve (filtro, orden,
   // ocultar terminadas) se pintan con el acento cuando están activos
@@ -488,47 +484,7 @@ function Toolbar({ project, view }) {
       </Popover>
 
       <Popover open={sort.open} anchor={sort.anchor} onClose={sort.close} width={300}>
-        <MenuLabel>Ordenar por (en orden de prioridad)</MenuLabel>
-        {sorts.map((x, i) => (
-          <div key={i} className="flex items-center gap-1 px-1 py-0.5">
-            <span className="w-4 text-center text-[12px] text-faint">{i + 1}</span>
-            <span className="flex-1 truncate px-1 text-[14px]">{sortName(x.field)}</span>
-            <Button size="sm" onClick={() => setCfg({ sort: sorts.map((y, j) => (j === i ? { ...y, dir: y.dir === 'asc' ? 'desc' : 'asc' } : y)) })}>
-              {x.dir === 'asc' ? <ArrowUp size={13} /> : <ArrowDown size={13} />}
-              {x.field.startsWith('group:') ? (x.dir === 'asc' ? 'Orden etiquetas' : 'Inverso') : x.dir === 'asc' ? 'Asc' : 'Desc'}
-            </Button>
-            <IconButton size="sm" label="Quitar" onClick={() => setCfg({ sort: sorts.filter((_, j) => j !== i) })}>
-              <X size={14} />
-            </IconButton>
-          </div>
-        ))}
-        {sorts.length > 0 && <Divider />}
-        <MenuLabel>Añadir criterio</MenuLabel>
-        {groups
-          .filter((g) => !sorts.some((x) => x.field === `group:${g.id}`))
-          .map((g) => (
-            <MenuItem key={g.id} icon={Layers} onClick={() => setCfg({ sort: [...sorts, { field: `group:${g.id}`, dir: 'asc' }] })}>
-              {g.name}
-            </MenuItem>
-          ))}
-        {Object.values(s.fields)
-          .filter((f) => f.project_id === project.id && !sorts.some((x) => x.field === `f:${f.id}`))
-          .map((f) => (
-            <MenuItem key={`f${f.id}`} icon={fieldIcon(f.kind)} onClick={() => setCfg({ sort: [...sorts, { field: `f:${f.id}`, dir: 'asc' }] })}>
-              {f.name}
-            </MenuItem>
-          ))}
-        {SORT_FIELDS.filter((f) => f.id !== 'position' && !sorts.some((x) => x.field === f.id)).map((f) => (
-          <MenuItem key={f.id} onClick={() => setCfg({ sort: [...sorts, { field: f.id, dir: 'asc' }] })}>
-            {sortName(f.id)}
-          </MenuItem>
-        ))}
-        {sorts.length > 0 && (
-          <>
-            <Divider />
-            <MenuItem onClick={() => setCfg({ sort: [] })}>Volver a orden manual</MenuItem>
-          </>
-        )}
+        <SortEditor project={project} sorts={sorts} onChange={(v) => setCfg({ sort: v })} />
       </Popover>
 
       <Popover open={filter.open} anchor={filter.anchor} onClose={filter.close} width={330}>

@@ -7,13 +7,14 @@ import {
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { AnimatePresence, motion } from 'motion/react'
-import { ChevronRight, Layers, MoreHorizontal, Plus } from 'lucide-react'
+import { ArrowDownUp, ChevronRight, Layers, MoreHorizontal, Plus } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { between, groupLabels, sortCards } from '../lib/cards'
 import { LABEL_COLORS } from '../lib/palette'
 import { CardTile } from '../components/CardTile'
 import { ColorPicker } from '../components/Pickers'
 import { TemplateButton } from '../components/Templates'
+import { SortEditor, sortSummary } from '../components/SortEditor'
 import { cx, Divider, IconButton, MenuItem, Popover, Toggle, useIsMobile, usePopover } from '../components/ui'
 
 // Botones de la cabecera: salen al pasar el ratón por la columna; en táctil, siempre
@@ -64,12 +65,14 @@ function SortableCard({ card, groupId, onOpen, disabled, stackCount, onStack }) 
   )
 }
 
-function Column({ id, label, group, cards, onOpen, onAdd, manual, projectId, collapsed, onToggle, stack }) {
+function Column({ id, label, group, cards, onOpen, onAdd, project, collapsed, onToggle, stack, colSort, onColSort }) {
   const { setNodeRef, isOver } = useDroppable({ id: `col:${id}`, data: { type: 'column', col: id } })
   const [adding, setAdding] = useState(false)
   const [text, setText] = useState('')
   const menu = usePopover()
   const color = usePopover()
+  const sortPop = usePopover()
+  const s = useStore()
   const { updateLabel, deleteLabel } = useStore.getState()
   const inputRef = useRef(null)
   // Pilas abiertas en esta columna (por título); al recargar vuelven a apilarse
@@ -108,16 +111,24 @@ function Column({ id, label, group, cards, onOpen, onAdd, manual, projectId, col
           <span className="text-[13px] font-medium text-muted">Sin {group.name.toLowerCase()}</span>
         )}
         <span className="text-[12.5px] tabular-nums text-faint">{cards.length}</span>
+        {colSort && (
+          // Orden propio de esta columna: discreto, y al tocarlo se cambia
+          <button
+            onClick={sortPop.toggle}
+            title={`Orden de la columna: ${colSort.length ? sortSummary(s, project, colSort) : 'manual'}`}
+            className="flex size-6 items-center justify-center rounded-md text-faint transition-colors hover:bg-hover hover:text-muted"
+          >
+            <ArrowDownUp size={13} />
+          </button>
+        )}
         <span className="flex-1" />
-        <TemplateButton projectId={projectId} labelIds={id === NONE ? [] : [Number(id)]} className={COL_BTN} />
+        <TemplateButton projectId={project.id} labelIds={id === NONE ? [] : [Number(id)]} className={COL_BTN} />
         <IconButton size="sm" label="Añadir tarjeta" onClick={() => setAdding(true)} className={COL_BTN}>
           <Plus size={15} />
         </IconButton>
-        {label && (
-          <IconButton size="sm" label="Opciones de columna" onClick={menu.toggle} className={COL_BTN}>
-            <MoreHorizontal size={15} />
-          </IconButton>
-        )}
+        <IconButton size="sm" label="Opciones de columna" onClick={label ? menu.toggle : sortPop.toggle} className={COL_BTN}>
+          <MoreHorizontal size={15} />
+        </IconButton>
       </div>
       {collapsed ? (
         // Plegada: solo se ocultan las tarjetas; la franja sigue aceptando
@@ -144,7 +155,7 @@ function Column({ id, label, group, cards, onOpen, onAdd, manual, projectId, col
         <SortableContext items={visible} strategy={verticalListSortingStrategy}>
           {items.map((it) =>
             it.card ? (
-              <SortableCard key={it.card.id} card={it.card} groupId={group.id} onOpen={onOpen} disabled={!manual && false} />
+              <SortableCard key={it.card.id} card={it.card} groupId={group.id} onOpen={onOpen} />
             ) : open.has(it.key) ? (
               <div key={`stack:${it.key}`} className="flex flex-col gap-2 rounded-[14px] bg-[color-mix(in_oklab,var(--ink)_4%,transparent)] p-1">
                 <button
@@ -204,6 +215,9 @@ function Column({ id, label, group, cards, onOpen, onAdd, manual, projectId, col
         </AnimatePresence>
       </div>
       )}
+      <Popover open={sortPop.open} anchor={sortPop.anchor} onClose={sortPop.close} width={300}>
+        <SortEditor project={project} sorts={colSort} onChange={onColSort} inherit skipGroup={group.id} />
+      </Popover>
       {label && (
         <>
           <Popover open={menu.open} anchor={menu.anchor} onClose={menu.close} width={230}>
@@ -224,6 +238,16 @@ function Column({ id, label, group, cards, onOpen, onAdd, manual, projectId, col
               right={<span data-c={label.color} className="lbl-dot size-3 rounded-full" />}
             >
               Color
+            </MenuItem>
+            <MenuItem
+              onClick={() => {
+                const a = menu.anchor
+                menu.close()
+                sortPop.openAt(a)
+              }}
+              right={<span className="max-w-[110px] truncate text-[12.5px] text-faint">{colSort ? (colSort.length ? sortSummary(s, project, colSort) : 'Manual') : 'Como el tablero'}</span>}
+            >
+              Ordenar
             </MenuItem>
             {group.is_status && (
               <div className="flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-[14px]">
@@ -262,7 +286,17 @@ export function BoardView({ project, view, cards, onOpen }) {
   const groupId = view.config.group_by
   const group = s.groups[groupId]
   const labels = useMemo(() => (group ? groupLabels(s, group.id) : []), [s.labels, group]) // eslint-disable-line react-hooks/exhaustive-deps
-  const manual = !view.config.sort?.length
+  // Orden propio de cada columna (si lo tiene); si no, el general de la vista.
+  // [] = manual en esa columna aunque el tablero esté ordenado
+  const colSorts = view.config.col_sort || {}
+  const sortOf = (col) => colSorts[col] ?? view.config.sort ?? []
+  const setColSort = (col, v) => {
+    const cur = useStore.getState().views[view.id]?.config || view.config
+    const next = { ...(cur.col_sort || {}) }
+    if (v === undefined) delete next[col]
+    else next[col] = v
+    s.updateView(view.id, { config: { ...cur, col_sort: next } })
+  }
   // Columnas plegadas: se guardan en la vista (se mantienen y se sincronizan)
   const collapsed = (view.config.collapsed || []).map(String)
   const toggleCollapsed = (col) => {
@@ -279,14 +313,16 @@ export function BoardView({ project, view, cards, onOpen }) {
     if (!group) return {}
     const cols = { [NONE]: [] }
     for (const l of labels) cols[l.id] = []
-    const sorted = sortCards(cards, view.config.sort, s)
-    for (const c of sorted) {
+    const byCol = { [NONE]: [] }
+    for (const l of labels) byCol[l.id] = []
+    for (const c of cards) {
       const mine = c.label_ids.filter((id) => s.labels[id]?.group_id === group.id)
-      if (!mine.length) cols[NONE].push(c.id)
-      for (const id of mine) cols[id]?.push(c.id)
+      if (!mine.length) byCol[NONE].push(c)
+      for (const id of mine) byCol[id]?.push(c)
     }
+    for (const k of Object.keys(byCol)) cols[k] = sortCards(byCol[k], sortOf(k), s).map((c) => c.id)
     return cols
-  }, [cards, labels, group, view.config.sort, s.labels]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [cards, labels, group, view.config.sort, view.config.col_sort, s.labels]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Ratón y dedo por separado. Con un sensor de puntero genérico, el dedo
   // también arrancaba el arrastre al moverse 6px: se comía el scroll del
@@ -367,7 +403,8 @@ export function BoardView({ project, view, cards, onOpen }) {
     if (unchanged) return
     const idx = list.indexOf(active.id)
     const body = {}
-    if (manual) {
+    // Solo se guarda la posición si la columna de destino va en orden manual
+    if (!sortOf(col).length) {
       const prev = s.cards[list[idx - 1]]?.position
       const next = s.cards[list[idx + 1]]?.position
       body.position = between(prev, next)
@@ -381,12 +418,14 @@ export function BoardView({ project, view, cards, onOpen }) {
   }
 
   const add = async (title, col) => {
-    const first = s.cards[columns[col]?.[0]]
+    // Al final de la columna en orden manual (la de más posición, aunque
+    // la columna se vea ordenada por otra cosa)
+    const pos = (columns[col] || []).map((id) => s.cards[id]?.position).filter((x) => x != null)
     await s.createCard({
       project_id: project.id,
       title,
       label_ids: col === NONE ? [] : [Number(col)],
-      position: columns[col]?.length ? s.cards[columns[col][columns[col].length - 1]].position + 1 : first ? first.position - 1 : 0,
+      position: pos.length ? Math.max(...pos) + 1 : 0,
     })
   }
 
@@ -440,8 +479,9 @@ export function BoardView({ project, view, cards, onOpen }) {
             cards={(cols[col] || []).map((id) => s.cards[id]).filter(Boolean)}
             onOpen={(c) => performance.now() - lastDrop.current > 350 && onOpen(c)}
             onAdd={add}
-            manual={manual}
-            projectId={project.id}
+            project={project}
+            colSort={colSorts[col]}
+            onColSort={(v) => setColSort(col, v)}
             collapsed={collapsed.includes(String(col))}
             onToggle={() => toggleCollapsed(col)}
             stack={view.config.stack !== false}
